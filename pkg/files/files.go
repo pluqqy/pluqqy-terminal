@@ -185,3 +185,11 @@ func getComponentType(path string) string {
 	}
 	return "unknown"
 }
+
+// WriteFile writes content to a file (for PLUQQY.md output)
+func WriteFile(path string, content string) error {
+	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
+		return fmt.Errorf("failed to write file %s: %w", path, err)
+	}
+	return nil
+}
