@@ -49,16 +49,13 @@ func TestComposePipeline(t *testing.T) {
 
 	// Verify output contains expected elements
 	expectedElements := []string{
-		"# PLUQQY Pipeline: test-debug",
-		"## Context",
-		"## Prompts",
-		"## Rules",
+		"# test-debug",
+		"## CONTEXT",
+		"## PROMPTS",
+		"## IMPORTANT RULES",
 		contextContent,
 		promptContent,
 		rulesContent,
-		"<!-- system.md -->",
-		"<!-- debug.md -->",
-		"<!-- technical.md -->",
 	}
 
 	for _, expected := range expectedElements {
@@ -102,9 +99,9 @@ func TestComposePipelineWithMultipleComponents(t *testing.T) {
 		t.Fatalf("ComposePipeline failed: %v", err)
 	}
 
-	// Verify separators between same-type components
-	if !strings.Contains(output, "---") {
-		t.Error("Output missing separator between same-type components")
+	// Verify NO separators between same-type components
+	if strings.Contains(output, "---") {
+		t.Error("Output should not contain separators between components")
 	}
 
 	// Verify order is maintained

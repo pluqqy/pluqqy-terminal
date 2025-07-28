@@ -28,7 +28,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 
 	// Group components by type while maintaining order
 	var output strings.Builder
-	output.WriteString(fmt.Sprintf("# PLUQQY Pipeline: %s\n\n", pipeline.Name))
+	output.WriteString(fmt.Sprintf("# %s\n\n", pipeline.Name))
 
 	// Track which types we've seen and their components
 	typeGroups := make(map[string][]componentWithContent)
@@ -64,19 +64,10 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		output.WriteString(fmt.Sprintf("## %s\n\n", capitalizeType(componentType)))
 
 		// Write components of this type
-		for i, comp := range components {
-			// Add component filename as a comment
-			filename := filepath.Base(comp.ref.Path)
-			output.WriteString(fmt.Sprintf("<!-- %s -->\n", filename))
-			
+		for _, comp := range components {
 			// Write content
 			output.WriteString(strings.TrimSpace(comp.content))
-			output.WriteString("\n")
-
-			// Add separator between multiple components of same type
-			if i < len(components)-1 {
-				output.WriteString("\n---\n\n")
-			}
+			output.WriteString("\n\n")
 		}
 
 		output.WriteString("\n")
@@ -93,17 +84,14 @@ type componentWithContent struct {
 func capitalizeType(componentType string) string {
 	switch componentType {
 	case "prompt", "prompts":
-		return "Prompts"
+		return "PROMPTS"
 	case "context", "contexts":
-		return "Context"
+		return "CONTEXT"
 	case "rules":
-		return "Rules"
+		return "IMPORTANT RULES"
 	default:
-		// Capitalize first letter
-		if len(componentType) > 0 {
-			return strings.ToUpper(componentType[:1]) + componentType[1:]
-		}
-		return componentType
+		// Uppercase the whole type
+		return strings.ToUpper(componentType)
 	}
 }
 
