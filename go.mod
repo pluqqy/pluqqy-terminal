@@ -1,4 +1,4 @@
-module github.com/user/pluqqy
+module github.com/pluqqy/pluqqy-cli
 
 go 1.24.4
 
