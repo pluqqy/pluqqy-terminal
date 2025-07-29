@@ -1,6 +1,12 @@
 # Pluqqy
 
-A terminal UI for building modular LLM prompt pipelines. Create reusable components (contexts, prompts, rules) and compose them into powerful prompt templates.
+Build and manage LLM prompt pipelines from your terminal.
+
+Pluqqy lets you create reusable components (contexts, prompts, and rules) and combine them into pipelines. When you set a pipeline, it generates a PLUQQY.md file that contains all your composed instructions.
+
+In Claude Code or other AI coding tools, simply reference @PLUQQY.md instead of copying and pasting prompts. Need different instructions? Set a different pipeline - the file updates automatically, but you keep referencing the same @PLUQQY.md.
+
+This approach keeps your context minimal and focused - only including what's relevant for the current task. Both you and the AI work from the same single source of truth, eliminating confusion about which instructions are active while preserving valuable context window space.
 
 ## Installation
 
