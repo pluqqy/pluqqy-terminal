@@ -9,9 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/pluqqy/pkg/composer"
-	"github.com/user/pluqqy/pkg/files"
-	"github.com/user/pluqqy/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/composer"
+	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 type column int
@@ -83,7 +83,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 		m.prompts = append(m.prompts, componentItem{
 			name:     p,
 			path:     filepath.Join(files.ComponentsDir, files.PromptsDir, p),
-			compType: "prompt",
+			compType: models.ComponentTypePrompt,
 		})
 	}
 
@@ -93,7 +93,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 		m.contexts = append(m.contexts, componentItem{
 			name:     c,
 			path:     filepath.Join(files.ComponentsDir, files.ContextsDir, c),
-			compType: "context",
+			compType: models.ComponentTypeContext,
 		})
 	}
 
@@ -103,7 +103,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 		m.rules = append(m.rules, componentItem{
 			name:     r,
 			path:     filepath.Join(files.ComponentsDir, files.RulesDir, r),
-			compType: "rules",
+			compType: models.ComponentTypeRules,
 		})
 	}
 }
@@ -541,27 +541,50 @@ func (m *PipelineBuilderModel) updatePreview() {
 	m.previewContent = output
 }
 
+// sanitizeFileName converts a user-provided name into a safe filename
+func sanitizeFileName(name string) string {
+	// Convert to lowercase and replace spaces with hyphens
+	filename := strings.ToLower(name)
+	filename = strings.ReplaceAll(filename, " ", "-")
+	
+	// Remove any characters that aren't alphanumeric or hyphens
+	var cleanName strings.Builder
+	for _, r := range filename {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			cleanName.WriteRune(r)
+		}
+	}
+	
+	result := cleanName.String()
+	
+	// Ensure the filename is not empty
+	if result == "" {
+		result = "untitled"
+	}
+	
+	// Remove leading/trailing hyphens
+	result = strings.Trim(result, "-")
+	
+	// Replace multiple consecutive hyphens with a single hyphen
+	for strings.Contains(result, "--") {
+		result = strings.ReplaceAll(result, "--", "-")
+	}
+	
+	return result
+}
+
 func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 	return func() tea.Msg {
 		// Update pipeline with selected components
 		m.pipeline.Components = m.selectedComponents
 		
-		// Create filename from name (slug format)
-		filename := strings.ToLower(m.pipeline.Name)
-		filename = strings.ReplaceAll(filename, " ", "-")
-		// Remove any non-alphanumeric characters except hyphens
-		var cleanName strings.Builder
-		for _, r := range filename {
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-				cleanName.WriteRune(r)
-			}
-		}
-		m.pipeline.Path = cleanName.String() + ".yaml"
+		// Create filename from name using sanitization
+		m.pipeline.Path = sanitizeFileName(m.pipeline.Name) + ".yaml"
 		
 		// Save pipeline
 		err := files.WritePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error saving pipeline: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to save pipeline '%s': %v", m.pipeline.Name, err))
 		}
 		
 		// Return status message first, then switch view
@@ -637,7 +660,7 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 				m.typeCursor++
 			}
 		case "enter":
-			types := []string{"context", "prompt", "rules"}
+			types := []string{models.ComponentTypeContext, models.ComponentTypePrompt, models.ComponentTypeRules}
 			m.componentCreationType = types[m.typeCursor]
 			m.creationStep = 1
 		}
@@ -838,25 +861,17 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
 	return func() tea.Msg {
-		// Create filename from name
-		filename := strings.ToLower(m.componentName)
-		filename = strings.ReplaceAll(filename, " ", "-")
-		var cleanName strings.Builder
-		for _, r := range filename {
-			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
-				cleanName.WriteRune(r)
-			}
-		}
-		filename = cleanName.String() + ".md"
+		// Create filename from name using sanitization
+		filename := sanitizeFileName(m.componentName) + ".md"
 		
 		// Determine directory
 		var dir string
 		switch m.componentCreationType {
-		case "context":
+		case models.ComponentTypeContext:
 			dir = filepath.Join(files.ComponentsDir, files.ContextsDir)
-		case "prompt":
+		case models.ComponentTypePrompt:
 			dir = filepath.Join(files.ComponentsDir, files.PromptsDir)
-		case "rules":
+		case models.ComponentTypeRules:
 			dir = filepath.Join(files.ComponentsDir, files.RulesDir)
 		}
 		
@@ -865,7 +880,7 @@ func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
 		// Write component
 		err := files.WriteComponent(path, m.componentContent)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error saving component: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to save component '%s': %v", m.componentName, err))
 		}
 		
 		// Reset creation state
@@ -909,6 +924,11 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 			editor = "vi"
 		}
 
+		// Validate editor path to prevent command injection
+		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
+			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
+		}
+
 		fullPath := filepath.Join(files.PluqqyDir, path)
 		cmd := exec.Command(editor, fullPath)
 		cmd.Stdin = os.Stdin
@@ -917,7 +937,7 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 
 		err := cmd.Run()
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error opening editor: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
 		}
 
 		// Reload components after editing

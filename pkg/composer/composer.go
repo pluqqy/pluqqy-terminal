@@ -6,17 +6,17 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/user/pluqqy/pkg/files"
-	"github.com/user/pluqqy/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 	if pipeline == nil {
-		return "", fmt.Errorf("pipeline is nil")
+		return "", fmt.Errorf("cannot compose pipeline: nil pipeline provided")
 	}
 
 	if len(pipeline.Components) == 0 {
-		return "", fmt.Errorf("pipeline has no components")
+		return "", fmt.Errorf("cannot compose pipeline '%s': no components defined", pipeline.Name)
 	}
 
 	// Sort components by order field
@@ -43,7 +43,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		
 		component, err := files.ReadComponent(componentPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to read component %s: %w", compRef.Path, err)
+			return "", fmt.Errorf("failed to read component '%s' for pipeline '%s': %w", compRef.Path, pipeline.Name, err)
 		}
 
 		if _, exists := typeGroups[compRef.Type]; !exists {
@@ -83,11 +83,11 @@ type componentWithContent struct {
 
 func capitalizeType(componentType string) string {
 	switch componentType {
-	case "prompt", "prompts":
+	case models.ComponentTypePrompt, "prompts":
 		return "PROMPTS"
-	case "context", "contexts":
+	case models.ComponentTypeContext, "contexts":
 		return "CONTEXT"
-	case "rules":
+	case models.ComponentTypeRules:
 		return "IMPORTANT RULES"
 	default:
 		// Uppercase the whole type
@@ -102,7 +102,7 @@ func WritePLUQQYFile(content string, outputPath string) error {
 	}
 
 	if err := files.WriteFile(outputPath, content); err != nil {
-		return fmt.Errorf("failed to write PLUQQY.md: %w", err)
+		return fmt.Errorf("failed to write composed pipeline to '%s': %w", outputPath, err)
 	}
 
 	return nil

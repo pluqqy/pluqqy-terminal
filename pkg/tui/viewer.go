@@ -9,9 +9,9 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/user/pluqqy/pkg/composer"
-	"github.com/user/pluqqy/pkg/files"
-	"github.com/user/pluqqy/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/composer"
+	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 type PipelineViewerModel struct {
@@ -113,7 +113,7 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *PipelineViewerModel) View() string {
 	if m.err != nil {
-		return fmt.Sprintf("Error: %v\n\nPress 'q' to return", m.err)
+		return fmt.Sprintf("Error: Failed to load pipeline: %v\n\nPress 'q' to return", m.err)
 	}
 
 	if m.pipeline == nil {
@@ -227,7 +227,7 @@ func (m *PipelineViewerModel) setPipeline() tea.Cmd {
 		// Generate pipeline output
 		output, err := composer.ComposePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error generating pipeline: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to generate pipeline output: %v", err))
 		}
 
 		// Write to PLUQQY.md
@@ -238,7 +238,7 @@ func (m *PipelineViewerModel) setPipeline() tea.Cmd {
 		
 		err = composer.WritePLUQQYFile(output, outputPath)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error writing output: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to write output file '%s': %v", outputPath, err))
 		}
 
 		m.composed = output
@@ -253,6 +253,11 @@ func (m *PipelineViewerModel) editInEditor() tea.Cmd {
 			editor = "vi"
 		}
 
+		// Validate editor path to prevent command injection
+		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
+			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
+		}
+
 		pipelinePath := fmt.Sprintf(".pluqqy/pipelines/%s", m.pipelineName)
 		cmd := exec.Command(editor, pipelinePath)
 		cmd.Stdin = os.Stdin
@@ -261,13 +266,13 @@ func (m *PipelineViewerModel) editInEditor() tea.Cmd {
 
 		err := cmd.Run()
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error opening editor: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
 		}
 
 		// Reload pipeline after editing
 		pipeline, err := files.ReadPipeline(m.pipelineName)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Error reloading pipeline: %v", err))
+			return StatusMsg(fmt.Sprintf("Failed to reload pipeline '%s' after editing: %v", m.pipelineName, err))
 		}
 		m.pipeline = pipeline
 

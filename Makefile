@@ -11,10 +11,18 @@ GOMOD=$(GOCMD) mod
 GOFMT=$(GOCMD) fmt
 GOVET=$(GOCMD) vet
 
-# Build flags
-LDFLAGS=-ldflags "-s -w"
+# Version information
+VERSION ?= dev
+GIT_COMMIT ?= $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
+BUILD_DATE ?= $(shell date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-.PHONY: all build test clean run fmt vet deps help
+# Build flags
+LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
+
+# Cross-platform build targets
+PLATFORMS=darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
+
+.PHONY: all build test clean run fmt vet deps help build-all release
 
 all: test build ## Run tests and build
 
@@ -54,6 +62,46 @@ install: build ## Install binary to $GOPATH/bin
 	@echo "Installing $(BINARY_NAME)..."
 	@cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME)
 	@echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"
+
+build-all: ## Build for all platforms
+	@echo "Building for all platforms..."
+	@mkdir -p $(BUILD_DIR)
+	@for platform in $(PLATFORMS); do \
+		platform_split=($${platform//\// }); \
+		GOOS=$${platform_split[0]}; \
+		GOARCH=$${platform_split[1]}; \
+		output_name=$(BINARY_NAME)'-'$$GOOS'-'$$GOARCH; \
+		if [ $$GOOS = "windows" ]; then \
+			output_name+='.exe'; \
+		fi; \
+		echo "Building $$output_name..."; \
+		GOOS=$$GOOS GOARCH=$$GOARCH $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$$output_name $(MAIN_PATH); \
+	done
+	@echo "Cross-platform builds complete!"
+
+build-darwin: ## Build for macOS (Intel and Apple Silicon)
+	@echo "Building for macOS..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=darwin GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-amd64 $(MAIN_PATH)
+	GOOS=darwin GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-darwin-arm64 $(MAIN_PATH)
+	@echo "macOS builds complete!"
+
+build-linux: ## Build for Linux (amd64 and arm64)
+	@echo "Building for Linux..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=linux GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-amd64 $(MAIN_PATH)
+	GOOS=linux GOARCH=arm64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-linux-arm64 $(MAIN_PATH)
+	@echo "Linux builds complete!"
+
+build-windows: ## Build for Windows (amd64)
+	@echo "Building for Windows..."
+	@mkdir -p $(BUILD_DIR)
+	GOOS=windows GOARCH=amd64 $(GOBUILD) $(LDFLAGS) -o $(BUILD_DIR)/$(BINARY_NAME)-windows-amd64.exe $(MAIN_PATH)
+	@echo "Windows build complete!"
+
+release: ## Create release builds
+	@echo "Creating release builds..."
+	@bash scripts/release.sh $(VERSION)
 
 help: ## Display this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'
