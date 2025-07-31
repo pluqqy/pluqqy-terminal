@@ -197,7 +197,26 @@ func (a *App) View() string {
 	var title string
 	switch a.state {
 	case mainListView:
-		title = "Welcome to Pluqqy"
+		if a.mainList != nil {
+			if a.mainList.creatingComponent {
+				if a.mainList.componentCreationType != "" {
+					// Capitalize the component type
+					componentType := a.mainList.componentCreationType
+					if len(componentType) > 0 {
+						componentType = strings.ToUpper(componentType[:1]) + componentType[1:]
+					}
+					title = componentType + ": New"
+				} else {
+					title = "Component: New"
+				}
+			} else if a.mainList.editingComponent && a.mainList.editingComponentName != "" {
+				title = "Component: " + a.mainList.editingComponentName
+			} else {
+				title = "Welcome to Pluqqy"
+			}
+		} else {
+			title = "Welcome to Pluqqy"
+		}
 	case pipelineBuilderView:
 		if a.builder != nil && a.builder.pipeline != nil {
 			title = "Pipeline: " + a.builder.pipeline.Name

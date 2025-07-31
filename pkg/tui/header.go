@@ -37,8 +37,9 @@ v0.1.0 ▘ ▘▘`
 		// Split the logo into lines to align title with version row
 		logoLines := strings.Split(logo, "\n")
 		
-		// No padding needed - title goes on first line to align with top of logo
-		titleRendered := titleStyle.Render(title)
+		// Add one newline to move title down one row
+		titleWithPadding := "\n" + title
+		titleRendered := titleStyle.Render(titleWithPadding)
 		
 		// Calculate available width for content (accounting for padding)
 		contentWidth := width - 4 // -4 for left and right padding (2 each side)
