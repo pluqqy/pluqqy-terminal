@@ -21,10 +21,10 @@ v0.1.0 ▘ ▘▘`
 		Foreground(lipgloss.Color("205")). // Pink color to match
 		Bold(true)
 
-	// Header padding style (matching pane padding)
+	// Header padding style (matching pane borders which add 1 char on each side)
 	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1).
+		PaddingLeft(2).
+		PaddingRight(2).
 		Width(width)
 
 	// Render the complete logo with version
@@ -37,13 +37,11 @@ v0.1.0 ▘ ▘▘`
 		// Split the logo into lines to align title with version row
 		logoLines := strings.Split(logo, "\n")
 		
-		// Create padding for title to align with 4th line (version line)
-		titlePadding := strings.Repeat("\n", 3) // 3 newlines to reach 4th line
-		titleWithPadding := titlePadding + title
-		titleRendered := titleStyle.Render(titleWithPadding)
+		// No padding needed - title goes on first line to align with top of logo
+		titleRendered := titleStyle.Render(title)
 		
 		// Calculate available width for content (accounting for padding)
-		contentWidth := width - 2 // -2 for left and right padding
+		contentWidth := width - 4 // -4 for left and right padding (2 each side)
 		
 		// Use content width and place title on left, logo on right
 		headerContent = lipgloss.JoinHorizontal(
@@ -55,7 +53,7 @@ v0.1.0 ▘ ▘▘`
 	} else {
 		// No title, just right-align the logo
 		rightAlign := lipgloss.NewStyle().
-			Width(width - 2). // -2 for padding
+			Width(width - 4). // -4 for padding (2 each side)
 			Align(lipgloss.Right)
 		
 		headerContent = rightAlign.Render(logoRendered)

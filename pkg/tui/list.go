@@ -78,11 +78,12 @@ type MainListModel struct {
 
 func NewMainListModel() *MainListModel {
 	// Load settings for UI preferences
-	settings, _ := files.ReadSettings()
+	// Note: We override showPreview to false for the main list view
+	// settings, _ := files.ReadSettings()
 	
 	m := &MainListModel{
 		activePane:         componentsPane,
-		showPreview:        settings.UI.ShowPreview,
+		showPreview:        false, // Hide preview by default on main list view
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size

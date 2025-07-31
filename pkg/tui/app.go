@@ -197,7 +197,7 @@ func (a *App) View() string {
 	var title string
 	switch a.state {
 	case mainListView:
-		title = "Pluqqy - Prompt & Context Pipeline Manager for Agentic Coding"
+		title = "Welcome to Pluqqy"
 	case pipelineBuilderView:
 		if a.builder != nil && a.builder.pipeline != nil {
 			title = "Pipeline: " + a.builder.pipeline.Name
