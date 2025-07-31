@@ -2,8 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -99,9 +97,6 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Set pipeline (generate PLUQQY.md)
 			return m, m.setPipeline()
 
-		case "E":
-			// Edit in external editor
-			return m, m.editInEditor()
 
 		case "e":
 			// Edit in pipeline builder (TUI)
@@ -303,8 +298,7 @@ func (m *PipelineViewerModel) View() string {
 		"Tab: switch pane",
 		"↑/↓: scroll",
 		"S: set",
-		"E: edit external",
-		"e: edit TUI",
+		"e: edit",
 		"Esc: back",
 		"Ctrl+C: quit",
 	}
@@ -399,40 +393,3 @@ func (m *PipelineViewerModel) setPipeline() tea.Cmd {
 	}
 }
 
-func (m *PipelineViewerModel) editInEditor() tea.Cmd {
-	return func() tea.Msg {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			editor = "vi"
-		}
-
-		// Validate editor path to prevent command injection
-		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
-			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
-		}
-
-		pipelinePath := fmt.Sprintf(".pluqqy/pipelines/%s", m.pipelineName)
-		cmd := exec.Command(editor, pipelinePath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		err := cmd.Run()
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
-		}
-
-		// Reload pipeline after editing
-		pipeline, err := files.ReadPipeline(m.pipelineName)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to reload pipeline '%s' after editing: %v", m.pipelineName, err))
-		}
-		m.pipeline = pipeline
-
-		// Re-compose
-		composed, _ := composer.ComposePipeline(pipeline)
-		m.composed = composed
-
-		return StatusMsg("✓ Pipeline reloaded after editing")
-	}
-}
