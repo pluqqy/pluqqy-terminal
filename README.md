@@ -72,32 +72,34 @@ pluqqy
 
 ### TUI Commands
 
-#### Pipeline List View
+#### Main List View
 
-- `↑/↓` or `j/k` - Navigate pipelines
-- `Enter` - View pipeline details
-- `e` - Edit selected pipeline
-- `n` - Create new pipeline
+- `Tab` - Switch between pipelines and components panes
+- `↑/↓` or `j/k` - Navigate items
+- `Enter` - View/edit pipeline or component
+- `e` - Edit component in TUI / Edit pipeline in builder
+- `E` - Edit component with external editor (components pane only)
+- `n` - Create new pipeline/component
 - `d` - Delete pipeline (with confirmation)
 - `S` - Set selected pipeline (generates PLUQQY.md)
+- `p` - Toggle preview pane
 - `r` - Refresh pipeline list
-- `q` - Quit
 - `Ctrl+C` - Quit (double Ctrl+C to confirm)
 
 #### Pipeline Builder
 
-- `Tab` - Switch between panes (components, selected, preview)
+- `Tab` - Switch between panes (available components, pipeline components, preview)
 - `↑/↓` - Navigate items
-- `Enter` - Add/edit component
+- `Enter` - Add/remove component (toggles)
 - `n` - Create new component
 - `e` - Edit component in TUI
 - `E` - Edit component with external editor
-- `Del` - Remove selected component
-- `K/J` - Reorder selected components (move up/down)
-- `p` - Toggle preview
+- `Del`, `d`, `Backspace` - Remove component from pipeline (right pane)
+- `K/J` or `Ctrl+↑/↓` - Reorder pipeline components (move up/down)
+- `p` - Toggle preview pane
 - `Ctrl+S` - Save pipeline
 - `S` - Save and set as active pipeline
-- `Esc` - Back to pipeline list
+- `Esc` - Back to main list (with unsaved changes confirmation)
 
 #### Pipeline Viewer
 
@@ -108,11 +110,13 @@ pluqqy
 - `Esc` - Back to pipeline list
 - `Ctrl+C` - Quit
 
-#### Component Editor
+#### Component Editor (TUI)
 
-- Type content directly in the TUI
-- `Ctrl+S` - Save component (with overwrite confirmation if needed)
-- `Esc` - Cancel
+- Type content directly in the editor
+- `↑/↓` - Scroll through content
+- `Ctrl+S` - Save component
+- `E` - Open in external editor
+- `Esc` - Cancel (with unsaved changes confirmation)
 
 ## UI Features
 
@@ -141,6 +145,23 @@ The `set` command generates a `PLUQQY.md` file in your project root with section
 6. Press `s` to save
 7. Back at pipeline list, press `s` to set the pipeline
 8. Check `PLUQQY.md` for the composed output
+
+## Configuration
+
+### External Editor
+
+Pluqqy uses your system's `$EDITOR` environment variable to determine which external editor to use. Set it in your shell configuration:
+
+```bash
+# For vim users
+export EDITOR=vim
+
+# For nano users
+export EDITOR=nano
+
+# For VS Code users
+export EDITOR="code --wait"
+```
 
 ## Requirements
 
