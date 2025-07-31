@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 
@@ -410,4 +411,45 @@ func mergeSettings(settings *models.Settings, defaults *models.Settings) {
 	if settings.UI.ComponentView == "" {
 		settings.UI.ComponentView = defaults.UI.ComponentView
 	}
+}
+
+// CountComponentUsage returns a map of component paths to their usage count across all pipelines
+func CountComponentUsage() (map[string]int, error) {
+	usageCount := make(map[string]int)
+	
+	// List all pipelines
+	pipelines, err := ListPipelines()
+	if err != nil {
+		return nil, fmt.Errorf("failed to list pipelines: %w", err)
+	}
+	
+	// For each pipeline, count component usage
+	for _, pipelinePath := range pipelines {
+		pipeline, err := ReadPipeline(pipelinePath)
+		if err != nil {
+			// Skip pipelines that can't be read
+			continue
+		}
+		
+		// Count each component reference
+		for _, comp := range pipeline.Components {
+			// Normalize the path to match how components are stored
+			normalizedPath := filepath.Clean(comp.Path)
+			usageCount[normalizedPath]++
+		}
+	}
+	
+	return usageCount, nil
+}
+
+// GetComponentStats returns detailed stats for a component including last modified time
+func GetComponentStats(componentPath string) (time.Time, error) {
+	absPath := filepath.Join(PluqqyDir, componentPath)
+	
+	info, err := os.Stat(absPath)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("failed to get component stats: %w", err)
+	}
+	
+	return info.ModTime(), nil
 }

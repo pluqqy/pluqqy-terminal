@@ -70,9 +70,11 @@ type PipelineBuilderModel struct {
 }
 
 type componentItem struct {
-	name     string
-	path     string
-	compType string
+	name         string
+	path         string
+	compType     string
+	lastModified time.Time
+	usageCount   int
 }
 
 type clearEditSaveMsg struct{}
@@ -98,33 +100,77 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 }
 
 func (m *PipelineBuilderModel) loadAvailableComponents() {
+	// Get usage counts for all components
+	usageMap, _ := files.CountComponentUsage()
+	
+	// Clear existing components
+	m.prompts = nil
+	m.contexts = nil
+	m.rules = nil
+	
 	// Load prompts
 	prompts, _ := files.ListComponents("prompts")
 	for _, p := range prompts {
+		componentPath := filepath.Join(files.ComponentsDir, files.PromptsDir, p)
+		modTime, _ := files.GetComponentStats(componentPath)
+		
+		// Calculate usage count - need to check different path formats
+		usage := 0
+		relativePath := "../" + componentPath
+		if count, exists := usageMap[relativePath]; exists {
+			usage = count
+		}
+		
 		m.prompts = append(m.prompts, componentItem{
-			name:     p,
-			path:     filepath.Join(files.ComponentsDir, files.PromptsDir, p),
-			compType: models.ComponentTypePrompt,
+			name:         p,
+			path:         componentPath,
+			compType:     models.ComponentTypePrompt,
+			lastModified: modTime,
+			usageCount:   usage,
 		})
 	}
 
 	// Load contexts
 	contexts, _ := files.ListComponents("contexts")
 	for _, c := range contexts {
+		componentPath := filepath.Join(files.ComponentsDir, files.ContextsDir, c)
+		modTime, _ := files.GetComponentStats(componentPath)
+		
+		// Calculate usage count
+		usage := 0
+		relativePath := "../" + componentPath
+		if count, exists := usageMap[relativePath]; exists {
+			usage = count
+		}
+		
 		m.contexts = append(m.contexts, componentItem{
-			name:     c,
-			path:     filepath.Join(files.ComponentsDir, files.ContextsDir, c),
-			compType: models.ComponentTypeContext,
+			name:         c,
+			path:         componentPath,
+			compType:     models.ComponentTypeContext,
+			lastModified: modTime,
+			usageCount:   usage,
 		})
 	}
 
 	// Load rules
 	rules, _ := files.ListComponents("rules")
 	for _, r := range rules {
+		componentPath := filepath.Join(files.ComponentsDir, files.RulesDir, r)
+		modTime, _ := files.GetComponentStats(componentPath)
+		
+		// Calculate usage count
+		usage := 0
+		relativePath := "../" + componentPath
+		if count, exists := usageMap[relativePath]; exists {
+			usage = count
+		}
+		
 		m.rules = append(m.rules, componentItem{
-			name:     r,
-			path:     filepath.Join(files.ComponentsDir, files.RulesDir, r),
-			compType: models.ComponentTypeRules,
+			name:         r,
+			path:         componentPath,
+			compType:     models.ComponentTypeRules,
+			lastModified: modTime,
+			usageCount:   usage,
 		})
 	}
 }
@@ -398,6 +444,24 @@ func (m *PipelineBuilderModel) View() string {
 	var leftContent strings.Builder
 	leftContent.WriteString(typeHeaderStyle.Render("Available Components") + "\n\n")
 
+	// Table header styles
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("241")).
+		Underline(true)
+	
+	// Table column widths (adjusted for left column width)
+	nameWidth := 20
+	modifiedWidth := 12
+	usageWidth := 8
+	
+	// Render table header
+	header := fmt.Sprintf("%-*s %-*s %-*s", 
+		nameWidth, "Name",
+		modifiedWidth, "Modified",
+		usageWidth, "Usage")
+	leftContent.WriteString(headerStyle.Render(header) + "\n")
+
 	allComponents := m.getAllAvailableComponents()
 	currentType := ""
 	
@@ -410,11 +474,6 @@ func (m *PipelineBuilderModel) View() string {
 			leftContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", strings.Title(currentType))) + "\n")
 		}
 
-		cursor := "  "
-		if m.activeColumn == leftColumn && i == m.leftCursor {
-			cursor = "▸ "
-		}
-
 		// Check if component is already in pipeline
 		isAdded := false
 		componentPath := "../" + comp.path
@@ -425,23 +484,64 @@ func (m *PipelineBuilderModel) View() string {
 			}
 		}
 
-		// Build the line with indicator
-		line := comp.name
-		if isAdded {
-			line = fmt.Sprintf("%s ✓", comp.name)
+		// Format the row data
+		nameStr := comp.name
+		if len(nameStr) > nameWidth-3 {
+			nameStr = nameStr[:nameWidth-6] + "..."
 		}
-		line = fmt.Sprintf("%s%s", cursor, line)
+		if isAdded {
+			nameStr = nameStr + " ✓"
+		}
+		
+		// Format modified time
+		modifiedStr := ""
+		if !comp.lastModified.IsZero() {
+			if time.Since(comp.lastModified) < 24*time.Hour {
+				modifiedStr = comp.lastModified.Format("15:04")
+			} else if time.Since(comp.lastModified) < 7*24*time.Hour {
+				modifiedStr = comp.lastModified.Format("Mon 15:04")
+			} else {
+				modifiedStr = comp.lastModified.Format("Jan 02")
+			}
+		}
+		
+		// Format usage count with visual indicator
+		usageStr := fmt.Sprintf("%d", comp.usageCount)
+		if comp.usageCount > 0 {
+			bars := ""
+			barCount := comp.usageCount
+			if barCount > 5 {
+				barCount = 5
+			}
+			for j := 0; j < barCount; j++ {
+				bars += "█"
+			}
+			usageStr = fmt.Sprintf("%-2d %s", comp.usageCount, bars)
+		}
+		
+		// Build the row
+		row := fmt.Sprintf("%-*s %-*s %-*s",
+			nameWidth, nameStr,
+			modifiedWidth, modifiedStr,
+			usageWidth, usageStr)
+		
+		// Apply cursor if needed
+		if m.activeColumn == leftColumn && i == m.leftCursor {
+			row = "▸ " + row
+		} else {
+			row = "  " + row
+		}
 		
 		// Apply styling
 		if m.activeColumn == leftColumn && i == m.leftCursor {
-			leftContent.WriteString(selectedStyle.Render(line) + "\n")
+			leftContent.WriteString(selectedStyle.Render(row) + "\n")
 		} else if isAdded {
 			// Use a dimmed style for already added components
 			addedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
-			leftContent.WriteString(addedStyle.Render(line) + "\n")
+			leftContent.WriteString(addedStyle.Render(row) + "\n")
 		} else {
-			leftContent.WriteString(normalStyle.Render(line) + "\n")
+			leftContent.WriteString(normalStyle.Render(row) + "\n")
 		}
 	}
 
@@ -452,17 +552,82 @@ func (m *PipelineBuilderModel) View() string {
 	if len(m.selectedComponents) == 0 {
 		rightContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
 	} else {
-		for i, comp := range m.selectedComponents {
-			cursor := "  "
-			if m.activeColumn == rightColumn && i == m.rightCursor {
-				cursor = "▸ "
+		// Group components by type
+		var contexts, prompts, rules []models.ComponentRef
+		for _, comp := range m.selectedComponents {
+			switch comp.Type {
+			case models.ComponentTypeContext:
+				contexts = append(contexts, comp)
+			case models.ComponentTypePrompt:
+				prompts = append(prompts, comp)
+			case models.ComponentTypeRules:
+				rules = append(rules, comp)
 			}
-
-			line := fmt.Sprintf("%s%d. [%s] %s", cursor, i+1, comp.Type, filepath.Base(comp.Path))
-			if m.activeColumn == rightColumn && i == m.rightCursor {
-				rightContent.WriteString(selectedStyle.Render(line) + "\n")
-			} else {
-				rightContent.WriteString(normalStyle.Render(line) + "\n")
+		}
+		
+		// Track overall index for cursor position
+		overallIndex := 0
+		
+		// Render contexts
+		if len(contexts) > 0 {
+			rightContent.WriteString(typeHeaderStyle.Render("▸ CONTEXTS") + "\n")
+			for _, comp := range contexts {
+				cursor := "  "
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					cursor = "▸ "
+				}
+				
+				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+				} else {
+					rightContent.WriteString(normalStyle.Render(line) + "\n")
+				}
+				overallIndex++
+			}
+			if len(prompts) > 0 || len(rules) > 0 {
+				rightContent.WriteString("\n")
+			}
+		}
+		
+		// Render prompts
+		if len(prompts) > 0 {
+			rightContent.WriteString(typeHeaderStyle.Render("▸ PROMPTS") + "\n")
+			for _, comp := range prompts {
+				cursor := "  "
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					cursor = "▸ "
+				}
+				
+				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+				} else {
+					rightContent.WriteString(normalStyle.Render(line) + "\n")
+				}
+				overallIndex++
+			}
+			if len(rules) > 0 {
+				rightContent.WriteString("\n")
+			}
+		}
+		
+		// Render rules
+		if len(rules) > 0 {
+			rightContent.WriteString(typeHeaderStyle.Render("▸ RULES") + "\n")
+			for _, comp := range rules {
+				cursor := "  "
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					cursor = "▸ "
+				}
+				
+				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
+				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+				} else {
+					rightContent.WriteString(normalStyle.Render(line) + "\n")
+				}
+				overallIndex++
 			}
 		}
 	}
@@ -590,6 +755,16 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		m.selectedComponents = p.Components
 		m.editingName = false // Don't show name input when editing
 		m.nameInput = p.Name
+		
+		// Reorganize components by type to match display
+		m.reorganizeComponentsByType()
+		
+		// Update local usage counts to reflect this pipeline's components
+		// This ensures the counts show what would happen if we save
+		for _, comp := range m.selectedComponents {
+			componentPath := strings.TrimPrefix(comp.Path, "../")
+			m.updateLocalUsageCount(componentPath, 1)
+		}
 	}
 }
 
@@ -641,58 +816,170 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 		ref := models.ComponentRef{
 			Type:  selected.compType,
 			Path:  componentPath,
-			Order: len(m.selectedComponents) + 1,
+			Order: 0, // Will be set when inserting
 		}
 		
-		m.selectedComponents = append(m.selectedComponents, ref)
+		// Insert component in the correct position based on type grouping
+		m.insertComponentByType(ref)
+		
+		// Update the usage count locally to show predicted usage
+		// This gives immediate feedback before the pipeline is saved
+		m.updateLocalUsageCount(selected.path, 1)
+	}
+}
+
+// insertComponentByType inserts a component in the correct position based on type grouping
+func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef) {
+	// Add the component to the list
+	m.selectedComponents = append(m.selectedComponents, newComp)
+	
+	// Reorganize to maintain type grouping
+	m.reorganizeComponentsByType()
+}
+
+// reorganizeComponentsByType sorts components into groups: contexts, prompts, rules
+func (m *PipelineBuilderModel) reorganizeComponentsByType() {
+	// Separate components by type
+	var contexts, prompts, rules []models.ComponentRef
+	
+	for _, comp := range m.selectedComponents {
+		switch comp.Type {
+		case models.ComponentTypeContext:
+			contexts = append(contexts, comp)
+		case models.ComponentTypePrompt:
+			prompts = append(prompts, comp)
+		case models.ComponentTypeRules:
+			rules = append(rules, comp)
+		}
+	}
+	
+	// Rebuild the array in grouped order
+	m.selectedComponents = nil
+	m.selectedComponents = append(m.selectedComponents, contexts...)
+	m.selectedComponents = append(m.selectedComponents, prompts...)
+	m.selectedComponents = append(m.selectedComponents, rules...)
+	
+	// Update order numbers
+	for i := range m.selectedComponents {
+		m.selectedComponents[i].Order = i + 1
+	}
+}
+
+// updateLocalUsageCount updates the usage count for a component locally
+func (m *PipelineBuilderModel) updateLocalUsageCount(componentPath string, delta int) {
+	// Update in prompts
+	for i := range m.prompts {
+		if m.prompts[i].path == componentPath {
+			m.prompts[i].usageCount += delta
+			if m.prompts[i].usageCount < 0 {
+				m.prompts[i].usageCount = 0
+			}
+			return
+		}
+	}
+	
+	// Update in contexts
+	for i := range m.contexts {
+		if m.contexts[i].path == componentPath {
+			m.contexts[i].usageCount += delta
+			if m.contexts[i].usageCount < 0 {
+				m.contexts[i].usageCount = 0
+			}
+			return
+		}
+	}
+	
+	// Update in rules
+	for i := range m.rules {
+		if m.rules[i].path == componentPath {
+			m.rules[i].usageCount += delta
+			if m.rules[i].usageCount < 0 {
+				m.rules[i].usageCount = 0
+			}
+			return
+		}
 	}
 }
 
 func (m *PipelineBuilderModel) removeSelectedComponent() {
 	if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
+		// Get the component path to update usage count
+		removedComponent := m.selectedComponents[m.rightCursor]
+		componentPath := strings.TrimPrefix(removedComponent.Path, "../")
+		
+		// Remember the type of component we're removing to adjust cursor properly
+		removedType := removedComponent.Type
+		
 		// Remove component
 		m.selectedComponents = append(
 			m.selectedComponents[:m.rightCursor],
 			m.selectedComponents[m.rightCursor+1:]...,
 		)
 		
-		// Update order numbers
-		for i := range m.selectedComponents {
-			m.selectedComponents[i].Order = i + 1
+		// Reorganize to maintain grouping
+		m.reorganizeComponentsByType()
+		
+		// Adjust cursor - try to stay in the same position or move to the last item of the same type
+		if m.rightCursor >= len(m.selectedComponents) && m.rightCursor > 0 {
+			m.rightCursor = len(m.selectedComponents) - 1
 		}
 		
-		// Adjust cursor
-		if m.rightCursor >= len(m.selectedComponents) && m.rightCursor > 0 {
-			m.rightCursor--
+		// Try to position cursor on a component of the same type
+		if len(m.selectedComponents) > 0 {
+			// Find the last component of the same type before or at cursor position
+			newCursor := -1
+			for i := 0; i <= m.rightCursor && i < len(m.selectedComponents); i++ {
+				if m.selectedComponents[i].Type == removedType {
+					newCursor = i
+				}
+			}
+			if newCursor >= 0 {
+				m.rightCursor = newCursor
+			}
 		}
+		
+		// Update the usage count locally
+		m.updateLocalUsageCount(componentPath, -1)
 	}
 }
 
 func (m *PipelineBuilderModel) moveComponentUp() {
 	if m.rightCursor > 0 && m.rightCursor < len(m.selectedComponents) {
-		// Swap with previous
-		m.selectedComponents[m.rightCursor-1], m.selectedComponents[m.rightCursor] = 
-			m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor-1]
+		currentType := m.selectedComponents[m.rightCursor].Type
+		previousType := m.selectedComponents[m.rightCursor-1].Type
 		
-		// Update order numbers
-		m.selectedComponents[m.rightCursor-1].Order = m.rightCursor
-		m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
-		
-		m.rightCursor--
+		// Only allow moving within the same type group
+		if currentType == previousType {
+			// Swap with previous
+			m.selectedComponents[m.rightCursor-1], m.selectedComponents[m.rightCursor] = 
+				m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor-1]
+			
+			// Update order numbers
+			m.selectedComponents[m.rightCursor-1].Order = m.rightCursor
+			m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
+			
+			m.rightCursor--
+		}
 	}
 }
 
 func (m *PipelineBuilderModel) moveComponentDown() {
 	if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents)-1 {
-		// Swap with next
-		m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor+1] = 
-			m.selectedComponents[m.rightCursor+1], m.selectedComponents[m.rightCursor]
+		currentType := m.selectedComponents[m.rightCursor].Type
+		nextType := m.selectedComponents[m.rightCursor+1].Type
 		
-		// Update order numbers
-		m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
-		m.selectedComponents[m.rightCursor+1].Order = m.rightCursor + 2
-		
-		m.rightCursor++
+		// Only allow moving within the same type group
+		if currentType == nextType {
+			// Swap with next
+			m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor+1] = 
+				m.selectedComponents[m.rightCursor+1], m.selectedComponents[m.rightCursor]
+			
+			// Update order numbers
+			m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
+			m.selectedComponents[m.rightCursor+1].Order = m.rightCursor + 2
+			
+			m.rightCursor++
+		}
 	}
 }
 
@@ -772,6 +1059,9 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		
 		// Set save message
 		m.pipelineSaveMessage = fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path)
+		
+		// Reload components to update usage stats after save
+		m.loadAvailableComponents()
 		
 		// Cancel any existing timer
 		if m.pipelineSaveTimer != nil {

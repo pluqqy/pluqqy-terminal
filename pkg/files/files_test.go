@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/user/pluqqy/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 func TestInitProjectStructure(t *testing.T) {

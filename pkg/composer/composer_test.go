@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/user/pluqqy/pkg/files"
-	"github.com/user/pluqqy/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 func TestComposePipeline(t *testing.T) {
