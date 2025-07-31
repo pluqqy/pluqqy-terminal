@@ -57,32 +57,37 @@ pluqqy
 
 - `↑/↓` or `j/k` - Navigate pipelines
 - `Enter` - View pipeline details
-- `n` - Create new pipeline
 - `e` - Edit selected pipeline
-- `S` - Set selected pipeline (generates PLUQQY.md)
+- `n` - Create new pipeline
 - `d` - Delete pipeline (with confirmation)
-- `r` - Rename pipeline
-- `q` or `Ctrl+C` - Quit (double Ctrl+C to confirm)
+- `S` - Set selected pipeline (generates PLUQQY.md)
+- `r` - Refresh pipeline list
+- `q` - Quit
+- `Ctrl+C` - Quit (double Ctrl+C to confirm)
 
 #### Pipeline Builder
 
 - `Tab` - Switch between panes (components, selected, preview)
-- `↑/↓` or `j/k` - Navigate items
-- `Enter` - Add/remove component
-- `Ctrl+↑/↓` - Reorder selected components
+- `↑/↓` - Navigate items
+- `Enter` - Add/edit component
 - `n` - Create new component
-- `e` - Edit component
+- `e` - Edit component in TUI
+- `E` - Edit component with external editor
+- `Del` - Remove selected component
+- `K/J` - Reorder selected components (move up/down)
 - `p` - Toggle preview
-- `s` - Save pipeline
+- `Ctrl+S` - Save pipeline
 - `S` - Save and set as active pipeline
 - `Esc` - Back to pipeline list
 
 #### Pipeline Viewer
 
 - `Tab` - Switch between components and preview panes
-- `↑/↓` or `j/k` - Navigate in active pane
+- `↑/↓` - Scroll in active pane
 - `S` - Set as active pipeline
+- `e` - Edit pipeline
 - `Esc` - Back to pipeline list
+- `Ctrl+C` - Quit
 
 #### Component Editor
 
