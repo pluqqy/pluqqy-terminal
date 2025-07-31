@@ -79,6 +79,7 @@ type componentItem struct {
 	compType     string
 	lastModified time.Time
 	usageCount   int
+	tokenCount   int
 }
 
 type clearEditSaveMsg struct{}
@@ -127,12 +128,20 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			usage = count
 		}
 		
+		// Read component content for token estimation
+		component, _ := files.ReadComponent(componentPath)
+		tokenCount := 0
+		if component != nil {
+			tokenCount = utils.EstimateTokens(component.Content)
+		}
+		
 		m.prompts = append(m.prompts, componentItem{
 			name:         p,
 			path:         componentPath,
 			compType:     models.ComponentTypePrompt,
 			lastModified: modTime,
 			usageCount:   usage,
+			tokenCount:   tokenCount,
 		})
 	}
 
@@ -149,12 +158,20 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			usage = count
 		}
 		
+		// Read component content for token estimation
+		component, _ := files.ReadComponent(componentPath)
+		tokenCount := 0
+		if component != nil {
+			tokenCount = utils.EstimateTokens(component.Content)
+		}
+		
 		m.contexts = append(m.contexts, componentItem{
 			name:         c,
 			path:         componentPath,
 			compType:     models.ComponentTypeContext,
 			lastModified: modTime,
 			usageCount:   usage,
+			tokenCount:   tokenCount,
 		})
 	}
 
@@ -171,12 +188,20 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			usage = count
 		}
 		
+		// Read component content for token estimation
+		component, _ := files.ReadComponent(componentPath)
+		tokenCount := 0
+		if component != nil {
+			tokenCount = utils.EstimateTokens(component.Content)
+		}
+		
 		m.rules = append(m.rules, componentItem{
 			name:         r,
 			path:         componentPath,
 			compType:     models.ComponentTypeRules,
 			lastModified: modTime,
 			usageCount:   usage,
+			tokenCount:   tokenCount,
 		})
 	}
 }
@@ -501,17 +526,18 @@ func (m *PipelineBuilderModel) View() string {
 	// Table header styles
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("241")).
-		Underline(true)
+		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths (adjusted for left column width)
 	nameWidth := 20
+	tokenWidth := 7  // For "~Token" plus padding
 	modifiedWidth := 12
 	usageWidth := 8
 	
-	// Render table header
-	header := fmt.Sprintf("%-*s %-*s %-*s", 
+	// Render table header with 2-space shift
+	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
+		tokenWidth, "~Token",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
@@ -589,9 +615,13 @@ func (m *PipelineBuilderModel) View() string {
 			usageStr = fmt.Sprintf("%-2d %s", comp.usageCount, bars)
 		}
 		
-		// Build the row
-		row := fmt.Sprintf("%-*s %-*s %-*s",
+		// Format token count - right-aligned with consistent width
+		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
+		
+		// Build the row with extra padding between token and modified
+		row := fmt.Sprintf("%-*s %*s  %-*s %-*s",
 			nameWidth, nameStr,
+			tokenWidth-1, tokenStr,  // -1 to account for the space before it
 			modifiedWidth, modifiedStr,
 			usageWidth, usageStr)
 		
