@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
@@ -60,6 +61,12 @@ type PipelineBuilderModel struct {
 	editingComponent      bool
 	editingComponentPath  string
 	editingComponentName  string
+	editSaveMessage       string
+	editSaveTimer         *time.Timer
+	
+	// Pipeline save state
+	pipelineSaveMessage   string
+	pipelineSaveTimer     *time.Timer
 }
 
 type componentItem struct {
@@ -67,6 +74,9 @@ type componentItem struct {
 	path     string
 	compType string
 }
+
+type clearEditSaveMsg struct{}
+type clearPipelineSaveMsg struct{}
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
 	// Load settings for UI preferences
@@ -141,6 +151,22 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.previewViewport.Width = m.width - 4
 			m.previewViewport.Height = previewHeight
 		}
+
+	case clearEditSaveMsg:
+		m.editSaveMessage = ""
+		// Exit editing mode after save confirmation is shown
+		if !m.editingComponent {
+			return m, nil
+		}
+		m.editingComponent = false
+		m.componentContent = ""
+		m.editingComponentPath = ""
+		m.editingComponentName = ""
+		return m, nil
+
+	case clearPipelineSaveMsg:
+		m.pipelineSaveMessage = ""
+		return m, nil
 
 	case tea.KeyMsg:
 		// Handle component creation mode
@@ -498,6 +524,20 @@ func (m *PipelineBuilderModel) View() string {
 		}
 	}
 
+	// Show pipeline save message if present
+	if m.pipelineSaveMessage != "" {
+		saveMessageStyle := lipgloss.NewStyle().
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("82")). // Green for success
+			Width(m.width).
+			Align(lipgloss.Center).
+			Padding(0, 1).
+			MarginTop(1)
+		
+		s.WriteString("\n")
+		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
+	}
+
 	// Help text
 	help := []string{
 		"Tab: switch",
@@ -726,18 +766,26 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Save pipeline
 		err := files.WritePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to save pipeline '%s': %v", m.pipeline.Name, err))
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
+			return nil
 		}
 		
-		// Return status message first, then switch view
-		return tea.Batch(
-			func() tea.Msg {
-				return StatusMsg(fmt.Sprintf("✓ Pipeline saved: %s.yaml", m.pipeline.Path))
-			},
-			func() tea.Msg {
-				return SwitchViewMsg{view: mainListView}
-			},
-		)
+		// Set save message
+		m.pipelineSaveMessage = fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path)
+		
+		// Cancel any existing timer
+		if m.pipelineSaveTimer != nil {
+			m.pipelineSaveTimer.Stop()
+		}
+		
+		// Set timer to clear message after 2 seconds
+		m.pipelineSaveTimer = time.NewTimer(2 * time.Second)
+		
+		// Return a command to clear the message after timer
+		return func() tea.Msg {
+			<-m.pipelineSaveTimer.C
+			return clearPipelineSaveMsg{}
+		}
 	}
 }
 
@@ -1093,7 +1141,7 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "ctrl+s":
-		// Save component
+		// Save component but don't exit yet
 		return m, m.saveEditedComponent()
 	case "esc":
 		// Cancel editing
@@ -1101,6 +1149,10 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 		m.componentContent = ""
 		m.editingComponentPath = ""
 		m.editingComponentName = ""
+		m.editSaveMessage = ""
+		if m.editSaveTimer != nil {
+			m.editSaveTimer.Stop()
+		}
 		return m, nil
 	case "enter":
 		m.componentContent += "\n"
@@ -1131,10 +1183,15 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		BorderForeground(lipgloss.Color("170")).
 		Padding(1).
 		Width(m.width - 4).
-		Height(m.height - 10)
+		Height(m.height - 12) // Make room for save message
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+
+	saveMessageStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("82")). // Green
+		Bold(true).
 		MarginTop(1)
 
 	var s strings.Builder
@@ -1150,6 +1207,13 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	
 	s.WriteString(editorStyle.Render(content))
 	s.WriteString("\n")
+	
+	// Show save message if present
+	if m.editSaveMessage != "" {
+		s.WriteString(saveMessageStyle.Render(m.editSaveMessage))
+		s.WriteString("\n")
+	}
+	
 	s.WriteString(helpStyle.Render("Type to edit • Ctrl+S: save • Esc: cancel"))
 
 	return s.String()
@@ -1157,20 +1221,23 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
 	return func() tea.Msg {
-		// Save the name before resetting
-		componentName := m.editingComponentName
-		
 		// Write component
 		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to save component: %v", err))
+			m.editSaveMessage = fmt.Sprintf("❌ Failed to save: %v", err)
+			return nil
 		}
 		
-		// Reset editing state
-		m.editingComponent = false
-		m.componentContent = ""
-		m.editingComponentPath = ""
-		m.editingComponentName = ""
+		// Set save message
+		m.editSaveMessage = fmt.Sprintf("✓ Saved: %s", m.editingComponentName)
+		
+		// Cancel any existing timer
+		if m.editSaveTimer != nil {
+			m.editSaveTimer.Stop()
+		}
+		
+		// Set timer to clear message and exit after 1.5 seconds
+		m.editSaveTimer = time.NewTimer(1500 * time.Millisecond)
 		
 		// Reload components
 		m.loadAvailableComponents()
@@ -1178,6 +1245,10 @@ func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
 		// Update preview
 		m.updatePreview()
 		
-		return StatusMsg(fmt.Sprintf("✓ Saved: %s", componentName))
+		// Return a command to clear the message after timer
+		return func() tea.Msg {
+			<-m.editSaveTimer.C
+			return clearEditSaveMsg{}
+		}
 	}
 }
