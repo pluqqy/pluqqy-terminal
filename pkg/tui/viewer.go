@@ -39,32 +39,10 @@ func NewPipelineViewerModel() *PipelineViewerModel {
 }
 
 func (m *PipelineViewerModel) Init() tea.Cmd {
-	return m.loadPipeline()
+	// Pipeline is already loaded in SetPipeline
+	return nil
 }
 
-func (m *PipelineViewerModel) loadPipeline() tea.Cmd {
-	return func() tea.Msg {
-		pipeline, err := files.ReadPipeline(m.pipelineName)
-		if err != nil {
-			m.err = err
-			return nil
-		}
-		m.pipeline = pipeline
-		
-		// Generate the pipeline output
-		composed, err := composer.ComposePipeline(pipeline)
-		if err != nil {
-			m.err = err
-			return nil
-		}
-		m.composed = composed
-		
-		// Update viewport sizes now that we have content
-		m.updateViewportSizes()
-		
-		return StatusMsg(fmt.Sprintf("Loaded pipeline: %s", m.pipelineName))
-	}
-}
 
 func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
@@ -117,18 +95,31 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			cmds = append(cmds, cmd)
 			return m, tea.Batch(cmds...)
+		default:
+			// For other keys, forward to viewports
+			if m.pipeline != nil {
+				// Only update the active viewport for key messages
+				if m.activePane == 0 {
+					m.componentsViewport, cmd = m.componentsViewport.Update(msg)
+				} else {
+					m.previewViewport, cmd = m.previewViewport.Update(msg)
+				}
+				if cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+			}
 		}
-	}
-
-	// Forward other messages to viewports
-	if m.pipeline != nil {
-		m.componentsViewport, cmd = m.componentsViewport.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
-		m.previewViewport, cmd = m.previewViewport.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
+	default:
+		// Forward non-key messages to both viewports
+		if m.pipeline != nil {
+			m.componentsViewport, cmd = m.componentsViewport.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+			m.previewViewport, cmd = m.previewViewport.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
 		}
 	}
 
@@ -315,6 +306,25 @@ func (m *PipelineViewerModel) SetSize(width, height int) {
 
 func (m *PipelineViewerModel) SetPipeline(pipeline string) {
 	m.pipelineName = pipeline
+	
+	// Load pipeline synchronously to avoid "Loading..." delay
+	p, err := files.ReadPipeline(m.pipelineName)
+	if err != nil {
+		m.err = err
+		return
+	}
+	m.pipeline = p
+	
+	// Generate the pipeline output
+	composed, err := composer.ComposePipeline(p)
+	if err != nil {
+		m.err = err
+		return
+	}
+	m.composed = composed
+	
+	// Update viewport sizes now that we have content
+	m.updateViewportSizes()
 }
 
 func (m *PipelineViewerModel) updateViewportSizes() {

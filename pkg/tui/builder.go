@@ -72,6 +72,15 @@ type PipelineBuilderModel struct {
 	// Pipeline save state
 	pipelineSaveMessage   string
 	pipelineSaveTimer     *time.Timer
+	
+	// Exit confirmation state
+	showExitConfirmation  bool
+	exitConfirmationType  string // "pipeline" or "component"
+	
+	// Change tracking
+	originalComponents    []models.ComponentRef // Original components for existing pipelines
+	originalContent       string                // Original content for component editing
+	
 }
 
 type componentItem struct {
@@ -103,6 +112,8 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		leftViewport:    viewport.New(40, 20), // Default size, will be resized
 		rightViewport:   viewport.New(40, 20), // Default size, will be resized
 	}
+	
+	
 	m.loadAvailableComponents()
 	return m
 }
@@ -215,11 +226,13 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
 
+
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
 		m.updateViewportSizes()
+		
 
 	case clearEditSaveMsg:
 		m.editSaveMessage = ""
@@ -232,6 +245,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.componentContent = ""
 		m.editingComponentPath = ""
 		m.editingComponentName = ""
+		m.originalContent = ""
 		// Force a redraw to ensure layout is recalculated
 		return m, tea.ClearScreen
 
@@ -241,6 +255,39 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, tea.ClearScreen
 
 	case tea.KeyMsg:
+		// Handle exit confirmation dialog
+		if m.showExitConfirmation {
+			switch msg.String() {
+			case "y", "Y":
+				m.showExitConfirmation = false
+				if m.exitConfirmationType == "pipeline" {
+					return m, func() tea.Msg {
+						return SwitchViewMsg{view: mainListView}
+					}
+				} else if m.exitConfirmationType == "component" {
+					// For component creation, just go back to name input
+					m.creationStep = 1
+					m.componentContent = ""
+				} else if m.exitConfirmationType == "component-edit" {
+					// For component editing, exit without saving
+					m.editingComponent = false
+					m.componentContent = ""
+					m.editingComponentPath = ""
+					m.editingComponentName = ""
+					m.editSaveMessage = ""
+					m.originalContent = ""
+					if m.editSaveTimer != nil {
+						m.editSaveTimer.Stop()
+					}
+				}
+				return m, nil
+			case "n", "N", "esc":
+				m.showExitConfirmation = false
+				return m, nil
+			}
+			return m, nil
+		}
+		
 		// Handle component creation mode
 		if m.creatingComponent {
 			return m.handleComponentCreation(msg)
@@ -285,8 +332,22 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Normal mode keybindings
 		switch msg.String() {
 		case "esc":
-			// Clear status message if present, otherwise return to main list
+			// Handle status message if present
 			if m.pipelineSaveMessage != "" {
+				// If the error is about duplicate name, go back to name input
+				if strings.Contains(m.pipelineSaveMessage, "already exists") {
+					m.pipelineSaveMessage = ""
+					// Cancel timer if running
+					if m.pipelineSaveTimer != nil {
+						m.pipelineSaveTimer.Stop()
+					}
+					m.editingName = true
+					// Keep the current name so user can edit it
+					m.nameInput = m.pipeline.Name
+					// Force a redraw to ensure layout is recalculated
+					return m, tea.ClearScreen
+				}
+				// For other messages, just clear them
 				m.pipelineSaveMessage = ""
 				// Cancel timer if running
 				if m.pipelineSaveTimer != nil {
@@ -295,7 +356,14 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Force a redraw to ensure layout is recalculated
 				return m, tea.ClearScreen
 			}
-			// Return to main list
+			// Check if there are unsaved changes
+			if m.hasUnsavedChanges() {
+				// Show confirmation dialog
+				m.showExitConfirmation = true
+				m.exitConfirmationType = "pipeline"
+				return m, nil
+			}
+			// No unsaved changes, exit immediately
 			return m, func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
 			}
@@ -422,6 +490,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.editingComponentPath = comp.path
 					m.editingComponentName = comp.name
 					m.componentContent = content.Content
+					m.originalContent = content.Content // Store original for change detection
 					return m, nil
 				}
 			}
@@ -439,21 +508,30 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Wrap content to viewport width to prevent overflow
 		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
 		m.previewViewport.SetContent(wrappedContent)
-		// Also forward other messages to viewport
-		m.previewViewport, cmd = m.previewViewport.Update(msg)
+	}
+	
+	// Only forward non-key messages to viewports
+	// Key messages are already handled above
+	switch msg.(type) {
+	case tea.KeyMsg:
+		// Don't forward key messages - they're already handled
+	default:
+		// Forward other messages to viewports
+		if m.showPreview {
+			m.previewViewport, cmd = m.previewViewport.Update(msg)
+			if cmd != nil {
+				cmds = append(cmds, cmd)
+			}
+		}
+		
+		m.leftViewport, cmd = m.leftViewport.Update(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
-	}
-	
-	// Forward messages to left/right viewports
-	m.leftViewport, cmd = m.leftViewport.Update(msg)
-	if cmd != nil {
-		cmds = append(cmds, cmd)
-	}
-	m.rightViewport, cmd = m.rightViewport.Update(msg)
-	if cmd != nil {
-		cmds = append(cmds, cmd)
+		m.rightViewport, cmd = m.rightViewport.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
 	}
 
 	return m, tea.Batch(cmds...)
@@ -462,6 +540,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *PipelineBuilderModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'Esc' to return", m.err)
+	}
+
+	// If showing exit confirmation, display dialog
+	if m.showExitConfirmation {
+		return m.exitConfirmationView()
 	}
 
 	// If creating component, show creation wizard
@@ -954,6 +1037,27 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.updateViewportSizes()
 }
 
+func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
+	// For new pipelines, check if components have been added
+	if m.pipeline.Path == "" {
+		return len(m.selectedComponents) > 0
+	}
+	
+	// For existing pipelines, check if components have changed
+	if len(m.selectedComponents) != len(m.originalComponents) {
+		return true
+	}
+	
+	// Check if components are the same (order matters)
+	for i := range m.selectedComponents {
+		if m.selectedComponents[i].Path != m.originalComponents[i].Path {
+			return true
+		}
+	}
+	
+	return false
+}
+
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
@@ -1003,6 +1107,10 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		m.selectedComponents = p.Components
 		m.editingName = false // Don't show name input when editing
 		m.nameInput = p.Name
+		
+		// Store original components for change detection
+		m.originalComponents = make([]models.ComponentRef, len(p.Components))
+		copy(m.originalComponents, p.Components)
 		
 		// Reorganize components by type to match display
 		m.reorganizeComponentsByType()
@@ -1309,10 +1417,29 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		m.pipeline.Components = m.selectedComponents
 		
 		// Create filename from name using sanitization
-		m.pipeline.Path = sanitizeFileName(m.pipeline.Name) + ".yaml"
+		filename := sanitizeFileName(m.pipeline.Name) + ".yaml"
+		
+		// Check if pipeline already exists (case-insensitive)
+		existingPipelines, err := files.ListPipelines()
+		if err != nil {
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to check existing pipelines: %v", err)
+			return nil
+		}
+		
+		for _, existing := range existingPipelines {
+			if strings.EqualFold(existing, filename) {
+				// Don't overwrite if it's not the same pipeline we're editing
+				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
+					m.pipelineSaveMessage = fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name)
+					return nil
+				}
+			}
+		}
+		
+		m.pipeline.Path = filename
 		
 		// Save pipeline
-		err := files.WritePipeline(m.pipeline)
+		err = files.WritePipeline(m.pipeline)
 		if err != nil {
 			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
 			return nil
@@ -1320,6 +1447,10 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		
 		// Set save message
 		m.pipelineSaveMessage = fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path)
+		
+		// Update original components to match saved state
+		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
+		copy(m.originalComponents, m.selectedComponents)
 		
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
@@ -1346,10 +1477,29 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		m.pipeline.Components = m.selectedComponents
 		
 		// Create filename from name using sanitization
-		m.pipeline.Path = sanitizeFileName(m.pipeline.Name) + ".yaml"
+		filename := sanitizeFileName(m.pipeline.Name) + ".yaml"
+		
+		// Check if pipeline already exists (case-insensitive)
+		existingPipelines, err := files.ListPipelines()
+		if err != nil {
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to check existing pipelines: %v", err)
+			return nil
+		}
+		
+		for _, existing := range existingPipelines {
+			if strings.EqualFold(existing, filename) {
+				// Don't overwrite if it's not the same pipeline we're editing
+				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
+					m.pipelineSaveMessage = fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name)
+					return nil
+				}
+			}
+		}
+		
+		m.pipeline.Path = filename
 		
 		// Save pipeline
-		err := files.WritePipeline(m.pipeline)
+		err = files.WritePipeline(m.pipeline)
 		if err != nil {
 			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
 			return nil
@@ -1387,6 +1537,10 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 			wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
 			m.previewViewport.SetContent(wrappedContent)
 		}
+		
+		// Update original components to match saved state
+		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
+		copy(m.originalComponents, m.selectedComponents)
 		
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
@@ -1469,6 +1623,24 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		Align(lipgloss.Center)
 	
 	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
+	
+	// Check if pipeline name already exists and show warning
+	if m.nameInput != "" {
+		testFilename := sanitizeFileName(m.nameInput) + ".yaml"
+		existingPipelines, _ := files.ListPipelines()
+		for _, existing := range existingPipelines {
+			if strings.EqualFold(existing, testFilename) {
+				// Show warning
+				warningStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("214")). // Orange/yellow for warning
+					Bold(true)
+				warningText := warningStyle.Render(fmt.Sprintf("⚠ Warning: Pipeline '%s' already exists", m.nameInput))
+				mainContent.WriteString("\n\n")
+				mainContent.WriteString(headerPadding.Render(centeredPromptStyle.Render(warningText)))
+				break
+			}
+		}
+	}
 
 	// Apply border to main content
 	mainPane := borderStyle.
@@ -1503,6 +1675,88 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
+}
+
+func (m *PipelineBuilderModel) exitConfirmationView() string {
+	// Styles matching the rest of the UI
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(1)
+	
+	headerStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")) // Orange like other headers
+		
+	warningStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("214")) // Orange for warning
+		
+	optionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+	
+	// Calculate dimensions
+	contentWidth := m.width - 4
+	contentHeight := 10 // Small dialog
+	
+	// Build main content
+	var mainContent strings.Builder
+	
+	// Header
+	header := "EXIT CONFIRMATION"
+	centeredHeader := lipgloss.NewStyle().
+		Width(contentWidth - 4).
+		Align(lipgloss.Center).
+		Render(headerStyle.Render(header))
+	mainContent.WriteString(centeredHeader)
+	mainContent.WriteString("\n\n")
+	
+	// Warning message
+	var warningMsg string
+	if m.exitConfirmationType == "pipeline" {
+		warningMsg = "You have unsaved changes in this pipeline."
+	} else if m.exitConfirmationType == "component" {
+		warningMsg = "You have unsaved content in this component."
+	} else if m.exitConfirmationType == "component-edit" {
+		warningMsg = "You have unsaved changes to this component."
+	}
+	
+	centeredWarning := lipgloss.NewStyle().
+		Width(contentWidth - 4).
+		Align(lipgloss.Center).
+		Render(warningStyle.Render(warningMsg))
+	mainContent.WriteString(centeredWarning)
+	mainContent.WriteString("\n")
+	
+	exitWarning := "Are you sure you want to exit?"
+	centeredExitWarning := lipgloss.NewStyle().
+		Width(contentWidth - 4).
+		Align(lipgloss.Center).
+		Render(warningStyle.Render(exitWarning))
+	mainContent.WriteString(centeredExitWarning)
+	mainContent.WriteString("\n\n")
+	
+	// Options
+	options := "[Y]es, exit  /  [N]o, stay"
+	centeredOptions := lipgloss.NewStyle().
+		Width(contentWidth - 4).
+		Align(lipgloss.Center).
+		Render(optionStyle.Render(options))
+	mainContent.WriteString(centeredOptions)
+	
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+	
+	// Center the dialog vertically
+	verticalPadding := (m.height - contentHeight - 4) / 2
+	dialogStyle := lipgloss.NewStyle().
+		PaddingTop(verticalPadding).
+		PaddingLeft(1).
+		PaddingRight(1)
+		
+	return dialogStyle.Render(mainPane)
 }
 
 func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1553,8 +1807,14 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 			// Save component
 			return m, m.saveNewComponent()
 		case "esc":
-			m.creationStep = 1
-			m.componentContent = ""
+			// If content has been entered, show confirmation
+			if strings.TrimSpace(m.componentContent) != "" {
+				m.showExitConfirmation = true
+				m.exitConfirmationType = "component"
+			} else {
+				m.creationStep = 1
+				m.componentContent = ""
+			}
 		case "enter":
 			m.componentContent += "\n"
 		case "backspace":
@@ -1763,6 +2023,34 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 		Align(lipgloss.Center)
 	
 	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
+	
+	// Check if component name already exists and show warning
+	if m.componentName != "" {
+		testFilename := sanitizeFileName(m.componentName) + ".md"
+		var componentType string
+		switch m.componentCreationType {
+		case models.ComponentTypeContext:
+			componentType = "contexts"
+		case models.ComponentTypePrompt:
+			componentType = "prompts"
+		case models.ComponentTypeRules:
+			componentType = "rules"
+		}
+		
+		existingComponents, _ := files.ListComponents(componentType)
+		for _, existing := range existingComponents {
+			if strings.EqualFold(existing, testFilename) {
+				// Show warning
+				warningStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("214")). // Orange/yellow for warning
+					Bold(true)
+				warningText := warningStyle.Render(fmt.Sprintf("⚠ Warning: %s '%s' already exists", strings.Title(m.componentCreationType), m.componentName))
+				mainContent.WriteString("\n\n")
+				mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(warningText)))
+				break
+			}
+		}
+	}
 
 	// Apply border to main content
 	mainPane := borderStyle.
@@ -1880,21 +2168,37 @@ func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
 		// Create filename from name using sanitization
 		filename := sanitizeFileName(m.componentName) + ".md"
 		
-		// Determine directory
+		// Determine directory and component type for listing
 		var dir string
+		var componentType string
 		switch m.componentCreationType {
 		case models.ComponentTypeContext:
 			dir = filepath.Join(files.ComponentsDir, files.ContextsDir)
+			componentType = "contexts"
 		case models.ComponentTypePrompt:
 			dir = filepath.Join(files.ComponentsDir, files.PromptsDir)
+			componentType = "prompts"
 		case models.ComponentTypeRules:
 			dir = filepath.Join(files.ComponentsDir, files.RulesDir)
+			componentType = "rules"
+		}
+		
+		// Check if component already exists (case-insensitive)
+		existingComponents, err := files.ListComponents(componentType)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("❌ Failed to check existing components: %v", err))
+		}
+		
+		for _, existing := range existingComponents {
+			if strings.EqualFold(existing, filename) {
+				return StatusMsg(fmt.Sprintf("❌ %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
+			}
 		}
 		
 		path := filepath.Join(dir, filename)
 		
 		// Write component
-		err := files.WriteComponent(path, m.componentContent)
+		err = files.WriteComponent(path, m.componentContent)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to save component '%s': %v", m.componentName, err))
 		}
@@ -1970,12 +2274,20 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 		// Save component but don't exit yet
 		return m, m.saveEditedComponent()
 	case "esc":
-		// Cancel editing
+		// Check if content has changed
+		if m.componentContent != m.originalContent {
+			// Show confirmation dialog
+			m.showExitConfirmation = true
+			m.exitConfirmationType = "component-edit"
+			return m, nil
+		}
+		// No changes, exit immediately
 		m.editingComponent = false
 		m.componentContent = ""
 		m.editingComponentPath = ""
 		m.editingComponentName = ""
 		m.editSaveMessage = ""
+		m.originalContent = ""
 		if m.editSaveTimer != nil {
 			m.editSaveTimer.Stop()
 		}
@@ -2109,6 +2421,9 @@ func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
 		
 		// Set save message
 		m.editSaveMessage = fmt.Sprintf("✓ Saved: %s", m.editingComponentName)
+		
+		// Update original content to the saved content
+		m.originalContent = m.componentContent
 		
 		// Cancel any existing timer
 		if m.editSaveTimer != nil {

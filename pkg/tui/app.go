@@ -127,21 +127,26 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return a, a.mainList.Init()
 		case pipelineBuilderView:
 			a.state = pipelineBuilderView
-			if a.builder == nil {
-				a.builder = NewPipelineBuilderModel()
+			// Always create a fresh builder to avoid state issues
+			a.builder = NewPipelineBuilderModel()
+			
+			// If pipeline specified, load it first to get the correct title
+			pipelineName := ""
+			if msg.pipeline != "" {
+				a.builder.SetPipeline(msg.pipeline)
+				if a.builder.pipeline != nil {
+					pipelineName = a.builder.pipeline.Name
+				}
 			}
-			// Calculate header height
-			header := renderHeader(a.width, "")
+			
+			// Calculate header height with the actual title
+			title := ""
+			if pipelineName != "" {
+				title = "Pipeline: " + pipelineName
+			}
+			header := renderHeader(a.width, title)
 			headerHeight := lipgloss.Height(header)
 			a.builder.SetSize(a.width, a.height-headerHeight)
-			
-			// If no pipeline specified (new pipeline), create a fresh builder
-			if msg.pipeline == "" {
-				a.builder = NewPipelineBuilderModel()
-				a.builder.SetSize(a.width, a.height-headerHeight)
-			} else {
-				a.builder.SetPipeline(msg.pipeline)
-			}
 			return a, a.builder.Init()
 		case pipelineViewerView:
 			a.state = pipelineViewerView
