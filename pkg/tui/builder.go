@@ -1378,14 +1378,18 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) nameInputView() string {
+	// Styles
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(1)
+
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(2)
+		Foreground(lipgloss.Color("214")) // Orange like other headers
 
 	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("252"))
 
 	inputStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -1393,33 +1397,82 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		Padding(0, 1).
 		Width(60)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(2)
+	// Calculate dimensions
+	contentWidth := m.width - 4 // Match help pane width
+	contentHeight := m.height - 10 // Reserve space for help pane
 
+	// Build main content
+	var mainContent strings.Builder
+
+	// Header with colons
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	heading := "CREATE NEW PIPELINE"
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+
+	// Name input prompt - centered
+	promptText := promptStyle.Render("Enter a descriptive name for your pipeline:")
+	centeredPromptStyle := lipgloss.NewStyle().
+		Width(contentWidth - 4). // Account for padding
+		Align(lipgloss.Center)
+	mainContent.WriteString(headerPadding.Render(centeredPromptStyle.Render(promptText)))
+	mainContent.WriteString("\n\n")
+
+	// Input field with cursor
+	input := m.nameInput + "│" // cursor
+
+	// Render input field with padding for centering
+	inputFieldContent := inputStyle.Render(input)
+	
+	// Add padding to center the input field properly
+	centeredInputStyle := lipgloss.NewStyle().
+		Width(contentWidth - 4). // Account for padding
+		Align(lipgloss.Center)
+	
+	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
+
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+
+	// Help section
+	help := []string{
+		"enter continue",
+		"esc cancel",
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine all elements
 	var s strings.Builder
-	s.WriteString(titleStyle.Render("🔧 Create New Pipeline"))
-	s.WriteString("\n\n")
-	s.WriteString(promptStyle.Render("Enter a descriptive name for your pipeline:"))
-	s.WriteString("\n")
-	
-	// Show input with cursor
-	input := m.nameInput
-	if input == "" {
-		input = " "
-	}
-	input += "│" // cursor
-	
-	s.WriteString(inputStyle.Render(input))
-	s.WriteString("\n\n")
-	s.WriteString(helpStyle.Render("Press Enter to continue • Press Esc to cancel"))
 
-	// Center the content
-	content := s.String()
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
-	return content
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(mainPane))
+	s.WriteString("\n")
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+
+	return s.String()
 }
 
 func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1507,29 +1560,54 @@ func (m *PipelineBuilderModel) componentCreationView() string {
 }
 
 func (m *PipelineBuilderModel) componentTypeSelectionView() string {
+	// Styles
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(1)
+
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(2)
+		Foreground(lipgloss.Color("214")) // Orange like other headers
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("170")).
 		Background(lipgloss.Color("236")).
 		Bold(true).
-		Padding(0, 2)
+		Padding(0, 1)
 
 	normalStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("252")).
-		Padding(0, 2)
+		Padding(0, 1)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(2)
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
 
-	var s strings.Builder
-	s.WriteString(titleStyle.Render("🆕 Create New Component"))
-	s.WriteString("\n\n")
-	s.WriteString("Select component type:\n\n")
+	// Calculate dimensions
+	contentWidth := m.width - 4 // Match help pane width
+	contentHeight := m.height - 10 // Reserve space for help pane
+
+	// Build main content
+	var mainContent strings.Builder
+
+	// Header with colons
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	heading := "CREATE NEW COMPONENT"
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+
+	// Component type selection
+	mainContent.WriteString(headerPadding.Render("Select component type:"))
+	mainContent.WriteString("\n\n")
 
 	types := []struct {
 		name string
@@ -1541,34 +1619,71 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 	}
 
 	for i, t := range types {
-		line := fmt.Sprintf("%s - %s", t.name, t.desc)
+		cursor := "  "
 		if i == m.typeCursor {
-			s.WriteString(selectedStyle.Render(line))
-		} else {
-			s.WriteString(normalStyle.Render(line))
+			cursor = "▸ "
 		}
-		s.WriteString("\n")
+
+		line := cursor + t.name
+		if i == m.typeCursor {
+			mainContent.WriteString(selectedStyle.Render(line))
+		} else {
+			mainContent.WriteString(normalStyle.Render(line))
+		}
+		mainContent.WriteString("\n")
+		mainContent.WriteString("  " + descStyle.Render(t.desc))
+		mainContent.WriteString("\n\n")
 	}
 
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+
+	// Help section
+	help := []string{
+		"↑/↓ navigate",
+		"enter select",
+		"esc cancel",
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine all elements
+	var s strings.Builder
+
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(mainPane))
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render("↑/↓: select • Enter: continue • Esc: cancel"))
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
-	content := s.String()
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
-	return content
+	return s.String()
 }
 
 func (m *PipelineBuilderModel) componentNameInputView() string {
+	// Styles
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(1)
+
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(2)
+		Foreground(lipgloss.Color("214")) // Orange like other headers
 
 	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("252"))
 
 	inputStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -1576,63 +1691,156 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 		Padding(0, 1).
 		Width(60)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(2)
+	// Calculate dimensions
+	contentWidth := m.width - 4 // Match help pane width
+	contentHeight := m.height - 10 // Reserve space for help pane
 
+	// Build main content
+	var mainContent strings.Builder
+
+	// Header with colons
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(m.componentCreationType))
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+
+	// Name input prompt - centered
+	promptText := promptStyle.Render("Enter a descriptive name:")
+	centeredPromptStyle := lipgloss.NewStyle().
+		Width(contentWidth - 4). // Account for padding
+		Align(lipgloss.Center)
+	mainContent.WriteString(headerPadding.Render(centeredPromptStyle.Render(promptText)))
+	mainContent.WriteString("\n\n")
+
+	// Input field with cursor
+	input := m.componentName + "│" // cursor
+
+	// Render input field with padding for centering
+	inputFieldContent := inputStyle.Render(input)
+	
+	// Add padding to center the input field properly
+	centeredInputStyle := lipgloss.NewStyle().
+		Width(contentWidth - 4). // Account for padding
+		Align(lipgloss.Center)
+	
+	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
+
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+
+	// Help section
+	help := []string{
+		"enter continue",
+		"esc back",
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine all elements
 	var s strings.Builder
-	s.WriteString(titleStyle.Render(fmt.Sprintf("🆕 Create New %s Component", strings.Title(m.componentCreationType))))
-	s.WriteString("\n\n")
-	s.WriteString(promptStyle.Render("Enter a descriptive name:"))
-	s.WriteString("\n")
-	
-	input := m.componentName
-	if input == "" {
-		input = " "
-	}
-	input += "│"
-	
-	s.WriteString(inputStyle.Render(input))
-	s.WriteString("\n\n")
-	s.WriteString(helpStyle.Render("Enter: continue • Esc: back"))
 
-	content := s.String()
-	if m.width > 0 && m.height > 0 {
-		return lipgloss.Place(m.width, m.height, lipgloss.Center, lipgloss.Center, content)
-	}
-	return content
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(mainPane))
+	s.WriteString("\n")
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+
+	return s.String()
 }
 
 func (m *PipelineBuilderModel) componentContentEditView() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170"))
-
-	editorStyle := lipgloss.NewStyle().
+	// Styles
+	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170")).
-		Padding(1).
-		Width(m.width - 4).
-		Height(m.height - 10)
+		Padding(1)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")) // Orange like other headers
 
-	var s strings.Builder
-	s.WriteString(titleStyle.Render(fmt.Sprintf("📝 %s: %s", strings.Title(m.componentCreationType), m.componentName)))
-	s.WriteString("\n\n")
-	
-	// Show content with cursor
-	content := m.componentContent
-	if content == "" {
-		content = " "
+	editorContentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	// Calculate dimensions
+	contentWidth := m.width - 4 // Match help pane width
+	contentHeight := m.height - 10 // Reserve space for help pane
+
+	// Build main content
+	var mainContent strings.Builder
+
+	// Header with colons
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	heading := fmt.Sprintf("EDIT %s: %s", strings.ToUpper(m.componentCreationType), m.componentName)
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
 	}
-	content += "│"
-	
-	s.WriteString(editorStyle.Render(content))
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+
+	// Editor content with cursor
+	content := m.componentContent + "│" // cursor
+
+	mainContent.WriteString(headerPadding.Render(editorContentStyle.Render(content)))
+
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+
+	// Help section
+	help := []string{
+		"ctrl+s save",
+		"esc back",
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine all elements
+	var s strings.Builder
+
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(mainPane))
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render("Type to edit • ctrl+s: save • esc: back"))
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
 }
@@ -1762,47 +1970,94 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 }
 
 func (m *PipelineBuilderModel) componentEditView() string {
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170"))
-
-	editorStyle := lipgloss.NewStyle().
+	// Styles
+	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170")).
-		Padding(1).
-		Width(m.width - 4).
-		Height(m.height - 12) // Make room for save message
+		Padding(1)
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
-
-	saveMessageStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("82")). // Green
+	titleStyle := lipgloss.NewStyle().
 		Bold(true).
+		Foreground(lipgloss.Color("214")) // Orange like other headers
+
+	editorContentStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("252"))
+
+	// Calculate dimensions  
+	contentWidth := m.width - 4 // Match help pane width
+	contentHeight := m.height - 12 // Reserve space for help pane and save message
+
+	// Build main content
+	var mainContent strings.Builder
+
+	// Header with colons
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(m.editingComponentName))
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+
+	// Editor content with cursor
+	content := m.componentContent + "│" // cursor
+
+	mainContent.WriteString(headerPadding.Render(editorContentStyle.Render(content)))
+
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+
+	// Help section
+	help := []string{
+		"ctrl+s save",
+		"esc cancel",
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine all elements
+	var s strings.Builder
+
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(mainPane))
+	s.WriteString("\n")
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+
+	// Save message area - always render to maintain consistent layout
+	saveMessageStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("82")). // Green for success
+		Width(m.width).
+		Align(lipgloss.Center).
+		Padding(0, 1).
 		MarginTop(1)
 
-	var s strings.Builder
-	s.WriteString(titleStyle.Render(fmt.Sprintf("📝 Editing: %s", m.editingComponentName)))
-	s.WriteString("\n\n")
-	
-	// Show content with cursor
-	content := m.componentContent
-	if content == "" {
-		content = " "
-	}
-	content += "│"
-	
-	s.WriteString(editorStyle.Render(content))
 	s.WriteString("\n")
-	
-	// Show save message if present
 	if m.editSaveMessage != "" {
 		s.WriteString(saveMessageStyle.Render(m.editSaveMessage))
-		s.WriteString("\n")
+	} else {
+		// Render empty space to maintain layout
+		s.WriteString(lipgloss.NewStyle().Height(1).Render(""))
 	}
-	
-	s.WriteString(helpStyle.Render("Type to edit • ctrl+s: save • esc: cancel"))
 
 	return s.String()
 }
