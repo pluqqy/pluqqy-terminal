@@ -443,7 +443,17 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Build left column (available components)
 	var leftContent strings.Builder
-	leftContent.WriteString(typeHeaderStyle.Render("Available Components") + "\n\n")
+	// Create heading with colons spanning the width
+	heading := "AVAILABLE COMPONENTS"
+	remainingWidth := columnWidth - len(heading) - 3 // -3 for space and padding
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	// Render heading and colons separately with different styles
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")) // Subtle gray
+	leftContent.WriteString(typeHeaderStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth)))
+	leftContent.WriteString("\n\n")
 
 	// Table header styles
 	headerStyle := lipgloss.NewStyle().
@@ -461,7 +471,8 @@ func (m *PipelineBuilderModel) View() string {
 		nameWidth, "Name",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
-	leftContent.WriteString(headerStyle.Render(header) + "\n")
+	leftContent.WriteString(headerStyle.Render(header))
+	leftContent.WriteString("\n")
 
 	allComponents := m.getAllAvailableComponents()
 	currentType := ""
@@ -472,7 +483,19 @@ func (m *PipelineBuilderModel) View() string {
 				leftContent.WriteString("\n")
 			}
 			currentType = comp.compType
-			leftContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", strings.Title(currentType))) + "\n")
+			// Convert to uppercase plural form
+			var typeHeader string
+			switch currentType {
+			case models.ComponentTypeContext:
+				typeHeader = "CONTEXTS"
+			case models.ComponentTypePrompt:
+				typeHeader = "PROMPTS"
+			case models.ComponentTypeRules:
+				typeHeader = "RULES"
+			default:
+				typeHeader = strings.ToUpper(currentType)
+			}
+			leftContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
 		}
 
 		// Check if component is already in pipeline
@@ -548,7 +571,15 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
-	rightContent.WriteString(typeHeaderStyle.Render("Pipeline Components") + "\n\n")
+	// Create heading with colons spanning the width
+	rightHeading := "PIPELINE COMPONENTS"
+	rightRemainingWidth := columnWidth - len(rightHeading) - 3
+	if rightRemainingWidth < 0 {
+		rightRemainingWidth = 0
+	}
+	// Render heading and colons separately with different styles
+	rightContent.WriteString(typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth)))
+	rightContent.WriteString("\n\n")
 
 	if len(m.selectedComponents) == 0 {
 		rightContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
@@ -708,8 +739,27 @@ func (m *PipelineBuilderModel) View() string {
 		
 		// Build preview content with header inside
 		var previewContent strings.Builder
-		previewContent.WriteString(typeHeaderStyle.Render("Pipeline Preview (PLUQQY.md)") + " " + tokenBadge + limitInfo)
-		previewContent.WriteString("\n")
+		// Create heading with colons and token info
+		previewHeading := "PIPELINE PREVIEW (PLUQQY.md)"
+		tokenInfo := tokenBadge + limitInfo
+		
+		// Calculate the actual rendered width of token info
+		tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
+		
+		// Calculate total available width inside the border
+		totalWidth := m.width - 6 // accounting for border padding
+		
+		// Calculate space for colons between heading and token info
+		colonSpace := totalWidth - len(previewHeading) - tokenInfoWidth - 2 // -2 for spaces
+		if colonSpace < 3 {
+			colonSpace = 3
+		}
+		
+		// Build the complete header line
+		previewColonStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")) // Subtle gray
+		previewContent.WriteString(typeHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo)
+		previewContent.WriteString("\n\n")
 		previewContent.WriteString(m.previewViewport.View())
 		
 		// Render the border around the entire preview
@@ -800,6 +850,14 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		for _, comp := range m.selectedComponents {
 			componentPath := strings.TrimPrefix(comp.Path, "../")
 			m.updateLocalUsageCount(componentPath, 1)
+		}
+		
+		// Update preview to show the loaded pipeline
+		m.updatePreview()
+		
+		// Set viewport content if preview is enabled
+		if m.showPreview && m.previewContent != "" {
+			m.previewViewport.SetContent(m.previewContent)
 		}
 	}
 }

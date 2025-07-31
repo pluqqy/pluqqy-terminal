@@ -180,8 +180,17 @@ func (m *PipelineViewerModel) View() string {
 
 	// Build left column (components)
 	var leftContent strings.Builder
-	leftContent.WriteString(headerStyle.Render("Components"))
-	leftContent.WriteString("\n")
+	// Create heading with colons spanning the width
+	leftHeading := "COMPONENTS"
+	leftRemainingWidth := leftWidth - len(leftHeading) - 3
+	if leftRemainingWidth < 0 {
+		leftRemainingWidth = 0
+	}
+	// Render heading and colons separately with different styles
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")) // Subtle gray
+	leftContent.WriteString(headerStyle.Render(leftHeading) + " " + colonStyle.Render(strings.Repeat(":", leftRemainingWidth)))
+	leftContent.WriteString("\n\n")
 	leftContent.WriteString(m.componentsViewport.View())
 
 	// Build right column (preview)
@@ -219,12 +228,22 @@ func (m *PipelineViewerModel) View() string {
 		Foreground(lipgloss.Color("241")).
 		Render(fmt.Sprintf(" %d%% of %dK", percentage, limit/1024))
 	
-	// Create the header with token info on the same line
-	headerText := "Pipeline Preview (PLUQQY.md)"
-	headerWithToken := headerStyle.Render(headerText) + " " + tokenBadge + limitInfo
+	// Create the header with colons and token info
+	headerText := "PIPELINE PREVIEW (PLUQQY.md)"
+	tokenInfo := tokenBadge + limitInfo
 	
-	rightContent.WriteString(headerWithToken)
-	rightContent.WriteString("\n\n") // Extra newline for spacing
+	// Calculate the actual rendered width of token info
+	tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
+	
+	// Calculate space for colons between heading and token info
+	colonSpace := rightWidth - len(headerText) - tokenInfoWidth - 4 // -4 for padding/spaces
+	if colonSpace < 3 {
+		colonSpace = 3
+	}
+	
+	// Build the complete header line with right-aligned token info
+	rightContent.WriteString(headerStyle.Render(headerText) + " " + colonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo)
+	rightContent.WriteString("\n\n")
 	rightContent.WriteString(m.previewViewport.View())
 
 	// Apply borders based on active pane
