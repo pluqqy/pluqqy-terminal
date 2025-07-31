@@ -746,6 +746,30 @@ func (m *PipelineBuilderModel) View() string {
 	// Wrap content to viewport width to prevent overflow
 	wrappedLeftContent := wordwrap.String(leftScrollContent.String(), m.leftViewport.Width)
 	m.leftViewport.SetContent(wrappedLeftContent)
+	
+	// Update viewport to follow cursor
+	if m.activeColumn == leftColumn && len(allComponents) > 0 {
+		// Calculate the line position of the cursor
+		currentLine := 0
+		for i := 0; i < m.leftCursor && i < len(allComponents); i++ {
+			currentLine++ // Component line
+			// Check if it's the first item of a new type to add header line
+			if i == 0 || allComponents[i].compType != allComponents[i-1].compType {
+				currentLine++ // Type header line
+				if i > 0 {
+					currentLine++ // Empty line between sections
+				}
+			}
+		}
+		
+		// Ensure the cursor line is visible
+		if currentLine < m.leftViewport.YOffset {
+			m.leftViewport.SetYOffset(currentLine)
+		} else if currentLine >= m.leftViewport.YOffset+m.leftViewport.Height {
+			m.leftViewport.SetYOffset(currentLine - m.leftViewport.Height + 1)
+		}
+	}
+	
 	// Add padding to viewport content
 	leftViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
@@ -854,6 +878,74 @@ func (m *PipelineBuilderModel) View() string {
 	// Wrap content to viewport width to prevent overflow
 	wrappedRightContent := wordwrap.String(rightScrollContent.String(), m.rightViewport.Width)
 	m.rightViewport.SetContent(wrappedRightContent)
+	
+	// Update viewport to follow cursor
+	if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+		// Calculate the line position of the cursor
+		currentLine := 0
+		overallIndex := 0
+		
+		// Track which type we're in
+		var contexts, prompts, rules []models.ComponentRef
+		for _, comp := range m.selectedComponents {
+			switch comp.Type {
+			case models.ComponentTypeContext:
+				contexts = append(contexts, comp)
+			case models.ComponentTypePrompt:
+				prompts = append(prompts, comp)
+			case models.ComponentTypeRules:
+				rules = append(rules, comp)
+			}
+		}
+		
+		// Count lines up to cursor position
+		if len(contexts) > 0 {
+			currentLine++ // CONTEXTS header
+			for range contexts {
+				if overallIndex == m.rightCursor {
+					break
+				}
+				currentLine++
+				overallIndex++
+			}
+			if overallIndex < m.rightCursor && (len(prompts) > 0 || len(rules) > 0) {
+				currentLine++ // Empty line between sections
+			}
+		}
+		
+		if len(prompts) > 0 && overallIndex < m.rightCursor {
+			currentLine++ // PROMPTS header
+			for range prompts {
+				if overallIndex == m.rightCursor {
+					break
+				}
+				currentLine++
+				overallIndex++
+			}
+			if overallIndex < m.rightCursor && len(rules) > 0 {
+				currentLine++ // Empty line between sections
+			}
+		}
+		
+		if len(rules) > 0 && overallIndex < m.rightCursor {
+			currentLine++ // RULES header
+			for range rules {
+				if overallIndex == m.rightCursor {
+					break
+				}
+				currentLine++
+				overallIndex++
+			}
+		}
+		
+		// Ensure the cursor line is visible
+		if currentLine < m.rightViewport.YOffset {
+			m.rightViewport.SetYOffset(currentLine)
+		} else if currentLine >= m.rightViewport.YOffset+m.rightViewport.Height {
+			m.rightViewport.SetYOffset(currentLine - m.rightViewport.Height + 1)
+		}
+	}
+	
 	// Add padding to viewport content
 	rightViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
