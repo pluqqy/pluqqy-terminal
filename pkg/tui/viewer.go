@@ -95,7 +95,7 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 
-		case "r", "R":
+		case "S":
 			// Set pipeline (generate PLUQQY.md)
 			return m, m.setPipeline()
 
@@ -302,7 +302,7 @@ func (m *PipelineViewerModel) View() string {
 	help := []string{
 		"Tab: switch pane",
 		"↑/↓: scroll",
-		"r: set",
+		"S: set",
 		"E: edit external",
 		"e: edit TUI",
 		"Esc: back",

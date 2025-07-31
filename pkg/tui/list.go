@@ -112,7 +112,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return StatusMsg("Pipeline list refreshed")
 			}
 		
-		case "R":
+		case "S":
 			// Set selected pipeline (generate PLUQQY.md)
 			if len(m.pipelines) > 0 && m.cursor < len(m.pipelines) {
 				return m, m.setPipeline(m.pipelines[m.cursor])
@@ -209,7 +209,7 @@ func (m *MainListModel) View() string {
 		"e: edit",
 		"n: new",
 		"d: delete",
-		"R: set",
+		"S: set",
 		"r: refresh",
 		"q/Ctrl+C: quit",
 	}

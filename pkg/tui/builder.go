@@ -330,6 +330,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "s", "ctrl+s":
 			// Save pipeline
 			return m, m.savePipeline()
+			
+		case "S":
+			// Save and set pipeline (generate PLUQQY.md)
+			return m, m.saveAndSetPipeline()
 
 		case "ctrl+up", "K":
 			if m.activeColumn == rightColumn {
@@ -872,7 +876,8 @@ func (m *PipelineBuilderModel) View() string {
 		"Del: remove",
 		"K/J: reorder",
 		"p: preview",
-		"Ctrl+S: save",
+		"s: save",
+		"S: save+set",
 		"Esc: back",
 		"Ctrl+C: quit",
 	}
@@ -1261,6 +1266,68 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		
 		// Set save message
 		m.pipelineSaveMessage = fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path)
+		
+		// Reload components to update usage stats after save
+		m.loadAvailableComponents()
+		
+		// Cancel any existing timer
+		if m.pipelineSaveTimer != nil {
+			m.pipelineSaveTimer.Stop()
+		}
+		
+		// Set timer to clear message after 2 seconds
+		m.pipelineSaveTimer = time.NewTimer(2 * time.Second)
+		
+		// Return a command to clear the message after timer
+		return func() tea.Msg {
+			<-m.pipelineSaveTimer.C
+			return clearPipelineSaveMsg{}
+		}
+	}
+}
+
+func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
+	return func() tea.Msg {
+		// Update pipeline with selected components
+		m.pipeline.Components = m.selectedComponents
+		
+		// Create filename from name using sanitization
+		m.pipeline.Path = sanitizeFileName(m.pipeline.Name) + ".yaml"
+		
+		// Save pipeline
+		err := files.WritePipeline(m.pipeline)
+		if err != nil {
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
+			return nil
+		}
+		
+		// Generate pipeline output
+		output, err := composer.ComposePipeline(m.pipeline)
+		if err != nil {
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to generate output: %v", err)
+			return nil
+		}
+
+		// Write to PLUQQY.md
+		outputPath := m.pipeline.OutputPath
+		if outputPath == "" {
+			outputPath = files.DefaultOutputFile
+		}
+		
+		err = composer.WritePLUQQYFile(output, outputPath)
+		if err != nil {
+			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to write output: %v", err)
+			return nil
+		}
+		
+		// Set save message
+		m.pipelineSaveMessage = fmt.Sprintf("✓ Saved & Set → %s", outputPath)
+		
+		// Update preview if showing
+		if m.showPreview {
+			m.previewContent = output
+			m.previewViewport.SetContent(output)
+		}
 		
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
