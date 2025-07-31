@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
@@ -21,11 +22,20 @@ type PipelineViewerModel struct {
 	pipeline     *models.Pipeline
 	composed     string
 	err          error
-	scrollY      int
+	scrollY      int // For manual scrolling (deprecated)
+	
+	// Viewports for scrollable content
+	componentsViewport viewport.Model
+	previewViewport    viewport.Model
+	activePane         int // 0: components, 1: preview
 }
 
 func NewPipelineViewerModel() *PipelineViewerModel {
-	return &PipelineViewerModel{}
+	return &PipelineViewerModel{
+		componentsViewport: viewport.New(30, 20), // Default sizes
+		previewViewport:    viewport.New(80, 20),
+		activePane:         1, // Start with preview active
+	}
 }
 
 func (m *PipelineViewerModel) Init() tea.Cmd {
@@ -49,12 +59,24 @@ func (m *PipelineViewerModel) loadPipeline() tea.Cmd {
 		}
 		m.composed = composed
 		
+		// Update viewport sizes now that we have content
+		m.updateViewportSizes()
+		
 		return StatusMsg(fmt.Sprintf("Loaded pipeline: %s", m.pipelineName))
 	}
 }
 
 func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		// Update viewport sizes
+		m.updateViewportSizes()
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "esc":
@@ -62,6 +84,15 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
 			}
+
+		case "tab":
+			// Switch between panes
+			if m.activePane == 0 {
+				m.activePane = 1
+			} else {
+				m.activePane = 0
+			}
+			return m, nil
 
 		case "r", "R":
 			// Set pipeline (generate PLUQQY.md)
@@ -80,35 +111,31 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-		case "up", "k":
-			if m.scrollY > 0 {
-				m.scrollY--
+		case "up", "k", "down", "j", "pgup", "pgdown":
+			// Forward to active viewport
+			if m.activePane == 0 {
+				m.componentsViewport, cmd = m.componentsViewport.Update(msg)
+			} else {
+				m.previewViewport, cmd = m.previewViewport.Update(msg)
 			}
-
-		case "down", "j":
-			lines := strings.Split(m.composed, "\n")
-			maxScroll := len(lines) - (m.height - 10)
-			if maxScroll > 0 && m.scrollY < maxScroll {
-				m.scrollY++
-			}
-
-		case "pgup", "ctrl+u":
-			m.scrollY -= 10
-			if m.scrollY < 0 {
-				m.scrollY = 0
-			}
-
-		case "pgdown", "ctrl+d":
-			lines := strings.Split(m.composed, "\n")
-			maxScroll := len(lines) - (m.height - 10)
-			m.scrollY += 10
-			if m.scrollY > maxScroll && maxScroll > 0 {
-				m.scrollY = maxScroll
-			}
+			cmds = append(cmds, cmd)
+			return m, tea.Batch(cmds...)
 		}
 	}
 
-	return m, nil
+	// Forward other messages to viewports
+	if m.pipeline != nil {
+		m.componentsViewport, cmd = m.componentsViewport.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+		m.previewViewport, cmd = m.previewViewport.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *PipelineViewerModel) View() string {
@@ -120,87 +147,81 @@ func (m *PipelineViewerModel) View() string {
 		return "Loading pipeline..."
 	}
 
-	// Styles - matching the builder
+	// Update viewport content
+	m.updateViewportContent()
+
+	// Styles
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("170")).
 		MarginBottom(1)
 
-	previewStyle := lipgloss.NewStyle().
+	activeStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("243")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
+
+	inactiveStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240"))
 
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
 		MarginTop(1)
 
-	typeHeaderStyle := lipgloss.NewStyle().
+	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214"))
+		Foreground(lipgloss.Color("214")).
+		MarginBottom(1)
 
 	// Calculate dimensions
-	contentWidth := m.width - 4
-	componentCount := len(m.pipeline.Components)
-	contentHeight := m.height - 12 - componentCount // Leave room for title, components, and help
+	leftWidth := 35 // Fixed width for components
+	rightWidth := m.width - leftWidth - 3 // -3 for borders and gap
+	contentHeight := m.height - 8 // Reserve space for title and help
 
-	// Build view
+	// Build left column (components)
+	var leftContent strings.Builder
+	leftContent.WriteString(headerStyle.Render("Components"))
+	leftContent.WriteString("\n")
+	leftContent.WriteString(m.componentsViewport.View())
+
+	// Build right column (preview)
+	var rightContent strings.Builder
+	rightContent.WriteString(headerStyle.Render("Pipeline Preview (PLUQQY.md)"))
+	rightContent.WriteString("\n")
+	rightContent.WriteString(m.previewViewport.View())
+
+	// Apply borders based on active pane
+	leftStyle := inactiveStyle
+	rightStyle := inactiveStyle
+	if m.activePane == 0 {
+		leftStyle = activeStyle
+	} else {
+		rightStyle = activeStyle
+	}
+
+	leftColumn := leftStyle.
+		Width(leftWidth).
+		Height(contentHeight).
+		Render(leftContent.String())
+
+	rightColumn := rightStyle.
+		Width(rightWidth).
+		Height(contentHeight).
+		Render(rightContent.String())
+
+	// Join columns
+	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, " ", rightColumn)
+
+	// Build final view
 	var s strings.Builder
-	
-	// Title
 	title := fmt.Sprintf("📄 Pipeline: %s", m.pipeline.Name)
 	s.WriteString(titleStyle.Render(title))
 	s.WriteString("\n\n")
+	s.WriteString(columns)
 
-	// Component list
-	s.WriteString(typeHeaderStyle.Render("Components:"))
-	s.WriteString("\n")
-	componentStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-	for i, comp := range m.pipeline.Components {
-		s.WriteString(componentStyle.Render(fmt.Sprintf("  %d. [%s] %s", i+1, comp.Type, filepath.Base(comp.Path))))
-		s.WriteString("\n")
-	}
-	s.WriteString("\n")
-
-	// Preview header
-	s.WriteString(typeHeaderStyle.Render("Pipeline Preview (PLUQQY.md)"))
-	s.WriteString("\n")
-
-	// Content in bordered box
-	if contentWidth > 0 && contentHeight > 0 {
-		// Apply scrolling within the content
-		lines := strings.Split(m.composed, "\n")
-		visibleLines := []string{}
-		
-		startLine := m.scrollY
-		endLine := startLine + contentHeight - 2 // -2 for padding
-		if endLine > len(lines) {
-			endLine = len(lines)
-		}
-		
-		for i := startLine; i < endLine && i < len(lines); i++ {
-			visibleLines = append(visibleLines, lines[i])
-		}
-		
-		content := strings.Join(visibleLines, "\n")
-		
-		// Add scroll indicator if needed
-		if len(lines) > contentHeight-2 {
-			scrollInfo := fmt.Sprintf("\n\n[Lines %d-%d of %d]", startLine+1, endLine, len(lines))
-			content += scrollInfo
-		}
-		
-		styledBox := previewStyle.
-			Width(contentWidth).
-			Height(contentHeight).
-			Render(content)
-		
-		s.WriteString(styledBox)
-	}
-
-	// Help
+	// Help text
 	help := []string{
+		"Tab: switch pane",
 		"↑/↓: scroll",
 		"r: set",
 		"E: edit external",
@@ -217,10 +238,53 @@ func (m *PipelineViewerModel) View() string {
 func (m *PipelineViewerModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.updateViewportSizes()
 }
 
 func (m *PipelineViewerModel) SetPipeline(pipeline string) {
 	m.pipelineName = pipeline
+}
+
+func (m *PipelineViewerModel) updateViewportSizes() {
+	if m.width == 0 || m.height == 0 {
+		return
+	}
+	
+	// Calculate dimensions
+	leftWidth := 33 // Content width for components (35 - 2 for borders)
+	rightWidth := m.width - 35 - 3 - 2 // Total - left column - gap - borders
+	contentHeight := m.height - 10 // Reserve space for title, headers, and help
+	
+	if contentHeight < 5 {
+		contentHeight = 5
+	}
+	
+	// Update viewport sizes
+	m.componentsViewport.Width = leftWidth
+	m.componentsViewport.Height = contentHeight
+	m.previewViewport.Width = rightWidth
+	m.previewViewport.Height = contentHeight
+}
+
+func (m *PipelineViewerModel) updateViewportContent() {
+	if m.pipeline == nil {
+		return
+	}
+	
+	// Build components content
+	var componentsContent strings.Builder
+	componentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	
+	for i, comp := range m.pipeline.Components {
+		line := fmt.Sprintf("%d. [%s] %s", i+1, comp.Type, filepath.Base(comp.Path))
+		componentsContent.WriteString(componentStyle.Render(line))
+		if i < len(m.pipeline.Components)-1 {
+			componentsContent.WriteString("\n")
+		}
+	}
+	
+	m.componentsViewport.SetContent(componentsContent.String())
+	m.previewViewport.SetContent(m.composed)
 }
 
 func (m *PipelineViewerModel) setPipeline() tea.Cmd {
