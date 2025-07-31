@@ -422,8 +422,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeColumn == leftColumn {
 				m.addSelectedComponent()
 			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
-				// Edit selected component in right column
-				return m, m.editComponent()
+				// Remove selected component in right column (same as delete)
+				m.removeSelectedComponent()
 			}
 
 		case "delete", "backspace", "d":
@@ -472,6 +472,9 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.leftCursor >= 0 && m.leftCursor < len(components) {
 					return m, m.editComponentFromLeft()
 				}
+			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+				// Edit selected component in external editor from right column
+				return m, m.editComponent()
 			}
 		
 		case "e":
@@ -490,6 +493,40 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.editingComponent = true
 					m.editingComponentPath = comp.path
 					m.editingComponentName = comp.name
+					m.componentContent = content.Content
+					m.originalContent = content.Content // Store original for change detection
+					
+					// Initialize edit viewport
+					m.editViewport = viewport.New(m.width-8, m.height-10)
+					m.editViewport.SetContent(content.Content)
+					
+					return m, nil
+				}
+			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+				// Edit component in TUI editor from right column
+				if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
+					selected := m.selectedComponents[m.rightCursor]
+					// Convert path from relative to component path
+					componentPath := strings.TrimPrefix(selected.Path, "../")
+					
+					// Read the component content
+					content, err := files.ReadComponent(componentPath)
+					if err != nil {
+						m.err = err
+						return m, nil
+					}
+					
+					// Extract component name from path
+					parts := strings.Split(componentPath, "/")
+					componentName := ""
+					if len(parts) >= 2 {
+						componentName = strings.TrimSuffix(parts[1], ".md")
+					}
+					
+					// Enter editing mode
+					m.editingComponent = true
+					m.editingComponentPath = componentPath
+					m.editingComponentName = componentName
 					m.componentContent = content.Content
 					m.originalContent = content.Content // Store original for change detection
 					
@@ -1079,10 +1116,10 @@ func (m *PipelineBuilderModel) View() string {
 	help := []string{
 		"tab switch pane",
 		"↑/↓ nav",
-		"enter add/edit",
+		"enter add/remove",
 		"n new",
+		"e edit",
 		"E edit external",
-		"e edit tui",
 		"del remove",
 		"K/J reorder",
 		"p preview",
@@ -1272,9 +1309,26 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 		
 		// Check if component is already added
 		componentPath := "../" + selected.path
-		for _, existing := range m.selectedComponents {
+		for i, existing := range m.selectedComponents {
 			if existing.Path == componentPath {
-				// Component already exists, don't add duplicate
+				// Component already exists, remove it from the pipeline
+				// Update the usage count before removing
+				m.updateLocalUsageCount(selected.path, -1)
+				
+				// Remove the component
+				m.selectedComponents = append(
+					m.selectedComponents[:i],
+					m.selectedComponents[i+1:]...,
+				)
+				
+				// Reorganize to maintain grouping
+				m.reorganizeComponentsByType()
+				
+				// Adjust right cursor if needed
+				if m.rightCursor >= len(m.selectedComponents) && m.rightCursor > 0 {
+					m.rightCursor = len(m.selectedComponents) - 1
+				}
+				
 				return
 			}
 		}
@@ -2389,6 +2443,24 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 	case "ctrl+s":
 		// Save component but don't exit yet
 		return m, m.saveEditedComponent()
+	case "E":
+		// Save current content and open in external editor
+		// First save any unsaved changes
+		if m.componentContent != m.originalContent {
+			err := files.WriteComponent(m.editingComponentPath, m.componentContent)
+			if err != nil {
+				// Store error message to display
+				m.editSaveMessage = fmt.Sprintf("❌ Failed to save before external edit: %v", err)
+				// Set timer to clear message
+				m.editSaveTimer = time.NewTimer(3 * time.Second)
+				return m, func() tea.Msg {
+					<-m.editSaveTimer.C
+					return clearEditSaveMsg{}
+				}
+			}
+		}
+		// Open in external editor
+		return m, m.openInEditor(m.editingComponentPath)
 	case "esc":
 		// Check if content has changed
 		if m.componentContent != m.originalContent {
@@ -2493,6 +2565,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	help := []string{
 		"↑/↓ scroll",
 		"ctrl+s save",
+		"E edit external",
 		"esc cancel",
 	}
 

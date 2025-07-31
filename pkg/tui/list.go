@@ -2,6 +2,8 @@ package tui
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -401,6 +403,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 			}
+		
+		case "E":
+			// Edit component in external editor
+			if m.activePane == componentsPane {
+				components := m.getAllComponents()
+				if m.componentCursor >= 0 && m.componentCursor < len(components) {
+					comp := components[m.componentCursor]
+					return m, m.openInEditor(comp.path)
+				}
+			}
+			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged
 		
 		case "n":
 			if m.activePane == pipelinesPane {
@@ -975,6 +988,7 @@ func (m *MainListModel) View() string {
 		"↑/↓ nav",
 		"enter view/edit",
 		"e edit",
+		"E edit external",
 		"n new",
 		"d delete",
 		"S set",
@@ -1247,6 +1261,19 @@ func (m *MainListModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.C
 	case "ctrl+s":
 		// Save component and exit
 		return m, m.saveEditedComponent()
+	case "E":
+		// Save current content and open in external editor
+		// First save any unsaved changes
+		if m.componentContent != m.originalContent {
+			err := files.WriteComponent(m.editingComponentPath, m.componentContent)
+			if err != nil {
+				return m, func() tea.Msg {
+					return StatusMsg(fmt.Sprintf("❌ Failed to save before external edit: %v", err))
+				}
+			}
+		}
+		// Open in external editor
+		return m, m.openInEditor(m.editingComponentPath)
 	case "esc":
 		// Check if content has changed
 		if m.componentContent != m.originalContent {
@@ -1681,6 +1708,7 @@ func (m *MainListModel) componentEditView() string {
 	help := []string{
 		"↑/↓ scroll",
 		"ctrl+s save",
+		"E edit external",
 		"esc cancel",
 	}
 
@@ -1862,6 +1890,39 @@ func (m *MainListModel) saveEditedComponent() tea.Cmd {
 		m.loadComponents()
 		
 		return StatusMsg(fmt.Sprintf("✓ Saved: %s", m.editingComponentName))
+	}
+}
+
+func (m *MainListModel) openInEditor(path string) tea.Cmd {
+	return func() tea.Msg {
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			return StatusMsg("Error: $EDITOR environment variable not set. Please set it to your preferred editor.")
+		}
+
+		// Validate editor path to prevent command injection
+		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
+			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
+		}
+
+		// Construct full path
+		fullPath := filepath.Join(files.PluqqyDir, path)
+		
+		// Execute editor
+		cmd := exec.Command(editor, fullPath)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+
+		err := cmd.Run()
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
+		}
+
+		// Reload components to reflect any changes
+		m.loadComponents()
+
+		return StatusMsg(fmt.Sprintf("Edited: %s", filepath.Base(path)))
 	}
 }
 
