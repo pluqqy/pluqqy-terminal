@@ -149,10 +149,6 @@ func (m *MainListModel) View() string {
 	normalStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("252"))
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
-
 	// Build the view
 	var s strings.Builder
 	
@@ -203,15 +199,15 @@ func (m *MainListModel) View() string {
 	
 	// Help text in bordered pane
 	help := []string{
-		"↑/k: up",
-		"↓/j: down",
-		"enter: view",
-		"e: edit",
-		"n: new",
-		"d: delete",
-		"S: set",
-		"r: refresh",
-		"q/Ctrl+C: quit",
+		"↑/k up",
+		"↓/j down",
+		"enter view",
+		"e edit",
+		"n new",
+		"d delete",
+		"S set",
+		"r refresh",
+		"ctrl+c quit",
 	}
 	
 	helpBorderStyle := lipgloss.NewStyle().
@@ -220,7 +216,7 @@ func (m *MainListModel) View() string {
 		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
 		Padding(0, 1)  // Internal padding for help text
 		
-	helpContent := helpStyle.Render(strings.Join(help, " • "))
+	helpContent := formatHelpText(help)
 	
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))

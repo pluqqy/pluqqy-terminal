@@ -160,10 +160,6 @@ func (m *PipelineViewerModel) View() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240"))
 
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
-
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("214"))
@@ -295,12 +291,12 @@ func (m *PipelineViewerModel) View() string {
 
 	// Help text in bordered pane
 	help := []string{
-		"Tab: switch pane",
-		"↑/↓: scroll",
-		"S: set",
-		"e: edit",
-		"Esc: back",
-		"Ctrl+C: quit",
+		"tab switch pane",
+		"↑/↓ scroll",
+		"S set",
+		"e edit",
+		"esc back",
+		"ctrl+c quit",
 	}
 	
 	helpBorderStyle := lipgloss.NewStyle().
@@ -309,7 +305,7 @@ func (m *PipelineViewerModel) View() string {
 		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
 		Padding(0, 1)  // Internal padding for help text
 		
-	helpContent := helpStyle.Render(strings.Join(help, " • "))
+	helpContent := formatHelpText(help)
 	
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))

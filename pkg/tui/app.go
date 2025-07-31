@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"strings"
 	"time"
 	
 	tea "github.com/charmbracelet/bubbletea"
@@ -56,6 +57,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		// Global keybindings
+		if msg.String() == "esc" && a.statusMsg != "" {
+			// Clear global status message
+			a.statusMsg = ""
+			if a.statusTimer != nil {
+				a.statusTimer.Stop()
+			}
+			return a, nil
+		}
 		if msg.Type == tea.KeyCtrlC {
 			if a.quitConfirm {
 				// Second Ctrl+C, actually quit
@@ -199,6 +208,30 @@ func (a *App) View() string {
 	}
 
 	return content
+}
+
+// formatHelpText formats help items with styled shortcut keys
+func formatHelpText(items []string) string {
+	shortcutStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("248")) // Brighter grey for shortcuts
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")) // Darker grey for descriptions
+	
+	formatted := make([]string, len(items))
+	for i, item := range items {
+		// Find the first space to separate shortcut from description
+		firstSpace := strings.Index(item, " ")
+		if firstSpace > 0 && firstSpace < len(item)-1 {
+			shortcut := item[:firstSpace]
+			desc := item[firstSpace+1:]
+			formatted[i] = shortcutStyle.Render(shortcut) + " " + descStyle.Render(desc)
+		} else {
+			formatted[i] = descStyle.Render(item)
+		}
+	}
+	
+	separator := descStyle.Render(" • ")
+	return strings.Join(formatted, separator)
 }
 
 // Messages for communication between views

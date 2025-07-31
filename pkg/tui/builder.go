@@ -256,6 +256,15 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Normal mode keybindings
 		switch msg.String() {
 		case "esc":
+			// Clear status message if present, otherwise return to main list
+			if m.pipelineSaveMessage != "" {
+				m.pipelineSaveMessage = ""
+				// Cancel timer if running
+				if m.pipelineSaveTimer != nil {
+					m.pipelineSaveTimer.Stop()
+				}
+				return m, nil
+			}
 			// Return to main list
 			return m, func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
@@ -327,7 +336,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.showPreview = !m.showPreview
 			m.updateViewportSizes()
 
-		case "s", "ctrl+s":
+		case "ctrl+s":
 			// Save pipeline
 			return m, m.savePipeline()
 			
@@ -463,7 +472,7 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 12    // Reserve space for title, help pane, and spacing
+	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -851,39 +860,22 @@ func (m *PipelineBuilderModel) View() string {
 		
 	}
 
-	// Show pipeline save message if present
-	if m.pipelineSaveMessage != "" {
-		saveMessageStyle := lipgloss.NewStyle().
-			Background(lipgloss.Color("236")).
-			Foreground(lipgloss.Color("82")). // Green for success
-			Width(m.width).
-			Align(lipgloss.Center).
-			Padding(0, 1).
-			MarginTop(1)
-		
-		s.WriteString("\n")
-		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
-	}
-
 	// Help text in bordered pane
 	help := []string{
-		"Tab: switch",
-		"↑/↓: nav",
-		"Enter: add/edit",
-		"n: new",
-		"E: edit external",
-		"e: edit TUI",
-		"Del: remove",
-		"K/J: reorder",
-		"p: preview",
-		"s: save",
-		"S: save+set",
-		"Esc: back",
-		"Ctrl+C: quit",
+		"tab switch pane",
+		"↑/↓ nav",
+		"enter add/edit",
+		"n new",
+		"E edit external",
+		"e edit tui",
+		"del remove",
+		"K/J reorder",
+		"p preview",
+		"ctrl+s save",
+		"S save+set",
+		"esc back",
+		"ctrl+c quit",
 	}
-	
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
 	
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -891,10 +883,27 @@ func (m *PipelineBuilderModel) View() string {
 		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
 		Padding(0, 1)  // Internal padding for help text
 		
-	helpContent := helpStyle.Render(strings.Join(help, " • "))
+	helpContent := formatHelpText(help)
 	
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+
+	// Status message area - always render to maintain consistent layout
+	saveMessageStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("82")). // Green for success
+		Width(m.width).
+		Align(lipgloss.Center).
+		Padding(0, 1).
+		MarginTop(1)
+	
+	s.WriteString("\n")
+	if m.pipelineSaveMessage != "" {
+		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
+	} else {
+		// Render empty space to maintain layout
+		s.WriteString(lipgloss.NewStyle().Height(1).Render(""))
+	}
 
 	return s.String()
 }
@@ -908,7 +917,7 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 12    // Reserve space for title, help pane, and spacing
+	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1603,7 +1612,7 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 	
 	s.WriteString(editorStyle.Render(content))
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render("Type to edit • Ctrl+S: save • Esc: back"))
+	s.WriteString(helpStyle.Render("Type to edit • ctrl+s: save • esc: back"))
 
 	return s.String()
 }
@@ -1670,7 +1679,7 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 	return func() tea.Msg {
 		editor := os.Getenv("EDITOR")
 		if editor == "" {
-			editor = "vi"
+			return StatusMsg("Error: $EDITOR environment variable not set. Please set it to your preferred editor.")
 		}
 
 		// Validate editor path to prevent command injection
@@ -1773,7 +1782,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		s.WriteString("\n")
 	}
 	
-	s.WriteString(helpStyle.Render("Type to edit • Ctrl+S: save • Esc: cancel"))
+	s.WriteString(helpStyle.Render("Type to edit • ctrl+s: save • esc: cancel"))
 
 	return s.String()
 }
