@@ -177,6 +177,11 @@ func (m *PipelineViewerModel) View() string {
 	leftWidth := 35 // Fixed width for components
 	rightWidth := m.width - leftWidth - 6 // Account for gap, padding, and ensure border visibility
 	contentHeight := m.height - 8 // Reserve space for title and help
+	
+	// Ensure minimum height
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
 
 	// Build left column (components)
 	var leftContent strings.Builder
@@ -323,9 +328,9 @@ func (m *PipelineViewerModel) updateViewportSizes() {
 	
 	// Update viewport sizes
 	m.componentsViewport.Width = leftWidth
-	m.componentsViewport.Height = contentHeight
+	m.componentsViewport.Height = contentHeight - 3 // Reserve space for header and spacing
 	m.previewViewport.Width = rightWidth
-	m.previewViewport.Height = contentHeight
+	m.previewViewport.Height = contentHeight - 3 // Reserve space for header and spacing
 }
 
 func (m *PipelineViewerModel) updateViewportContent() {

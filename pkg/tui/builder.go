@@ -44,6 +44,8 @@ type PipelineBuilderModel struct {
 	showPreview    bool
 	previewContent string
 	previewViewport viewport.Model
+	leftViewport   viewport.Model  // For available components
+	rightViewport  viewport.Model  // For selected components
 	err            error
 	
 	// Name input state
@@ -95,6 +97,8 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 			Components: []models.ComponentRef{},
 		},
 		previewViewport: viewport.New(80, 20), // Default size, will be resized
+		leftViewport:    viewport.New(40, 20), // Default size, will be resized
+		rightViewport:   viewport.New(40, 20), // Default size, will be resized
 	}
 	m.loadAvailableComponents()
 	return m
@@ -188,16 +192,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		// Update viewport size
-		if m.showPreview {
-			// Calculate preview height
-			previewHeight := m.height / 2 - 5
-			if previewHeight < 5 {
-				previewHeight = 5
-			}
-			m.previewViewport.Width = m.width - 4 // -4 for borders only
-			m.previewViewport.Height = previewHeight
-		}
+		m.updateViewportSizes()
 
 	case clearEditSaveMsg:
 		m.editSaveMessage = ""
@@ -303,15 +298,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "p":
 			m.showPreview = !m.showPreview
-			if m.showPreview {
-				// Recalculate viewport size when toggling preview
-				previewHeight := m.height / 2 - 5
-				if previewHeight < 5 {
-					previewHeight = 5
-				}
-				m.previewViewport.Width = m.width - 4 // -4 for borders only
-				m.previewViewport.Height = previewHeight
-			}
+			m.updateViewportSizes()
 
 		case "s", "ctrl+s":
 			// Save pipeline
@@ -383,6 +370,16 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	}
+	
+	// Forward messages to left/right viewports
+	m.leftViewport, cmd = m.leftViewport.Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
+	m.rightViewport, cmd = m.rightViewport.Update(msg)
+	if cmd != nil {
+		cmds = append(cmds, cmd)
+	}
 
 	return m, tea.Batch(cmds...)
 }
@@ -440,6 +437,11 @@ func (m *PipelineBuilderModel) View() string {
 	if m.showPreview {
 		contentHeight = contentHeight / 2
 	}
+	
+	// Ensure minimum height for content
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
 
 	// Build left column (available components)
 	var leftContent strings.Builder
@@ -472,15 +474,18 @@ func (m *PipelineBuilderModel) View() string {
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerStyle.Render(header))
-	leftContent.WriteString("\n")
-
+	leftContent.WriteString("\n\n")
+	
+	// Build scrollable content for left viewport
+	var leftScrollContent strings.Builder
+	
 	allComponents := m.getAllAvailableComponents()
 	currentType := ""
 	
 	for i, comp := range allComponents {
 		if comp.compType != currentType {
 			if currentType != "" {
-				leftContent.WriteString("\n")
+				leftScrollContent.WriteString("\n")
 			}
 			currentType = comp.compType
 			// Convert to uppercase plural form
@@ -495,7 +500,7 @@ func (m *PipelineBuilderModel) View() string {
 			default:
 				typeHeader = strings.ToUpper(currentType)
 			}
-			leftContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
+			leftScrollContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
 		}
 
 		// Check if component is already in pipeline
@@ -558,16 +563,24 @@ func (m *PipelineBuilderModel) View() string {
 		
 		// Apply styling
 		if m.activeColumn == leftColumn && i == m.leftCursor {
-			leftContent.WriteString(selectedStyle.Render(row) + "\n")
+			leftScrollContent.WriteString(selectedStyle.Render(row))
 		} else if isAdded {
 			// Use a dimmed style for already added components
 			addedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
-			leftContent.WriteString(addedStyle.Render(row) + "\n")
+			leftScrollContent.WriteString(addedStyle.Render(row))
 		} else {
-			leftContent.WriteString(normalStyle.Render(row) + "\n")
+			leftScrollContent.WriteString(normalStyle.Render(row))
+		}
+		
+		if i < len(allComponents)-1 {
+			leftScrollContent.WriteString("\n")
 		}
 	}
+	
+	// Update left viewport with content
+	m.leftViewport.SetContent(leftScrollContent.String())
+	leftContent.WriteString(m.leftViewport.View())
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
@@ -580,9 +593,12 @@ func (m *PipelineBuilderModel) View() string {
 	// Render heading and colons separately with different styles
 	rightContent.WriteString(typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth)))
 	rightContent.WriteString("\n\n")
+	
+	// Build scrollable content for right viewport
+	var rightScrollContent strings.Builder
 
 	if len(m.selectedComponents) == 0 {
-		rightContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
+		rightScrollContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
 	} else {
 		// Group components by type
 		var contexts, prompts, rules []models.ComponentRef
@@ -602,7 +618,7 @@ func (m *PipelineBuilderModel) View() string {
 		
 		// Render contexts
 		if len(contexts) > 0 {
-			rightContent.WriteString(typeHeaderStyle.Render("▸ CONTEXTS") + "\n")
+			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ CONTEXTS") + "\n")
 			for _, comp := range contexts {
 				cursor := "  "
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
@@ -611,20 +627,20 @@ func (m *PipelineBuilderModel) View() string {
 				
 				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
 				} else {
-					rightContent.WriteString(normalStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
 				}
 				overallIndex++
 			}
 			if len(prompts) > 0 || len(rules) > 0 {
-				rightContent.WriteString("\n")
+				rightScrollContent.WriteString("\n")
 			}
 		}
 		
 		// Render prompts
 		if len(prompts) > 0 {
-			rightContent.WriteString(typeHeaderStyle.Render("▸ PROMPTS") + "\n")
+			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ PROMPTS") + "\n")
 			for _, comp := range prompts {
 				cursor := "  "
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
@@ -633,20 +649,20 @@ func (m *PipelineBuilderModel) View() string {
 				
 				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
 				} else {
-					rightContent.WriteString(normalStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
 				}
 				overallIndex++
 			}
 			if len(rules) > 0 {
-				rightContent.WriteString("\n")
+				rightScrollContent.WriteString("\n")
 			}
 		}
 		
 		// Render rules
 		if len(rules) > 0 {
-			rightContent.WriteString(typeHeaderStyle.Render("▸ RULES") + "\n")
+			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ RULES") + "\n")
 			for _, comp := range rules {
 				cursor := "  "
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
@@ -655,14 +671,18 @@ func (m *PipelineBuilderModel) View() string {
 				
 				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightContent.WriteString(selectedStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
 				} else {
-					rightContent.WriteString(normalStyle.Render(line) + "\n")
+					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
 				}
 				overallIndex++
 			}
 		}
 	}
+	
+	// Update right viewport with content
+	m.rightViewport.SetContent(rightScrollContent.String())
+	rightContent.WriteString(m.rightViewport.View())
 
 	// Apply borders
 	leftStyle := inactiveStyle
@@ -741,7 +761,7 @@ func (m *PipelineBuilderModel) View() string {
 			BorderForeground(lipgloss.Color("243")).
 			Width(m.width - 4) // Account for padding (2) and border (2)
 
-		s.WriteString("\n\n")
+		s.WriteString("\n")
 		
 		// Build preview content with header inside
 		var previewContent strings.Builder
@@ -827,14 +847,42 @@ func (m *PipelineBuilderModel) View() string {
 func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	m.updateViewportSizes()
+}
+
+func (m *PipelineBuilderModel) updateViewportSizes() {
+	// Calculate dimensions
+	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
+	contentHeight := m.height - 10    // Reserve space for title and help
 	
-	// Update viewport size
+	if m.showPreview {
+		contentHeight = contentHeight / 2
+	}
+	
+	// Ensure minimum height
+	if contentHeight < 10 {
+		contentHeight = 10
+	}
+	
+	// Update left and right viewports for table content
+	// Reserve space for headers: heading (2 lines) + table header (2 lines) = 4 lines
+	viewportHeight := contentHeight - 4
+	if viewportHeight < 5 {
+		viewportHeight = 5
+	}
+	
+	m.leftViewport.Width = columnWidth - 2  // Account for borders
+	m.leftViewport.Height = viewportHeight
+	m.rightViewport.Width = columnWidth - 2  // Account for borders
+	m.rightViewport.Height = viewportHeight
+	
+	// Update preview viewport
 	if m.showPreview {
 		previewHeight := m.height / 2 - 5
 		if previewHeight < 5 {
 			previewHeight = 5
 		}
-		m.previewViewport.Width = m.width - 4 // -4 for borders only
+		m.previewViewport.Width = m.width - 6 // Account for padding and borders
 		m.previewViewport.Height = previewHeight
 	}
 }
