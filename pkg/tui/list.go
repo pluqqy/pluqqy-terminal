@@ -136,10 +136,6 @@ func (m *MainListModel) View() string {
 	}
 
 	// Styles
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(1)
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("170")).
@@ -152,8 +148,6 @@ func (m *MainListModel) View() string {
 	// Build the view
 	var s strings.Builder
 	
-	s.WriteString(titleStyle.Render("🗂  Pluqqy - Pipeline Manager"))
-	s.WriteString("\n\n")
 	
 	// Add padding wrapper for consistency with other screens
 	contentStyle := lipgloss.NewStyle().

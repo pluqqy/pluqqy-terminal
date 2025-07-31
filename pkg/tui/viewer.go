@@ -147,10 +147,6 @@ func (m *PipelineViewerModel) View() string {
 	m.updateViewportContent()
 
 	// Styles
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")).
-		MarginBottom(1)
 
 	activeStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -278,9 +274,6 @@ func (m *PipelineViewerModel) View() string {
 
 	// Build final view
 	var s strings.Builder
-	title := fmt.Sprintf("📄 Pipeline: %s", m.pipeline.Name)
-	s.WriteString(titleStyle.Render(title))
-	s.WriteString("\n\n")
 	
 	// Add padding around the content
 	contentStyle := lipgloss.NewStyle().

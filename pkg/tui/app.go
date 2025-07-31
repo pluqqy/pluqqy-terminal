@@ -44,15 +44,19 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		a.width = msg.Width
 		a.height = msg.Height
-		// Pass window size to all sub-models
+		// Calculate header height (no title for size calculation)
+		header := renderHeader(a.width, "")
+		headerHeight := lipgloss.Height(header)
+		// Pass window size to all sub-models, accounting for header
+		availableHeight := msg.Height - headerHeight
 		if a.mainList != nil {
-			a.mainList.SetSize(msg.Width, msg.Height)
+			a.mainList.SetSize(msg.Width, availableHeight)
 		}
 		if a.builder != nil {
-			a.builder.SetSize(msg.Width, msg.Height)
+			a.builder.SetSize(msg.Width, availableHeight)
 		}
 		if a.viewer != nil {
-			a.viewer.SetSize(msg.Width, msg.Height)
+			a.viewer.SetSize(msg.Width, availableHeight)
 		}
 
 	case tea.KeyMsg:
@@ -124,7 +128,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.builder == nil {
 				a.builder = NewPipelineBuilderModel()
 			}
-			a.builder.SetSize(a.width, a.height)
+			// Calculate header height
+			header := renderHeader(a.width, "")
+			headerHeight := lipgloss.Height(header)
+			a.builder.SetSize(a.width, a.height-headerHeight)
 			a.builder.SetPipeline(msg.pipeline)
 			return a, a.builder.Init()
 		case pipelineViewerView:
@@ -132,7 +139,10 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.viewer == nil {
 				a.viewer = NewPipelineViewerModel()
 			}
-			a.viewer.SetSize(a.width, a.height)
+			// Calculate header height
+			header := renderHeader(a.width, "")
+			headerHeight := lipgloss.Height(header)
+			a.viewer.SetSize(a.width, a.height-headerHeight)
 			a.viewer.SetPipeline(msg.pipeline)
 			return a, a.viewer.Init()
 		}
@@ -169,6 +179,24 @@ func (a *App) View() string {
 		return "Loading..."
 	}
 
+	// Determine the title based on current view
+	var title string
+	switch a.state {
+	case mainListView:
+		title = "Pluqqy - Pipeline Manager"
+	case pipelineBuilderView:
+		if a.builder != nil && a.builder.pipeline != nil {
+			title = "Pipeline: " + a.builder.pipeline.Name
+		}
+	case pipelineViewerView:
+		if a.viewer != nil && a.viewer.pipeline != nil {
+			title = "Pipeline: " + a.viewer.pipeline.Name
+		}
+	}
+
+	// Render the header with title
+	header := renderHeader(a.width, title)
+
 	var content string
 	switch a.state {
 	case mainListView:
@@ -180,6 +208,9 @@ func (a *App) View() string {
 	default:
 		content = "Unknown view"
 	}
+
+	// Combine header with content
+	fullContent := lipgloss.JoinVertical(lipgloss.Top, header, content)
 
 	// Add status bar if there's a message
 	if a.statusMsg != "" {
@@ -194,20 +225,21 @@ func (a *App) View() string {
 		statusBar := statusStyle.Render(a.statusMsg)
 		
 		// Position at the bottom
-		remainingHeight := a.height - lipgloss.Height(content) - 1
+		totalHeight := lipgloss.Height(fullContent)
+		remainingHeight := a.height - totalHeight - 1
 		if remainingHeight > 0 {
-			content = lipgloss.JoinVertical(
+			fullContent = lipgloss.JoinVertical(
 				lipgloss.Top,
-				content,
+				fullContent,
 				lipgloss.NewStyle().Height(remainingHeight).Render(""),
 				statusBar,
 			)
 		} else {
-			content = lipgloss.JoinVertical(lipgloss.Top, content, statusBar)
+			fullContent = lipgloss.JoinVertical(lipgloss.Top, fullContent, statusBar)
 		}
 	}
 
-	return content
+	return fullContent
 }
 
 // formatHelpText formats help items with styled shortcut keys
