@@ -22,7 +22,7 @@ LDFLAGS=-ldflags "-s -w -X main.version=$(VERSION)"
 # Cross-platform build targets
 PLATFORMS=darwin/amd64 darwin/arm64 linux/amd64 linux/arm64 windows/amd64
 
-.PHONY: all build test clean run fmt vet deps help build-all release
+.PHONY: all build test clean run fmt vet deps help build-all release update
 
 all: test build ## Run tests and build
 
@@ -58,10 +58,17 @@ deps: ## Download dependencies
 	$(GOMOD) download
 	$(GOMOD) tidy
 
-install: build ## Install binary to $GOPATH/bin
+install: build ## Install binary to $GOPATH/bin or $HOME/go/bin
 	@echo "Installing $(BINARY_NAME)..."
-	@cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME)
-	@echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"
+	@if [ -z "$(GOPATH)" ]; then \
+		mkdir -p $(HOME)/go/bin; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(HOME)/go/bin/$(BINARY_NAME); \
+		echo "Installed to $(HOME)/go/bin/$(BINARY_NAME)"; \
+	else \
+		mkdir -p $(GOPATH)/bin; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME); \
+		echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"; \
+	fi
 
 build-all: ## Build for all platforms
 	@echo "Building for all platforms..."
@@ -102,6 +109,12 @@ build-windows: ## Build for Windows (amd64)
 release: ## Create release builds
 	@echo "Creating release builds..."
 	@bash scripts/release.sh $(VERSION)
+
+update: ## Pull latest changes and reinstall
+	@echo "Pulling latest changes..."
+	@git pull
+	@echo "Reinstalling $(BINARY_NAME)..."
+	@$(MAKE) install
 
 help: ## Display this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-15s\033[0m %s\n", $$1, $$2}'

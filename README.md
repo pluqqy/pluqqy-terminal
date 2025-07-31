@@ -17,13 +17,32 @@ This approach keeps your context minimal and focused - only including what's rel
 - 🔄 **Live Preview** - See your composed pipeline in real-time as you build
 - ⚡ **Duplicate Prevention** - Automatically prevents adding the same component twice
 - 💾 **Smart Save** - Confirmation prompts to prevent accidental overwrites
+- 🛡️ **Exit Protection** - Confirmation dialogs prevent losing unsaved changes
 
 ## Installation
 
 ```bash
 git clone https://github.com/pluqqy/pluqqy-cli
 cd pluqqy-cli
-make build
+make install
+```
+
+This will build and install `pluqqy` to `$GOPATH/bin` or `$HOME/go/bin` (if GOPATH is not set).
+
+### Updating
+
+To update to the latest version:
+
+```bash
+cd pluqqy-cli
+make update
+```
+
+Or manually:
+
+```bash
+git pull
+make install
 ```
 
 ## Usage
