@@ -1663,8 +1663,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -1951,8 +1950,7 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -2063,8 +2061,7 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -2189,8 +2186,7 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -2435,8 +2431,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).

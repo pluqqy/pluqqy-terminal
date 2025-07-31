@@ -1298,8 +1298,7 @@ func (m *MainListModel) componentTypeSelectionView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -1410,8 +1409,7 @@ func (m *MainListModel) componentNameInputView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -1536,8 +1534,7 @@ func (m *MainListModel) componentContentEditView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -1622,8 +1619,7 @@ func (m *MainListModel) componentEditView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
+		BorderForeground(lipgloss.Color("170"))
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
