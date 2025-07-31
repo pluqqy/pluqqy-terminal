@@ -8,6 +8,16 @@ In Claude Code or other AI coding tools, simply reference @PLUQQY.md instead of 
 
 This approach keeps your context minimal and focused - only including what's relevant for the current task. Both you and the AI work from the same single source of truth, eliminating confusion about which instructions are active while preserving valuable context window space.
 
+## Features
+
+- 🎨 **Beautiful TUI** - Clean, intuitive terminal interface with Pluqqy ASCII art branding
+- 📊 **Token Counter** - Real-time token estimation for your composed pipelines
+- 🔍 **Component Grouping** - Organized view of components by type with metadata
+- 📝 **Built-in Editor** - Edit components directly in the TUI without external editors
+- 🔄 **Live Preview** - See your composed pipeline in real-time as you build
+- ⚡ **Duplicate Prevention** - Automatically prevents adding the same component twice
+- 💾 **Smart Save** - Confirmation prompts to prevent accidental overwrites
+
 ## Installation
 
 ```bash
@@ -45,37 +55,56 @@ pluqqy
 
 #### Pipeline List View
 
-- `↑/↓` - Navigate pipelines
+- `↑/↓` or `j/k` - Navigate pipelines
 - `Enter` - View pipeline details
 - `n` - Create new pipeline
 - `e` - Edit selected pipeline
-- `s` - Set selected pipeline (generates PLUQQY.md)
-- `q` - Quit
+- `S` - Set selected pipeline (generates PLUQQY.md)
+- `d` - Delete pipeline (with confirmation)
+- `r` - Rename pipeline
+- `q` or `Ctrl+C` - Quit (double Ctrl+C to confirm)
 
 #### Pipeline Builder
 
-- `Tab` - Switch between component list and selected components
-- `↑/↓` - Navigate items
+- `Tab` - Switch between panes (components, selected, preview)
+- `↑/↓` or `j/k` - Navigate items
 - `Enter` - Add/remove component
 - `Ctrl+↑/↓` - Reorder selected components
 - `n` - Create new component
 - `e` - Edit component
 - `p` - Toggle preview
 - `s` - Save pipeline
+- `S` - Save and set as active pipeline
+- `Esc` - Back to pipeline list
+
+#### Pipeline Viewer
+
+- `Tab` - Switch between components and preview panes
+- `↑/↓` or `j/k` - Navigate in active pane
+- `S` - Set as active pipeline
 - `Esc` - Back to pipeline list
 
 #### Component Editor
 
 - Type content directly in the TUI
-- `Ctrl+S` - Save component
+- `Ctrl+S` - Save component (with overwrite confirmation if needed)
 - `Esc` - Cancel
+
+## UI Features
+
+- **Token Counter** - Shows estimated token count in the preview pane with color-coded status (green/yellow/red)
+- **Component Metadata** - View file sizes and paths in the component list
+- **Scrollable Panes** - All panes support smooth scrolling for long content
+- **Help Footer** - Context-sensitive help text at the bottom of each screen
+- **Status Messages** - Clear feedback for all actions with auto-dismiss
+- **Responsive Layout** - Adapts to terminal size with proper content wrapping
 
 ## Output
 
 The `set` command generates a `PLUQQY.md` file in your project root with sections:
 
 - `CONTEXT` - Combined context components
-- `PROMPTS` - Combined prompt components
+- `PROMPTS` - Combined prompt components  
 - `IMPORTANT RULES` - Combined rules components
 
 ## Example
