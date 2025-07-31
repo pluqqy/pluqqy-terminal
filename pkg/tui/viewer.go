@@ -213,7 +213,7 @@ func (m *PipelineViewerModel) View() string {
 	
 	// Calculate token count
 	tokenCount := utils.EstimateTokens(m.composed)
-	percentage, limit, status := utils.GetTokenLimitStatus(tokenCount)
+	_, _, status := utils.GetTokenLimitStatus(tokenCount)
 	
 	// Create token badge with appropriate color
 	var tokenBadgeStyle lipgloss.Style
@@ -239,16 +239,13 @@ func (m *PipelineViewerModel) View() string {
 	}
 	
 	tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
-	limitInfo := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		Render(fmt.Sprintf(" %d%% of %dK", percentage, limit/1024))
 	
 	// Create the header with colons and token info
 	headerText := "PIPELINE PREVIEW (PLUQQY.md)"
-	tokenInfo := tokenBadge + limitInfo
+	tokenInfo := tokenBadge
 	
 	// Calculate the actual rendered width of token info
-	tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
+	tokenInfoWidth := lipgloss.Width(tokenBadge)
 	
 	// Calculate space for colons between heading and token info
 	colonSpace := rightWidth - len(headerText) - tokenInfoWidth - 6 // -6 for padding and spaces (2 left + 2 right + 2 spaces)

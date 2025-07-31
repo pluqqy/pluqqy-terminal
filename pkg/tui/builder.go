@@ -739,7 +739,7 @@ func (m *PipelineBuilderModel) View() string {
 	if m.showPreview && m.previewContent != "" {
 		// Calculate token count
 		tokenCount := utils.EstimateTokens(m.previewContent)
-		percentage, limit, status := utils.GetTokenLimitStatus(tokenCount)
+		_, _, status := utils.GetTokenLimitStatus(tokenCount)
 		
 		// Create token badge with appropriate color
 		var tokenBadgeStyle lipgloss.Style
@@ -765,9 +765,6 @@ func (m *PipelineBuilderModel) View() string {
 		}
 		
 		tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
-		limitInfo := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("241")).
-			Render(fmt.Sprintf(" %d%% of %dK", percentage, limit/1024))
 		
 		previewBorderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
@@ -780,10 +777,10 @@ func (m *PipelineBuilderModel) View() string {
 		var previewContent strings.Builder
 		// Create heading with colons and token info
 		previewHeading := "PIPELINE PREVIEW (PLUQQY.md)"
-		tokenInfo := tokenBadge + limitInfo
+		tokenInfo := tokenBadge
 		
 		// Calculate the actual rendered width of token info
-		tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
+		tokenInfoWidth := lipgloss.Width(tokenBadge)
 		
 		// Calculate total available width inside the border
 		totalWidth := m.width - 8 // accounting for border padding and header padding
