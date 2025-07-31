@@ -68,6 +68,7 @@ type PipelineBuilderModel struct {
 	editingComponentName  string
 	editSaveMessage       string
 	editSaveTimer         *time.Timer
+	editViewport          viewport.Model
 	
 	// Pipeline save state
 	pipelineSaveMessage   string
@@ -491,6 +492,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.editingComponentName = comp.name
 					m.componentContent = content.Content
 					m.originalContent = content.Content // Store original for change detection
+					
+					// Initialize edit viewport
+					m.editViewport = viewport.New(m.width-8, m.height-10)
+					m.editViewport.SetContent(content.Content)
+					
 					return m, nil
 				}
 			}
@@ -2190,9 +2196,6 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 		Bold(true).
 		Foreground(lipgloss.Color("214")) // Orange like other headers
 
-	editorContentStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
 	contentHeight := m.height - 10 // Reserve space for help pane
@@ -2217,8 +2220,21 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 	// Editor content with cursor
 	content := m.componentContent + "│" // cursor
+	
+	// Preprocess content to handle carriage returns and ensure proper line breaks
+	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
+	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+	
+	// Calculate available width for wrapping (accounting for padding)
+	availableWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
+	if availableWidth < 1 {
+		availableWidth = 1
+	}
+	
+	// Wrap content to prevent overflow
+	wrappedContent := wordwrap.String(processedContent, availableWidth)
 
-	mainContent.WriteString(headerPadding.Render(editorContentStyle.Render(content)))
+	mainContent.WriteString(headerPadding.Render(wrappedContent))
 
 	// Apply border to main content
 	mainPane := borderStyle.
@@ -2361,7 +2377,16 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	
+	// Handle viewport scrolling
 	switch msg.String() {
+	case "up", "k", "pgup":
+		m.editViewport, cmd = m.editViewport.Update(msg)
+		return m, cmd
+	case "down", "j", "pgdown":
+		m.editViewport, cmd = m.editViewport.Update(msg)
+		return m, cmd
 	case "ctrl+s":
 		// Save component but don't exit yet
 		return m, m.saveEditedComponent()
@@ -2414,12 +2439,9 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		Bold(true).
 		Foreground(lipgloss.Color("214")) // Orange like other headers
 
-	editorContentStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
-
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 12 // Reserve space for help pane and save message
+	contentHeight := m.height - 7 // Reserve space for help pane (3) + save message (2) + spacing (2)
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2439,10 +2461,29 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
+	// Update viewport dimensions if needed
+	viewportWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
+	viewportHeight := contentHeight - 5 // Account for header and spacing
+	if m.editViewport.Width != viewportWidth || m.editViewport.Height != viewportHeight {
+		m.editViewport.Width = viewportWidth
+		m.editViewport.Height = viewportHeight
+	}
+	
 	// Editor content with cursor
 	content := m.componentContent + "│" // cursor
-
-	mainContent.WriteString(headerPadding.Render(editorContentStyle.Render(content)))
+	
+	// Preprocess content to handle carriage returns and ensure proper line breaks
+	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
+	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+	
+	// Wrap content to viewport width to prevent overflow
+	wrappedContent := wordwrap.String(processedContent, viewportWidth)
+	
+	// Update viewport content
+	m.editViewport.SetContent(wrappedContent)
+	
+	// Use viewport for scrollable content
+	mainContent.WriteString(headerPadding.Render(m.editViewport.View()))
 
 	// Apply border to main content
 	mainPane := borderStyle.
@@ -2452,6 +2493,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	// Help section
 	help := []string{
+		"↑/↓ scroll",
 		"ctrl+s save",
 		"esc cancel",
 	}
@@ -2466,6 +2508,9 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	// Combine all elements
 	var s strings.Builder
+
+	// Add top margin to ensure content is not cut off
+	s.WriteString("\n\n")
 
 	// Add padding around content
 	contentStyle := lipgloss.NewStyle().
