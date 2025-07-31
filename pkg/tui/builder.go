@@ -592,7 +592,7 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
+	contentHeight := m.height - 16    // Reserve space for 2-row help pane (4), status message (2), borders (2), and spacing (8)
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1159,7 +1159,7 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
+	contentHeight := m.height - 15    // Reserve space for 2-row help pane (4), status message, borders, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -2198,7 +2198,7 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 10 // Reserve space for help pane (3) + borders (2) + spacing (5)
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2258,6 +2258,9 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 	// Combine all elements
 	var s strings.Builder
+
+	// Add top margin to ensure content is not cut off
+	s.WriteString("\n")
 
 	// Add padding around content
 	contentStyle := lipgloss.NewStyle().
@@ -2441,7 +2444,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 7 // Reserve space for help pane (3) + save message (2) + spacing (2)
+	contentHeight := m.height - 8 // Reserve space for help pane (3) + save message (2) + spacing (3)
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2510,7 +2513,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	var s strings.Builder
 
 	// Add top margin to ensure content is not cut off
-	s.WriteString("\n\n")
+	s.WriteString("\n")
 
 	// Add padding around content
 	contentStyle := lipgloss.NewStyle().

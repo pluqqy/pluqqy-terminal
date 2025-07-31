@@ -81,7 +81,7 @@ func NewMainListModel() *MainListModel {
 	settings, _ := files.ReadSettings()
 	
 	m := &MainListModel{
-		activePane:         pipelinesPane,
+		activePane:         componentsPane,
 		showPreview:        settings.UI.ShowPreview,
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
@@ -1630,7 +1630,7 @@ func (m *MainListModel) componentEditView() string {
 
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 5 // Reserve space for help pane (3) + spacing (2)
+	contentHeight := m.height - 6 // Reserve space for help pane (3) + spacing (3)
 
 	// Build main content
 	var mainContent strings.Builder
@@ -1699,7 +1699,7 @@ func (m *MainListModel) componentEditView() string {
 	var s strings.Builder
 
 	// Add top margin to ensure content is not cut off
-	s.WriteString("\n\n")
+	s.WriteString("\n")
 
 	// Add padding around content
 	contentStyle := lipgloss.NewStyle().
