@@ -11,6 +11,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
@@ -428,7 +429,12 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	// Update viewport content if preview changed
 	if m.showPreview && m.previewContent != "" {
-		m.previewViewport.SetContent(m.previewContent)
+		// Preprocess content to handle carriage returns and ensure proper line breaks
+		processedContent := strings.ReplaceAll(m.previewContent, "\r\r", "\n\n")
+		processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+		// Wrap content to viewport width to prevent overflow
+		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
+		m.previewViewport.SetContent(wrappedContent)
 		// Also forward other messages to viewport
 		m.previewViewport, cmd = m.previewViewport.Update(msg)
 		if cmd != nil {
@@ -650,7 +656,9 @@ func (m *PipelineBuilderModel) View() string {
 	}
 	
 	// Update left viewport with content
-	m.leftViewport.SetContent(leftScrollContent.String())
+	// Wrap content to viewport width to prevent overflow
+	wrappedLeftContent := wordwrap.String(leftScrollContent.String(), m.leftViewport.Width)
+	m.leftViewport.SetContent(wrappedLeftContent)
 	// Add padding to viewport content
 	leftViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
@@ -756,7 +764,9 @@ func (m *PipelineBuilderModel) View() string {
 	}
 	
 	// Update right viewport with content
-	m.rightViewport.SetContent(rightScrollContent.String())
+	// Wrap content to viewport width to prevent overflow
+	wrappedRightContent := wordwrap.String(rightScrollContent.String(), m.rightViewport.Width)
+	m.rightViewport.SetContent(wrappedRightContent)
 	// Add padding to viewport content
 	rightViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
@@ -999,7 +1009,12 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		
 		// Set viewport content if preview is enabled
 		if m.showPreview && m.previewContent != "" {
-			m.previewViewport.SetContent(m.previewContent)
+			// Preprocess content to handle carriage returns and ensure proper line breaks
+			processedContent := strings.ReplaceAll(m.previewContent, "\r\r", "\n\n")
+			processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+			// Wrap content to viewport width to prevent overflow
+			wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
+			m.previewViewport.SetContent(wrappedContent)
 		}
 	}
 }
@@ -1355,7 +1370,12 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Update preview if showing
 		if m.showPreview {
 			m.previewContent = output
-			m.previewViewport.SetContent(output)
+			// Preprocess content to handle carriage returns and ensure proper line breaks
+			processedContent := strings.ReplaceAll(output, "\r\r", "\n\n")
+			processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+			// Wrap content to viewport width to prevent overflow
+			wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
+			m.previewViewport.SetContent(wrappedContent)
 		}
 		
 		// Reload components to update usage stats after save

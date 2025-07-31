@@ -8,6 +8,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
@@ -354,8 +355,15 @@ func (m *PipelineViewerModel) updateViewportContent() {
 		}
 	}
 	
-	m.componentsViewport.SetContent(componentsContent.String())
-	m.previewViewport.SetContent(m.composed)
+	// Wrap content to viewport width to prevent overflow
+	wrappedComponentsContent := wordwrap.String(componentsContent.String(), m.componentsViewport.Width)
+	m.componentsViewport.SetContent(wrappedComponentsContent)
+	
+	// Preprocess content to handle carriage returns and ensure proper line breaks
+	processedContent := strings.ReplaceAll(m.composed, "\r\r", "\n\n")
+	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+	wrappedPreviewContent := wordwrap.String(processedContent, m.previewViewport.Width)
+	m.previewViewport.SetContent(wrappedPreviewContent)
 }
 
 func (m *PipelineViewerModel) setPipeline() tea.Cmd {
