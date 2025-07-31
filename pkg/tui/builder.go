@@ -22,6 +22,7 @@ type column int
 const (
 	leftColumn column = iota
 	rightColumn
+	previewColumn
 )
 
 type PipelineBuilderModel struct {
@@ -251,15 +252,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// If preview is showing and active, handle viewport navigation
-		if m.showPreview && m.previewContent != "" {
-			// Check if we should handle viewport scrolling
-			switch msg.String() {
-			case "pgup", "pgdown":
-				m.previewViewport, cmd = m.previewViewport.Update(msg)
-				cmds = append(cmds, cmd)
-				return m, tea.Batch(cmds...)
-			}
-		}
 
 		// Normal mode keybindings
 		switch msg.String() {
@@ -271,17 +263,52 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab":
 			// Switch between columns
-			if m.activeColumn == leftColumn {
-				m.activeColumn = rightColumn
+			if m.showPreview {
+				// When preview is shown, cycle through all three panes
+				switch m.activeColumn {
+				case leftColumn:
+					m.activeColumn = rightColumn
+				case rightColumn:
+					m.activeColumn = previewColumn
+				case previewColumn:
+					m.activeColumn = leftColumn
+				}
 			} else {
-				m.activeColumn = leftColumn
+				// When preview is hidden, only toggle between left and right
+				if m.activeColumn == leftColumn {
+					m.activeColumn = rightColumn
+				} else {
+					m.activeColumn = leftColumn
+				}
 			}
 
 		case "up", "k":
-			m.moveCursor(-1)
+			if m.activeColumn == previewColumn {
+				// Scroll preview up
+				m.previewViewport.LineUp(1)
+			} else {
+				m.moveCursor(-1)
+			}
 
 		case "down", "j":
-			m.moveCursor(1)
+			if m.activeColumn == previewColumn {
+				// Scroll preview down
+				m.previewViewport.LineDown(1)
+			} else {
+				m.moveCursor(1)
+			}
+			
+		case "pgup":
+			if m.activeColumn == previewColumn {
+				// Scroll preview page up
+				m.previewViewport.ViewUp()
+			}
+			
+		case "pgdown":
+			if m.activeColumn == previewColumn {
+				// Scroll preview page down
+				m.previewViewport.ViewDown()
+			}
 
 		case "enter":
 			if m.activeColumn == leftColumn {
@@ -702,7 +729,7 @@ func (m *PipelineBuilderModel) View() string {
 	rightStyle := inactiveStyle
 	if m.activeColumn == leftColumn {
 		leftStyle = activeStyle
-	} else {
+	} else if m.activeColumn == rightColumn {
 		rightStyle = activeStyle
 	}
 
@@ -766,9 +793,15 @@ func (m *PipelineBuilderModel) View() string {
 		
 		tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
 		
+		// Apply active/inactive style to preview border
+		previewBorderColor := lipgloss.Color("243") // inactive
+		if m.activeColumn == previewColumn {
+			previewBorderColor = lipgloss.Color("170") // active (same as other active borders)
+		}
+		
 		previewBorderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
-			BorderForeground(lipgloss.Color("243")).
+			BorderForeground(previewBorderColor).
 			Width(m.width - 4) // Account for padding (2) and border (2)
 
 		s.WriteString("\n")
@@ -812,14 +845,6 @@ func (m *PipelineBuilderModel) View() string {
 			PaddingRight(1)
 		s.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
 		
-		// Add scroll indicator
-		if m.previewViewport.TotalLineCount() > m.previewViewport.Height {
-			scrollHelp := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("241")).
-				Render("PgUp/PgDn: scroll preview")
-			s.WriteString("\n")
-			s.WriteString(scrollHelp)
-		}
 	}
 
 	// Show pipeline save message if present
