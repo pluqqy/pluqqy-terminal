@@ -195,7 +195,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if previewHeight < 5 {
 				previewHeight = 5
 			}
-			m.previewViewport.Width = m.width - 4
+			m.previewViewport.Width = m.width - 4 // -4 for borders only
 			m.previewViewport.Height = previewHeight
 		}
 
@@ -309,7 +309,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if previewHeight < 5 {
 					previewHeight = 5
 				}
-				m.previewViewport.Width = m.width - 4
+				m.previewViewport.Width = m.width - 4 // -4 for borders only
 				m.previewViewport.Height = previewHeight
 			}
 
@@ -434,7 +434,7 @@ func (m *PipelineBuilderModel) View() string {
 		Foreground(lipgloss.Color("214"))
 
 	// Calculate dimensions
-	columnWidth := (m.width - 3) / 2 // -3 for borders and gap
+	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	contentHeight := m.height - 10    // Reserve space for title and help
 
 	if m.showPreview {
@@ -694,7 +694,13 @@ func (m *PipelineBuilderModel) View() string {
 	}
 	s.WriteString(titleStyle.Render(title))
 	s.WriteString("\n\n")
-	s.WriteString(columns)
+	
+	// Add padding around the content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	s.WriteString(contentStyle.Render(columns))
 
 	// Add preview if enabled
 	if m.showPreview && m.previewContent != "" {
@@ -733,7 +739,7 @@ func (m *PipelineBuilderModel) View() string {
 		previewBorderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("243")).
-			Width(m.width - 2)
+			Width(m.width - 4) // Account for padding (2) and border (2)
 
 		s.WriteString("\n\n")
 		
@@ -762,8 +768,12 @@ func (m *PipelineBuilderModel) View() string {
 		previewContent.WriteString("\n\n")
 		previewContent.WriteString(m.previewViewport.View())
 		
-		// Render the border around the entire preview
-		s.WriteString(previewBorderStyle.Render(previewContent.String()))
+		// Render the border around the entire preview with same padding as top columns
+		s.WriteString("\n")
+		previewPaddingStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		s.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
 		
 		// Add scroll indicator
 		if m.previewViewport.TotalLineCount() > m.previewViewport.Height {
@@ -824,7 +834,7 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 		if previewHeight < 5 {
 			previewHeight = 5
 		}
-		m.previewViewport.Width = m.width - 4
+		m.previewViewport.Width = m.width - 4 // -4 for borders only
 		m.previewViewport.Height = previewHeight
 	}
 }

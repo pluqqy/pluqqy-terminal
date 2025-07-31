@@ -175,7 +175,7 @@ func (m *PipelineViewerModel) View() string {
 
 	// Calculate dimensions
 	leftWidth := 35 // Fixed width for components
-	rightWidth := m.width - leftWidth - 3 // -3 for borders and gap
+	rightWidth := m.width - leftWidth - 6 // Account for gap, padding, and ensure border visibility
 	contentHeight := m.height - 8 // Reserve space for title and help
 
 	// Build left column (components)
@@ -273,7 +273,13 @@ func (m *PipelineViewerModel) View() string {
 	title := fmt.Sprintf("📄 Pipeline: %s", m.pipeline.Name)
 	s.WriteString(titleStyle.Render(title))
 	s.WriteString("\n\n")
-	s.WriteString(columns)
+	
+	// Add padding around the content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	s.WriteString(contentStyle.Render(columns))
 
 	// Help text
 	help := []string{
@@ -308,7 +314,7 @@ func (m *PipelineViewerModel) updateViewportSizes() {
 	
 	// Calculate dimensions
 	leftWidth := 33 // Content width for components (35 - 2 for borders)
-	rightWidth := m.width - 35 - 3 - 2 // Total - left column - gap - borders
+	rightWidth := m.width - 35 - 3 - 2 // Total - left column - gap - right border
 	contentHeight := m.height - 10 // Reserve space for title, headers, and help
 	
 	if contentHeight < 5 {
