@@ -185,20 +185,26 @@ func (m *PipelineViewerModel) View() string {
 
 	// Build left column (components)
 	var leftContent strings.Builder
+	// Create padding style for headers
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
 	// Create heading with colons spanning the width
 	leftHeading := "COMPONENTS"
-	leftRemainingWidth := leftWidth - len(leftHeading) - 3
+	leftRemainingWidth := leftWidth - len(leftHeading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
 	if leftRemainingWidth < 0 {
 		leftRemainingWidth = 0
 	}
 	// Render heading and colons separately with different styles
 	colonStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")) // Subtle gray
-	leftContent.WriteString(headerStyle.Render(leftHeading) + " " + colonStyle.Render(strings.Repeat(":", leftRemainingWidth)))
+	leftContent.WriteString(headerPadding.Render(headerStyle.Render(leftHeading) + " " + colonStyle.Render(strings.Repeat(":", leftRemainingWidth))))
 	leftContent.WriteString("\n\n")
 	
 	// Add padding around the viewport content
 	viewportPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
 		PaddingRight(1)
 	leftContent.WriteString(viewportPadding.Render(m.componentsViewport.View()))
 
@@ -245,13 +251,13 @@ func (m *PipelineViewerModel) View() string {
 	tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
 	
 	// Calculate space for colons between heading and token info
-	colonSpace := rightWidth - len(headerText) - tokenInfoWidth - 4 // -4 for padding/spaces
+	colonSpace := rightWidth - len(headerText) - tokenInfoWidth - 6 // -6 for padding and spaces (2 left + 2 right + 2 spaces)
 	if colonSpace < 3 {
 		colonSpace = 3
 	}
 	
 	// Build the complete header line with right-aligned token info
-	rightContent.WriteString(headerStyle.Render(headerText) + " " + colonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo)
+	rightContent.WriteString(headerPadding.Render(headerStyle.Render(headerText) + " " + colonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo))
 	rightContent.WriteString("\n\n")
 	
 	// Add padding around the viewport content
@@ -345,9 +351,9 @@ func (m *PipelineViewerModel) updateViewportSizes() {
 	}
 	
 	// Update viewport sizes
-	m.componentsViewport.Width = leftWidth - 1 // Add right margin
+	m.componentsViewport.Width = leftWidth - 2 // Account for left and right padding
 	m.componentsViewport.Height = contentHeight - 3 // Reserve space for header and spacing
-	m.previewViewport.Width = rightWidth - 2 // Add left and right margins
+	m.previewViewport.Width = rightWidth - 4 // Account for borders (2) and left/right padding (2)
 	m.previewViewport.Height = contentHeight - 3 // Reserve space for header and spacing
 }
 

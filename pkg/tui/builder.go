@@ -445,16 +445,21 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Build left column (available components)
 	var leftContent strings.Builder
+	// Create padding style for headers
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
 	// Create heading with colons spanning the width
 	heading := "AVAILABLE COMPONENTS"
-	remainingWidth := columnWidth - len(heading) - 3 // -3 for space and padding
+	remainingWidth := columnWidth - len(heading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
 	// Render heading and colons separately with different styles
 	colonStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("240")) // Subtle gray
-	leftContent.WriteString(typeHeaderStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth)))
+	leftContent.WriteString(headerPadding.Render(typeHeaderStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	leftContent.WriteString("\n\n")
 
 	// Table header styles
@@ -473,7 +478,7 @@ func (m *PipelineBuilderModel) View() string {
 		nameWidth, "Name",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
-	leftContent.WriteString(headerStyle.Render(header))
+	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
 	leftContent.WriteString("\n\n")
 	
 	// Build scrollable content for left viewport
@@ -580,18 +585,22 @@ func (m *PipelineBuilderModel) View() string {
 	
 	// Update left viewport with content
 	m.leftViewport.SetContent(leftScrollContent.String())
-	leftContent.WriteString(m.leftViewport.View())
+	// Add padding to viewport content
+	leftViewportPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	leftContent.WriteString(leftViewportPadding.Render(m.leftViewport.View()))
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
 	// Create heading with colons spanning the width
 	rightHeading := "PIPELINE COMPONENTS"
-	rightRemainingWidth := columnWidth - len(rightHeading) - 3
+	rightRemainingWidth := columnWidth - len(rightHeading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
 	if rightRemainingWidth < 0 {
 		rightRemainingWidth = 0
 	}
 	// Render heading and colons separately with different styles
-	rightContent.WriteString(typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth)))
+	rightContent.WriteString(headerPadding.Render(typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
 	rightContent.WriteString("\n\n")
 	
 	// Build scrollable content for right viewport
@@ -682,7 +691,11 @@ func (m *PipelineBuilderModel) View() string {
 	
 	// Update right viewport with content
 	m.rightViewport.SetContent(rightScrollContent.String())
-	rightContent.WriteString(m.rightViewport.View())
+	// Add padding to viewport content
+	rightViewportPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	rightContent.WriteString(rightViewportPadding.Render(m.rightViewport.View()))
 
 	// Apply borders
 	leftStyle := inactiveStyle
@@ -773,7 +786,7 @@ func (m *PipelineBuilderModel) View() string {
 		tokenInfoWidth := lipgloss.Width(tokenBadge) + lipgloss.Width(limitInfo)
 		
 		// Calculate total available width inside the border
-		totalWidth := m.width - 6 // accounting for border padding
+		totalWidth := m.width - 8 // accounting for border padding and header padding
 		
 		// Calculate space for colons between heading and token info
 		colonSpace := totalWidth - len(previewHeading) - tokenInfoWidth - 2 // -2 for spaces
@@ -784,9 +797,16 @@ func (m *PipelineBuilderModel) View() string {
 		// Build the complete header line
 		previewColonStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("240")) // Subtle gray
-		previewContent.WriteString(typeHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo)
+		previewHeaderPadding := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		previewContent.WriteString(previewHeaderPadding.Render(typeHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo))
 		previewContent.WriteString("\n\n")
-		previewContent.WriteString(m.previewViewport.View())
+		// Add padding to preview viewport content
+		previewViewportPadding := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		previewContent.WriteString(previewViewportPadding.Render(m.previewViewport.View()))
 		
 		// Render the border around the entire preview with same padding as top columns
 		s.WriteString("\n")
@@ -879,9 +899,9 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 		viewportHeight = 5
 	}
 	
-	m.leftViewport.Width = columnWidth - 2  // Account for borders
+	m.leftViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
 	m.leftViewport.Height = viewportHeight
-	m.rightViewport.Width = columnWidth - 2  // Account for borders
+	m.rightViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
 	m.rightViewport.Height = viewportHeight
 	
 	// Update preview viewport
@@ -890,7 +910,7 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 		if previewHeight < 5 {
 			previewHeight = 5
 		}
-		m.previewViewport.Width = m.width - 6 // Account for padding and borders
+		m.previewViewport.Width = m.width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
 		m.previewViewport.Height = previewHeight
 	}
 }
