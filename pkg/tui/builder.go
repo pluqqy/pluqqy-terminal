@@ -225,17 +225,20 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.editSaveMessage = ""
 		// Exit editing mode after save confirmation is shown
 		if !m.editingComponent {
-			return m, nil
+			// Force a redraw to ensure layout is recalculated
+			return m, tea.ClearScreen
 		}
 		m.editingComponent = false
 		m.componentContent = ""
 		m.editingComponentPath = ""
 		m.editingComponentName = ""
-		return m, nil
+		// Force a redraw to ensure layout is recalculated
+		return m, tea.ClearScreen
 
 	case clearPipelineSaveMsg:
 		m.pipelineSaveMessage = ""
-		return m, nil
+		// Force a redraw to ensure layout is recalculated
+		return m, tea.ClearScreen
 
 	case tea.KeyMsg:
 		// Handle component creation mode
@@ -289,7 +292,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.pipelineSaveTimer != nil {
 					m.pipelineSaveTimer.Stop()
 				}
-				return m, nil
+				// Force a redraw to ensure layout is recalculated
+				return m, tea.ClearScreen
 			}
 			// Return to main list
 			return m, func() tea.Msg {
@@ -927,12 +931,18 @@ func (m *PipelineBuilderModel) View() string {
 		Padding(0, 1).
 		MarginTop(1)
 	
+	// Empty status style for maintaining layout
+	emptyStatusStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Height(1).
+		MarginTop(1)
+	
 	s.WriteString("\n")
 	if m.pipelineSaveMessage != "" {
 		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
 	} else {
-		// Render empty space to maintain layout
-		s.WriteString(lipgloss.NewStyle().Height(1).Render(""))
+		// Render empty space to maintain layout with same dimensions
+		s.WriteString(emptyStatusStyle.Render(" "))
 	}
 
 	return s.String()
@@ -2071,12 +2081,18 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		Padding(0, 1).
 		MarginTop(1)
 
+	// Empty status style for maintaining layout
+	emptyStatusStyle := lipgloss.NewStyle().
+		Width(m.width).
+		Height(1).
+		MarginTop(1)
+
 	s.WriteString("\n")
 	if m.editSaveMessage != "" {
 		s.WriteString(saveMessageStyle.Render(m.editSaveMessage))
 	} else {
-		// Render empty space to maintain layout
-		s.WriteString(lipgloss.NewStyle().Height(1).Render(""))
+		// Render empty space to maintain layout with same dimensions
+		s.WriteString(emptyStatusStyle.Render(" "))
 	}
 
 	return s.String()

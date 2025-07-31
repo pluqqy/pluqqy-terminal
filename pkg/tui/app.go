@@ -67,7 +67,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.statusTimer != nil {
 				a.statusTimer.Stop()
 			}
-			return a, nil
+			// Force a redraw to ensure layout is recalculated
+			return a, tea.ClearScreen
 		}
 		if msg.Type == tea.KeyCtrlC {
 			if a.quitConfirm {
@@ -109,7 +110,8 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 	case clearStatusMsg:
 		a.statusMsg = ""
-		return a, nil
+		// Force a redraw to ensure layout is recalculated
+		return a, tea.ClearScreen
 
 	case SwitchViewMsg:
 		// Handle view switching
