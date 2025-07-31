@@ -58,16 +58,20 @@ deps: ## Download dependencies
 	$(GOMOD) download
 	$(GOMOD) tidy
 
-install: build ## Install binary to $GOPATH/bin or $HOME/go/bin
+install: build ## Install binary to $GOBIN, $GOPATH/bin, or $HOME/go/bin
 	@echo "Installing $(BINARY_NAME)..."
-	@if [ -z "$(GOPATH)" ]; then \
-		mkdir -p $(HOME)/go/bin; \
-		cp $(BUILD_DIR)/$(BINARY_NAME) $(HOME)/go/bin/$(BINARY_NAME); \
-		echo "Installed to $(HOME)/go/bin/$(BINARY_NAME)"; \
-	else \
+	@if [ -n "$(shell go env GOBIN)" ]; then \
+		mkdir -p $(shell go env GOBIN); \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(shell go env GOBIN)/$(BINARY_NAME); \
+		echo "Installed to $(shell go env GOBIN)/$(BINARY_NAME)"; \
+	elif [ -n "$(GOPATH)" ]; then \
 		mkdir -p $(GOPATH)/bin; \
 		cp $(BUILD_DIR)/$(BINARY_NAME) $(GOPATH)/bin/$(BINARY_NAME); \
 		echo "Installed to $(GOPATH)/bin/$(BINARY_NAME)"; \
+	else \
+		mkdir -p $(HOME)/go/bin; \
+		cp $(BUILD_DIR)/$(BINARY_NAME) $(HOME)/go/bin/$(BINARY_NAME); \
+		echo "Installed to $(HOME)/go/bin/$(BINARY_NAME)"; \
 	fi
 
 build-all: ## Build for all platforms
