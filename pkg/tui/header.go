@@ -11,7 +11,7 @@ func renderHeader(width int, title string) string {
 	logo := `▄▖▖ ▖▖▄▖▄▖▖▖
 ▙▌▌ ▌▌▌▌▌▌▌▌
 ▌ ▙▖▙▌█▌█▌▐
-v0.1.0 ▘ ▘`
+v0.1.0 ▘ ▘▘`
 
 	logoStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("205")). // Pink/magenta color
