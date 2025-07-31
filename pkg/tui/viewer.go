@@ -13,6 +13,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
 type PipelineViewerModel struct {
@@ -170,8 +171,7 @@ func (m *PipelineViewerModel) View() string {
 
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")).
-		MarginBottom(1)
+		Foreground(lipgloss.Color("214"))
 
 	// Calculate dimensions
 	leftWidth := 35 // Fixed width for components
@@ -186,8 +186,45 @@ func (m *PipelineViewerModel) View() string {
 
 	// Build right column (preview)
 	var rightContent strings.Builder
-	rightContent.WriteString(headerStyle.Render("Pipeline Preview (PLUQQY.md)"))
-	rightContent.WriteString("\n")
+	
+	// Calculate token count
+	tokenCount := utils.EstimateTokens(m.composed)
+	percentage, limit, status := utils.GetTokenLimitStatus(tokenCount)
+	
+	// Create token badge with appropriate color
+	var tokenBadgeStyle lipgloss.Style
+	switch status {
+	case "good":
+		tokenBadgeStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("28")).  // Green
+			Foreground(lipgloss.Color("255")). // White
+			Padding(0, 1).
+			Bold(true)
+	case "warning":
+		tokenBadgeStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("214")). // Yellow/Orange
+			Foreground(lipgloss.Color("235")). // Dark
+			Padding(0, 1).
+			Bold(true)
+	case "danger":
+		tokenBadgeStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("196")). // Red
+			Foreground(lipgloss.Color("255")). // White
+			Padding(0, 1).
+			Bold(true)
+	}
+	
+	tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
+	limitInfo := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		Render(fmt.Sprintf(" %d%% of %dK", percentage, limit/1024))
+	
+	// Create the header with token info on the same line
+	headerText := "Pipeline Preview (PLUQQY.md)"
+	headerWithToken := headerStyle.Render(headerText) + " " + tokenBadge + limitInfo
+	
+	rightContent.WriteString(headerWithToken)
+	rightContent.WriteString("\n\n") // Extra newline for spacing
 	rightContent.WriteString(m.previewViewport.View())
 
 	// Apply borders based on active pane
