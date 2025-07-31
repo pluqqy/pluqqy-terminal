@@ -389,9 +389,31 @@ func (m *PipelineBuilderModel) View() string {
 			cursor = "▸ "
 		}
 
-		line := fmt.Sprintf("%s%s", cursor, comp.name)
+		// Check if component is already in pipeline
+		isAdded := false
+		componentPath := "../" + comp.path
+		for _, existing := range m.selectedComponents {
+			if existing.Path == componentPath {
+				isAdded = true
+				break
+			}
+		}
+
+		// Build the line with indicator
+		line := comp.name
+		if isAdded {
+			line = fmt.Sprintf("%s ✓", comp.name)
+		}
+		line = fmt.Sprintf("%s%s", cursor, line)
+		
+		// Apply styling
 		if m.activeColumn == leftColumn && i == m.leftCursor {
 			leftContent.WriteString(selectedStyle.Render(line) + "\n")
+		} else if isAdded {
+			// Use a dimmed style for already added components
+			addedStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("242"))
+			leftContent.WriteString(addedStyle.Render(line) + "\n")
 		} else {
 			leftContent.WriteString(normalStyle.Render(line) + "\n")
 		}
@@ -566,10 +588,19 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 	if m.leftCursor >= 0 && m.leftCursor < len(components) {
 		selected := components[m.leftCursor]
 		
+		// Check if component is already added
+		componentPath := "../" + selected.path
+		for _, existing := range m.selectedComponents {
+			if existing.Path == componentPath {
+				// Component already exists, don't add duplicate
+				return
+			}
+		}
+		
 		// Create component ref with relative path
 		ref := models.ComponentRef{
 			Type:  selected.compType,
-			Path:  "../" + selected.path,
+			Path:  componentPath,
 			Order: len(m.selectedComponents) + 1,
 		}
 		
