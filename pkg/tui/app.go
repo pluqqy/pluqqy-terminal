@@ -1,6 +1,8 @@
 package tui
 
 import (
+	"time"
+	
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -14,13 +16,15 @@ const (
 )
 
 type App struct {
-	state       sessionState
-	mainList    *MainListModel
-	builder     *PipelineBuilderModel
-	viewer      *PipelineViewerModel
-	width       int
-	height      int
-	statusMsg   string
+	state          sessionState
+	mainList       *MainListModel
+	builder        *PipelineBuilderModel
+	viewer         *PipelineViewerModel
+	width          int
+	height         int
+	statusMsg      string
+	statusTimer    *time.Timer
+	quitConfirm    bool
 }
 
 func NewApp() *App {
@@ -53,11 +57,45 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Global keybindings
 		if msg.Type == tea.KeyCtrlC {
-			return a, tea.Quit
+			if a.quitConfirm {
+				// Second Ctrl+C, actually quit
+				return a, tea.Quit
+			}
+			// First Ctrl+C, show confirmation
+			a.quitConfirm = true
+			a.statusMsg = "Press Ctrl+C again to quit"
+			// Cancel any existing timer
+			if a.statusTimer != nil {
+				a.statusTimer.Stop()
+			}
+			// Set timer to clear status and quit confirm after 2 seconds
+			a.statusTimer = time.NewTimer(2 * time.Second)
+			return a, func() tea.Msg {
+				<-a.statusTimer.C
+				a.quitConfirm = false
+				return clearStatusMsg{}
+			}
+		}
+		// Any other key cancels quit confirmation
+		if a.quitConfirm {
+			a.quitConfirm = false
 		}
 
 	case StatusMsg:
 		a.statusMsg = string(msg)
+		// Cancel any existing timer
+		if a.statusTimer != nil {
+			a.statusTimer.Stop()
+		}
+		// Set timer to clear status after 3 seconds
+		a.statusTimer = time.NewTimer(3 * time.Second)
+		return a, func() tea.Msg {
+			<-a.statusTimer.C
+			return clearStatusMsg{}
+		}
+		
+	case clearStatusMsg:
+		a.statusMsg = ""
 		return a, nil
 
 	case SwitchViewMsg:
@@ -136,13 +174,28 @@ func (a *App) View() string {
 
 	// Add status bar if there's a message
 	if a.statusMsg != "" {
+		// Create a footer-style status bar
 		statusStyle := lipgloss.NewStyle().
-			Background(lipgloss.Color("62")).
-			Foreground(lipgloss.Color("230")).
+			Background(lipgloss.Color("236")).
+			Foreground(lipgloss.Color("82")). // Green for success
+			Width(a.width).
+			Align(lipgloss.Center).
 			Padding(0, 1)
 		
 		statusBar := statusStyle.Render(a.statusMsg)
-		content = lipgloss.JoinVertical(lipgloss.Top, content, statusBar)
+		
+		// Position at the bottom
+		remainingHeight := a.height - lipgloss.Height(content) - 1
+		if remainingHeight > 0 {
+			content = lipgloss.JoinVertical(
+				lipgloss.Top,
+				content,
+				lipgloss.NewStyle().Height(remainingHeight).Render(""),
+				statusBar,
+			)
+		} else {
+			content = lipgloss.JoinVertical(lipgloss.Top, content, statusBar)
+		}
 	}
 
 	return content
@@ -150,6 +203,8 @@ func (a *App) View() string {
 
 // Messages for communication between views
 type StatusMsg string
+
+type clearStatusMsg struct{}
 
 type SwitchViewMsg struct {
 	view     sessionState

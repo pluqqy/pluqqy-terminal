@@ -19,6 +19,13 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		return "", fmt.Errorf("cannot compose pipeline '%s': no components defined", pipeline.Name)
 	}
 
+	// Load settings
+	settings, err := files.ReadSettings()
+	if err != nil {
+		// Use defaults if settings can't be loaded
+		settings = models.DefaultSettings()
+	}
+
 	// Sort components by order field
 	sortedComponents := make([]models.ComponentRef, len(pipeline.Components))
 	copy(sortedComponents, pipeline.Components)
@@ -60,8 +67,11 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 	for _, componentType := range typeOrder {
 		components := typeGroups[componentType]
 		
-		// Write type header
-		output.WriteString(fmt.Sprintf("## %s\n\n", capitalizeType(componentType)))
+		// Write type header if enabled in settings
+		if settings.Output.Formatting.ShowHeadings {
+			heading := getCustomHeading(componentType, settings)
+			output.WriteString(fmt.Sprintf("%s\n\n", heading))
+		}
 
 		// Write components of this type
 		for _, comp := range components {
@@ -95,10 +105,30 @@ func capitalizeType(componentType string) string {
 	}
 }
 
+func getCustomHeading(componentType string, settings *models.Settings) string {
+	switch componentType {
+	case models.ComponentTypeContext:
+		return settings.Output.Formatting.Headings.Context
+	case models.ComponentTypePrompt:
+		return settings.Output.Formatting.Headings.Prompts
+	case models.ComponentTypeRules:
+		return settings.Output.Formatting.Headings.Rules
+	default:
+		// Fallback to default capitalization
+		return fmt.Sprintf("## %s", capitalizeType(componentType))
+	}
+}
+
 // WritePLUQQYFile writes the composed pipeline to the output file
 func WritePLUQQYFile(content string, outputPath string) error {
+	// Load settings for default output path
+	settings, err := files.ReadSettings()
+	if err != nil {
+		settings = models.DefaultSettings()
+	}
+
 	if outputPath == "" {
-		outputPath = files.DefaultOutputFile
+		outputPath = filepath.Join(settings.Output.ExportPath, settings.Output.DefaultFilename)
 	}
 
 	if err := files.WriteFile(outputPath, content); err != nil {

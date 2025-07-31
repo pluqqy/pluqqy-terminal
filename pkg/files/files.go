@@ -20,6 +20,7 @@ const (
 	RulesDir          = "rules"
 	ArchiveDir        = "archive"
 	DefaultOutputFile = "PLUQQY.md"
+	SettingsFile      = "settings.yaml"
 	
 	// MaxFileSize is the maximum size for component and pipeline files (10MB)
 	MaxFileSize = 10 * 1024 * 1024
@@ -335,4 +336,78 @@ func DeletePipeline(path string) error {
 	}
 	
 	return nil
+}
+
+// ReadSettings reads the settings file
+func ReadSettings() (*models.Settings, error) {
+	settingsPath := filepath.Join(PluqqyDir, SettingsFile)
+	
+	// Check if settings file exists
+	if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
+		// Return default settings if file doesn't exist
+		return models.DefaultSettings(), nil
+	}
+	
+	// Read the file
+	data, err := os.ReadFile(settingsPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read settings file: %w", err)
+	}
+	
+	// Parse YAML
+	var settings models.Settings
+	if err := yaml.Unmarshal(data, &settings); err != nil {
+		return nil, fmt.Errorf("failed to parse settings file: %w", err)
+	}
+	
+	// Merge with defaults to ensure all fields are populated
+	defaults := models.DefaultSettings()
+	mergeSettings(&settings, defaults)
+	
+	return &settings, nil
+}
+
+// WriteSettings writes the settings file
+func WriteSettings(settings *models.Settings) error {
+	settingsPath := filepath.Join(PluqqyDir, SettingsFile)
+	
+	// Marshal to YAML
+	data, err := yaml.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("failed to marshal settings: %w", err)
+	}
+	
+	// Write atomically
+	if err := writeFileAtomic(settingsPath, data, 0644); err != nil {
+		return fmt.Errorf("failed to write settings file: %w", err)
+	}
+	
+	return nil
+}
+
+// mergeSettings fills in any missing values from defaults
+func mergeSettings(settings *models.Settings, defaults *models.Settings) {
+	// Merge output settings
+	if settings.Output.DefaultFilename == "" {
+		settings.Output.DefaultFilename = defaults.Output.DefaultFilename
+	}
+	if settings.Output.ExportPath == "" {
+		settings.Output.ExportPath = defaults.Output.ExportPath
+	}
+	
+	// Merge formatting settings
+	if settings.Output.Formatting.Headings.Context == "" {
+		settings.Output.Formatting.Headings.Context = defaults.Output.Formatting.Headings.Context
+	}
+	if settings.Output.Formatting.Headings.Prompts == "" {
+		settings.Output.Formatting.Headings.Prompts = defaults.Output.Formatting.Headings.Prompts
+	}
+	if settings.Output.Formatting.Headings.Rules == "" {
+		settings.Output.Formatting.Headings.Rules = defaults.Output.Formatting.Headings.Rules
+	}
+	
+	// Merge UI settings
+	if settings.UI.ComponentView == "" {
+		settings.UI.ComponentView = defaults.UI.ComponentView
+	}
 }

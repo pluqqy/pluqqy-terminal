@@ -62,7 +62,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		// Normal mode key handling
 		switch msg.String() {
-		case "q", "ctrl+c":
+		case "q":
 			return m, tea.Quit
 		
 		case "up", "k":
@@ -86,7 +86,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		
-		case "e", "E":
+		case "e":
 			if len(m.pipelines) > 0 && m.cursor < len(m.pipelines) {
 				// Edit the selected pipeline
 				return m, func() tea.Msg {
@@ -200,7 +200,7 @@ func (m *MainListModel) View() string {
 		"d: delete",
 		"R: set",
 		"r: refresh",
-		"q: quit",
+		"q/Ctrl+C: quit",
 	}
 	s.WriteString("\n")
 	s.WriteString(helpStyle.Render(strings.Join(help, " • ")))
@@ -248,7 +248,7 @@ func (m *MainListModel) setPipeline(pipelineName string) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("Failed to write output file '%s': %v", outputPath, err))
 		}
 
-		return StatusMsg(fmt.Sprintf("Set pipeline: %s → %s", pipelineName, outputPath))
+		return StatusMsg(fmt.Sprintf("✓ Set pipeline: %s → %s", pipelineName, outputPath))
 	}
 }
 
@@ -268,6 +268,6 @@ func (m *MainListModel) deletePipeline(pipelineName string) tea.Cmd {
 			m.cursor = len(m.pipelines) - 1
 		}
 		
-		return StatusMsg(fmt.Sprintf("Deleted pipeline: %s", pipelineName))
+		return StatusMsg(fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName))
 	}
 }

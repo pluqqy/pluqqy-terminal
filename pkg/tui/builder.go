@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
@@ -40,6 +41,7 @@ type PipelineBuilderModel struct {
 	rightCursor    int
 	showPreview    bool
 	previewContent string
+	previewViewport viewport.Model
 	err            error
 	
 	// Name input state
@@ -53,6 +55,11 @@ type PipelineBuilderModel struct {
 	componentContent      string
 	creationStep          int // 0: type, 1: name, 2: content
 	typeCursor           int
+	
+	// Component editing state
+	editingComponent      bool
+	editingComponentPath  string
+	editingComponentName  string
 }
 
 type componentItem struct {
@@ -62,15 +69,19 @@ type componentItem struct {
 }
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
+	// Load settings for UI preferences
+	settings, _ := files.ReadSettings()
+	
 	m := &PipelineBuilderModel{
 		activeColumn: leftColumn,
-		showPreview:  true,
+		showPreview:  settings.UI.ShowPreview,
 		editingName:  true,
 		nameInput:    "",
 		pipeline: &models.Pipeline{
 			Name:       "",
 			Components: []models.ComponentRef{},
 		},
+		previewViewport: viewport.New(80, 20), // Default size, will be resized
 	}
 	m.loadAvailableComponents()
 	return m
@@ -113,11 +124,33 @@ func (m *PipelineBuilderModel) Init() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+	var cmds []tea.Cmd
+
 	switch msg := msg.(type) {
+	case tea.WindowSizeMsg:
+		m.width = msg.Width
+		m.height = msg.Height
+		// Update viewport size
+		if m.showPreview {
+			// Calculate preview height
+			previewHeight := m.height / 2 - 5
+			if previewHeight < 5 {
+				previewHeight = 5
+			}
+			m.previewViewport.Width = m.width - 4
+			m.previewViewport.Height = previewHeight
+		}
+
 	case tea.KeyMsg:
 		// Handle component creation mode
 		if m.creatingComponent {
 			return m.handleComponentCreation(msg)
+		}
+		
+		// Handle component editing mode
+		if m.editingComponent {
+			return m.handleComponentEditing(msg)
 		}
 		
 		// Handle name editing mode
@@ -149,9 +182,20 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 
+		// If preview is showing and active, handle viewport navigation
+		if m.showPreview && m.previewContent != "" {
+			// Check if we should handle viewport scrolling
+			switch msg.String() {
+			case "pgup", "pgdown":
+				m.previewViewport, cmd = m.previewViewport.Update(msg)
+				cmds = append(cmds, cmd)
+				return m, tea.Batch(cmds...)
+			}
+		}
+
 		// Normal mode keybindings
 		switch msg.String() {
-		case "q", "esc":
+		case "esc":
 			// Return to main list
 			return m, func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
@@ -186,8 +230,17 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "p":
 			m.showPreview = !m.showPreview
+			if m.showPreview {
+				// Recalculate viewport size when toggling preview
+				previewHeight := m.height / 2 - 5
+				if previewHeight < 5 {
+					previewHeight = 5
+				}
+				m.previewViewport.Width = m.width - 4
+				m.previewViewport.Height = previewHeight
+			}
 
-		case "s":
+		case "s", "ctrl+s":
 			// Save pipeline
 			return m, m.savePipeline()
 
@@ -213,12 +266,33 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		
-		case "e":
-			// Edit component
+		case "E":
+			// Edit component in external editor
 			if m.activeColumn == leftColumn {
 				components := m.getAllAvailableComponents()
 				if m.leftCursor >= 0 && m.leftCursor < len(components) {
 					return m, m.editComponentFromLeft()
+				}
+			}
+		
+		case "e":
+			// Edit component in TUI editor
+			if m.activeColumn == leftColumn {
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					// Read the component content
+					content, err := files.ReadComponent(comp.path)
+					if err != nil {
+						m.err = err
+						return m, nil
+					}
+					// Enter editing mode
+					m.editingComponent = true
+					m.editingComponentPath = comp.path
+					m.editingComponentName = comp.name
+					m.componentContent = content.Content
+					return m, nil
 				}
 			}
 		}
@@ -227,17 +301,32 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update preview if needed
 	m.updatePreview()
 
-	return m, nil
+	// Update viewport content if preview changed
+	if m.showPreview && m.previewContent != "" {
+		m.previewViewport.SetContent(m.previewContent)
+		// Also forward other messages to viewport
+		m.previewViewport, cmd = m.previewViewport.Update(msg)
+		if cmd != nil {
+			cmds = append(cmds, cmd)
+		}
+	}
+
+	return m, tea.Batch(cmds...)
 }
 
 func (m *PipelineBuilderModel) View() string {
 	if m.err != nil {
-		return fmt.Sprintf("Error: %v\n\nPress 'q' to return", m.err)
+		return fmt.Sprintf("Error: %v\n\nPress 'Esc' to return", m.err)
 	}
 
 	// If creating component, show creation wizard
 	if m.creatingComponent {
 		return m.componentCreationView()
+	}
+	
+	// If editing component, show edit view
+	if m.editingComponent {
+		return m.componentEditView()
 	}
 	
 	// If editing name, show name input screen
@@ -364,17 +453,27 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Add preview if enabled
 	if m.showPreview && m.previewContent != "" {
-		previewStyle := lipgloss.NewStyle().
+		previewBorderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("243")).
-			Width(m.width - 2).
-			Height(contentHeight - 2).
-			Padding(1)
+			Width(m.width - 2)
 
 		s.WriteString("\n\n")
 		s.WriteString(typeHeaderStyle.Render("Pipeline Preview (PLUQQY.md)"))
 		s.WriteString("\n")
-		s.WriteString(previewStyle.Render(m.previewContent))
+		
+		// Use viewport for scrollable preview
+		previewView := m.previewViewport.View()
+		s.WriteString(previewBorderStyle.Render(previewView))
+		
+		// Add scroll indicator
+		if m.previewViewport.TotalLineCount() > m.previewViewport.Height {
+			scrollHelp := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("241")).
+				Render("PgUp/PgDn: scroll preview")
+			s.WriteString("\n")
+			s.WriteString(scrollHelp)
+		}
 	}
 
 	// Help text
@@ -383,12 +482,14 @@ func (m *PipelineBuilderModel) View() string {
 		"↑/↓: nav",
 		"Enter: add/edit",
 		"n: new",
-		"e: edit",
+		"E: edit external",
+		"e: edit TUI",
 		"Del: remove",
 		"K/J: reorder",
 		"p: preview",
-		"s: save",
-		"q: back",
+		"Ctrl+S: save",
+		"Esc: back",
+		"Ctrl+C: quit",
 	}
 	helpStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")).
@@ -403,6 +504,16 @@ func (m *PipelineBuilderModel) View() string {
 func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	
+	// Update viewport size
+	if m.showPreview {
+		previewHeight := m.height / 2 - 5
+		if previewHeight < 5 {
+			previewHeight = 5
+		}
+		m.previewViewport.Width = m.width - 4
+		m.previewViewport.Height = previewHeight
+	}
 }
 
 func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
@@ -590,7 +701,7 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Return status message first, then switch view
 		return tea.Batch(
 			func() tea.Msg {
-				return StatusMsg(fmt.Sprintf("Saved pipeline: %s", m.pipeline.Name))
+				return StatusMsg(fmt.Sprintf("✓ Pipeline saved: %s.yaml", m.pipeline.Path))
 			},
 			func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
@@ -892,7 +1003,7 @@ func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
 		// Reload components
 		m.loadAvailableComponents()
 		
-		return StatusMsg(fmt.Sprintf("Created %s: %s", m.componentCreationType, filename))
+		return StatusMsg(fmt.Sprintf("✓ Created %s: %s", m.componentCreationType, filename))
 	}
 }
 
@@ -945,5 +1056,97 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 		m.updatePreview()
 
 		return StatusMsg(fmt.Sprintf("Edited: %s", filepath.Base(path)))
+	}
+}
+
+func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "ctrl+s":
+		// Save component
+		return m, m.saveEditedComponent()
+	case "esc":
+		// Cancel editing
+		m.editingComponent = false
+		m.componentContent = ""
+		m.editingComponentPath = ""
+		m.editingComponentName = ""
+		return m, nil
+	case "enter":
+		m.componentContent += "\n"
+	case "backspace":
+		if len(m.componentContent) > 0 {
+			m.componentContent = m.componentContent[:len(m.componentContent)-1]
+		}
+	case "tab":
+		m.componentContent += "    "
+	case " ":
+		m.componentContent += " "
+	default:
+		if msg.Type == tea.KeyRunes {
+			m.componentContent += string(msg.Runes)
+		}
+	}
+	
+	return m, nil
+}
+
+func (m *PipelineBuilderModel) componentEditView() string {
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170"))
+
+	editorStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(1).
+		Width(m.width - 4).
+		Height(m.height - 10)
+
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")).
+		MarginTop(1)
+
+	var s strings.Builder
+	s.WriteString(titleStyle.Render(fmt.Sprintf("📝 Editing: %s", m.editingComponentName)))
+	s.WriteString("\n\n")
+	
+	// Show content with cursor
+	content := m.componentContent
+	if content == "" {
+		content = " "
+	}
+	content += "│"
+	
+	s.WriteString(editorStyle.Render(content))
+	s.WriteString("\n")
+	s.WriteString(helpStyle.Render("Type to edit • Ctrl+S: save • Esc: cancel"))
+
+	return s.String()
+}
+
+func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
+	return func() tea.Msg {
+		// Save the name before resetting
+		componentName := m.editingComponentName
+		
+		// Write component
+		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to save component: %v", err))
+		}
+		
+		// Reset editing state
+		m.editingComponent = false
+		m.componentContent = ""
+		m.editingComponentPath = ""
+		m.editingComponentName = ""
+		
+		// Reload components
+		m.loadAvailableComponents()
+		
+		// Update preview
+		m.updatePreview()
+		
+		return StatusMsg(fmt.Sprintf("✓ Saved: %s", componentName))
 	}
 }

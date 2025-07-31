@@ -57,7 +57,7 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "q", "esc":
+		case "esc":
 			// Return to main list
 			return m, func() tea.Msg {
 				return SwitchViewMsg{view: mainListView}
@@ -67,12 +67,12 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Set pipeline (generate PLUQQY.md)
 			return m, m.setPipeline()
 
-		case "e":
+		case "E":
 			// Edit in external editor
 			return m, m.editInEditor()
 
-		case "E":
-			// Edit in pipeline builder
+		case "e":
+			// Edit in pipeline builder (TUI)
 			return m, func() tea.Msg {
 				return SwitchViewMsg{
 					view:     pipelineBuilderView,
@@ -113,7 +113,7 @@ func (m *PipelineViewerModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m *PipelineViewerModel) View() string {
 	if m.err != nil {
-		return fmt.Sprintf("Error: Failed to load pipeline: %v\n\nPress 'q' to return", m.err)
+		return fmt.Sprintf("Error: Failed to load pipeline: %v\n\nPress 'Esc' to return", m.err)
 	}
 
 	if m.pipeline == nil {
@@ -203,9 +203,10 @@ func (m *PipelineViewerModel) View() string {
 	help := []string{
 		"↑/↓: scroll",
 		"r: set",
-		"e: edit ($EDITOR)",
-		"E: edit (builder)",
-		"q: back",
+		"E: edit external",
+		"e: edit TUI",
+		"Esc: back",
+		"Ctrl+C: quit",
 	}
 	s.WriteString("\n")
 	s.WriteString(helpStyle.Render(strings.Join(help, " • ")))
@@ -242,7 +243,7 @@ func (m *PipelineViewerModel) setPipeline() tea.Cmd {
 		}
 
 		m.composed = output
-		return StatusMsg(fmt.Sprintf("Set pipeline → %s", outputPath))
+		return StatusMsg(fmt.Sprintf("✓ Set pipeline → %s", outputPath))
 	}
 }
 
@@ -280,6 +281,6 @@ func (m *PipelineViewerModel) editInEditor() tea.Cmd {
 		composed, _ := composer.ComposePipeline(pipeline)
 		m.composed = composed
 
-		return StatusMsg("Pipeline reloaded after editing")
+		return StatusMsg("✓ Pipeline reloaded after editing")
 	}
 }

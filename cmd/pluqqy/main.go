@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path/filepath"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/tui"
 )
 
@@ -71,9 +75,60 @@ var versionCmd = &cobra.Command{
 	},
 }
 
+var settingsCmd = &cobra.Command{
+	Use:   "settings",
+	Short: "Edit Pluqqy settings",
+	Long:  `Opens the settings file in your default editor. Creates default settings if none exist.`,
+	Run: func(cmd *cobra.Command, args []string) {
+		// Check if .pluqqy directory exists
+		if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Error: No .pluqqy directory found. Run 'pluqqy init' first.\n")
+			os.Exit(1)
+		}
+
+		settingsPath := filepath.Join(files.PluqqyDir, files.SettingsFile)
+		
+		// Create default settings if file doesn't exist
+		if _, err := os.Stat(settingsPath); os.IsNotExist(err) {
+			fmt.Println("Creating default settings file...")
+			defaultSettings := models.DefaultSettings()
+			if err := files.WriteSettings(defaultSettings); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: Failed to create settings file: %v\n", err)
+				os.Exit(1)
+			}
+			fmt.Println("✓ Created settings.yaml with default values")
+		}
+
+		// Open in editor
+		editor := os.Getenv("EDITOR")
+		if editor == "" {
+			editor = "vi"
+		}
+
+		// Validate editor path to prevent command injection
+		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
+			fmt.Fprintf(os.Stderr, "Error: Invalid EDITOR value: contains shell metacharacters\n")
+			os.Exit(1)
+		}
+
+		editorCmd := exec.Command(editor, settingsPath)
+		editorCmd.Stdin = os.Stdin
+		editorCmd.Stdout = os.Stdout
+		editorCmd.Stderr = os.Stderr
+
+		if err := editorCmd.Run(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: Failed to open editor: %v\n", err)
+			os.Exit(1)
+		}
+
+		fmt.Println("✓ Settings updated")
+	},
+}
+
 func init() {
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(versionCmd)
+	rootCmd.AddCommand(settingsCmd)
 }
 
 func main() {
