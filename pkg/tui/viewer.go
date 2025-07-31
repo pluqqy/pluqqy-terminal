@@ -175,8 +175,8 @@ func (m *PipelineViewerModel) View() string {
 
 	// Calculate dimensions
 	leftWidth := 35 // Fixed width for components
-	rightWidth := m.width - leftWidth - 6 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 8 // Reserve space for title and help
+	rightWidth := m.width - leftWidth - 7 // Account for gap, padding, and border visibility
+	contentHeight := m.height - 10 // Reserve space for title, help pane, and spacing
 	
 	// Ensure minimum height
 	if contentHeight < 10 {
@@ -196,7 +196,11 @@ func (m *PipelineViewerModel) View() string {
 		Foreground(lipgloss.Color("240")) // Subtle gray
 	leftContent.WriteString(headerStyle.Render(leftHeading) + " " + colonStyle.Render(strings.Repeat(":", leftRemainingWidth)))
 	leftContent.WriteString("\n\n")
-	leftContent.WriteString(m.componentsViewport.View())
+	
+	// Add padding around the viewport content
+	viewportPadding := lipgloss.NewStyle().
+		PaddingRight(1)
+	leftContent.WriteString(viewportPadding.Render(m.componentsViewport.View()))
 
 	// Build right column (preview)
 	var rightContent strings.Builder
@@ -249,7 +253,12 @@ func (m *PipelineViewerModel) View() string {
 	// Build the complete header line with right-aligned token info
 	rightContent.WriteString(headerStyle.Render(headerText) + " " + colonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo)
 	rightContent.WriteString("\n\n")
-	rightContent.WriteString(m.previewViewport.View())
+	
+	// Add padding around the viewport content
+	previewPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	rightContent.WriteString(previewPadding.Render(m.previewViewport.View()))
 
 	// Apply borders based on active pane
 	leftStyle := inactiveStyle
@@ -286,7 +295,7 @@ func (m *PipelineViewerModel) View() string {
 	
 	s.WriteString(contentStyle.Render(columns))
 
-	// Help text
+	// Help text in bordered pane
 	help := []string{
 		"Tab: switch pane",
 		"↑/↓: scroll",
@@ -296,8 +305,17 @@ func (m *PipelineViewerModel) View() string {
 		"Esc: back",
 		"Ctrl+C: quit",
 	}
+	
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
+		Padding(0, 1)  // Internal padding for help text
+		
+	helpContent := helpStyle.Render(strings.Join(help, " • "))
+	
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render(strings.Join(help, " • ")))
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
 }
@@ -327,9 +345,9 @@ func (m *PipelineViewerModel) updateViewportSizes() {
 	}
 	
 	// Update viewport sizes
-	m.componentsViewport.Width = leftWidth
+	m.componentsViewport.Width = leftWidth - 1 // Add right margin
 	m.componentsViewport.Height = contentHeight - 3 // Reserve space for header and spacing
-	m.previewViewport.Width = rightWidth
+	m.previewViewport.Width = rightWidth - 2 // Add left and right margins
 	m.previewViewport.Height = contentHeight - 3 // Reserve space for header and spacing
 }
 

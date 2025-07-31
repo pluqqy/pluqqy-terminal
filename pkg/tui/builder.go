@@ -432,7 +432,7 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 10    // Reserve space for title and help
+	contentHeight := m.height - 12    // Reserve space for title, help pane, and spacing
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -819,7 +819,7 @@ func (m *PipelineBuilderModel) View() string {
 		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
 	}
 
-	// Help text
+	// Help text in bordered pane
 	help := []string{
 		"Tab: switch",
 		"↑/↓: nav",
@@ -834,12 +834,20 @@ func (m *PipelineBuilderModel) View() string {
 		"Esc: back",
 		"Ctrl+C: quit",
 	}
+	
 	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241")).
-		MarginTop(1)
+		Foreground(lipgloss.Color("241"))
+	
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
+		Padding(0, 1)  // Internal padding for help text
+		
+	helpContent := helpStyle.Render(strings.Join(help, " • "))
 	
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render(strings.Join(help, " • ")))
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
 }
@@ -853,7 +861,7 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 10    // Reserve space for title and help
+	contentHeight := m.height - 12    // Reserve space for title, help pane, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2

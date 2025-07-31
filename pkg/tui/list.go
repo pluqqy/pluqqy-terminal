@@ -158,11 +158,19 @@ func (m *MainListModel) View() string {
 	
 	s.WriteString(titleStyle.Render("🗂  Pluqqy - Pipeline Manager"))
 	s.WriteString("\n\n")
+	
+	// Add padding wrapper for consistency with other screens
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	// Build main content
+	var mainContent strings.Builder
 
 	if len(m.pipelines) == 0 {
-		s.WriteString(normalStyle.Render("No pipelines found. Press 'n' to create one."))
+		mainContent.WriteString(normalStyle.Render("No pipelines found. Press 'n' to create one."))
 	} else {
-		s.WriteString("Pipelines:\n\n")
+		mainContent.WriteString("Pipelines:\n\n")
 		for i, pipeline := range m.pipelines {
 			cursor := "  "
 			if i == m.cursor {
@@ -172,13 +180,16 @@ func (m *MainListModel) View() string {
 			line := fmt.Sprintf("%s%s", cursor, pipeline)
 			
 			if i == m.cursor {
-				s.WriteString(selectedStyle.Render(line))
+				mainContent.WriteString(selectedStyle.Render(line))
 			} else {
-				s.WriteString(normalStyle.Render(line))
+				mainContent.WriteString(normalStyle.Render(line))
 			}
-			s.WriteString("\n")
+			mainContent.WriteString("\n")
 		}
 	}
+	
+	// Apply padding to main content
+	s.WriteString(contentStyle.Render(mainContent.String()))
 
 	// Show delete confirmation if active
 	if m.confirmingDelete {
@@ -190,7 +201,7 @@ func (m *MainListModel) View() string {
 		s.WriteString(confirmStyle.Render(m.deleteConfirmation))
 	}
 	
-	// Help text
+	// Help text in bordered pane
 	help := []string{
 		"↑/k: up",
 		"↓/j: down",
@@ -202,8 +213,17 @@ func (m *MainListModel) View() string {
 		"r: refresh",
 		"q/Ctrl+C: quit",
 	}
+	
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
+		Padding(0, 1)  // Internal padding for help text
+		
+	helpContent := helpStyle.Render(strings.Join(help, " • "))
+	
 	s.WriteString("\n")
-	s.WriteString(helpStyle.Render(strings.Join(help, " • ")))
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	// Fit content to window
 	content := s.String()
