@@ -132,7 +132,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			header := renderHeader(a.width, "")
 			headerHeight := lipgloss.Height(header)
 			a.builder.SetSize(a.width, a.height-headerHeight)
-			a.builder.SetPipeline(msg.pipeline)
+			
+			// If no pipeline specified (new pipeline), create a fresh builder
+			if msg.pipeline == "" {
+				a.builder = NewPipelineBuilderModel()
+				a.builder.SetSize(a.width, a.height-headerHeight)
+			} else {
+				a.builder.SetPipeline(msg.pipeline)
+			}
 			return a, a.builder.Init()
 		case pipelineViewerView:
 			a.state = pipelineViewerView
