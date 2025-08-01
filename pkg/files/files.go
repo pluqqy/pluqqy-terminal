@@ -339,6 +339,27 @@ func DeletePipeline(path string) error {
 	return nil
 }
 
+// DeleteComponent removes a component file
+func DeleteComponent(path string) error {
+	if err := validatePath(path); err != nil {
+		return fmt.Errorf("invalid component path: %w", err)
+	}
+	
+	absPath := filepath.Join(PluqqyDir, path)
+	
+	// Check if file exists
+	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+		return fmt.Errorf("component not found at path '%s'", path)
+	}
+	
+	// Remove the file
+	if err := os.Remove(absPath); err != nil {
+		return fmt.Errorf("failed to delete component '%s': %w", path, err)
+	}
+	
+	return nil
+}
+
 // ReadSettings reads the settings file
 func ReadSettings() (*models.Settings, error) {
 	settingsPath := filepath.Join(PluqqyDir, SettingsFile)

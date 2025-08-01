@@ -57,6 +57,7 @@ type MainListModel struct {
 	// Delete confirmation
 	confirmingDelete   bool
 	deleteConfirmation string
+	deletingFromPane   pane // Track which pane initiated the delete
 	
 	// Component creation state
 	creatingComponent     bool
@@ -259,10 +260,18 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "y", "Y":
 				// Confirmed deletion
-				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					pipelineName := m.pipelines[m.pipelineCursor]
-					m.confirmingDelete = false
-					return m, m.deletePipeline(pipelineName)
+				m.confirmingDelete = false
+				if m.deletingFromPane == pipelinesPane {
+					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
+						pipelineName := m.pipelines[m.pipelineCursor]
+						return m, m.deletePipeline(pipelineName)
+					}
+				} else if m.deletingFromPane == componentsPane {
+					components := m.getAllComponents()
+					if m.componentCursor >= 0 && m.componentCursor < len(components) {
+						comp := components[m.componentCursor]
+						return m, m.deleteComponent(comp)
+					}
 				}
 			case "n", "N", "esc":
 				// Cancel deletion
@@ -454,7 +463,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Delete pipeline with confirmation
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
 					m.confirmingDelete = true
+					m.deletingFromPane = pipelinesPane
 					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor])
+				}
+			} else if m.activePane == componentsPane {
+				// Delete component with confirmation
+				components := m.getAllComponents()
+				if m.componentCursor >= 0 && m.componentCursor < len(components) {
+					comp := components[m.componentCursor]
+					m.confirmingDelete = true
+					m.deletingFromPane = componentsPane
+					m.deleteConfirmation = fmt.Sprintf("Delete %s '%s'? (y/n)", comp.compType, comp.name)
 				}
 			}
 		}
@@ -1171,6 +1190,27 @@ func (m *MainListModel) deletePipeline(pipelineName string) tea.Cmd {
 		}
 		
 		return StatusMsg(fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName))
+	}
+}
+
+func (m *MainListModel) deleteComponent(comp componentItem) tea.Cmd {
+	return func() tea.Msg {
+		// Delete the component file
+		err := files.DeleteComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to delete %s '%s': %v", comp.compType, comp.name, err))
+		}
+		
+		// Reload the component list
+		m.loadComponents()
+		
+		// Adjust cursor if necessary
+		components := m.getAllComponents()
+		if m.componentCursor >= len(components) && m.componentCursor > 0 {
+			m.componentCursor = len(components) - 1
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
 	}
 }
 
