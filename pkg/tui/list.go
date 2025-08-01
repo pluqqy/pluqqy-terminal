@@ -581,14 +581,14 @@ func (m *MainListModel) View() string {
 	
 	// Table column widths (adjusted for column width)
 	nameWidth := 20
-	tokenWidth := 7  // For "~Token" plus padding
+	tokenWidth := 8  // For "~Tokens" plus padding
 	modifiedWidth := 12
 	usageWidth := 8
 	
 	// Render table header with 2-space shift
 	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
-		tokenWidth, "~Token",
+		tokenWidth, "~Tokens",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
@@ -751,12 +751,12 @@ func (m *MainListModel) View() string {
 	
 	// Table column widths for pipelines
 	pipelineNameWidth := 35
-	pipelineTokenWidth := 7  // For "~Token"
+	pipelineTokenWidth := 8  // For "~Tokens"
 	
 	// Render table header
 	pipelineHeader := fmt.Sprintf("  %-*s %*s", 
 		pipelineNameWidth, "Name",
-		pipelineTokenWidth, "~Token")
+		pipelineTokenWidth, "~Tokens")
 	rightContent.WriteString(headerPadding.Render(pipelineHeaderStyle.Render(pipelineHeader)))
 	rightContent.WriteString("\n\n")
 
@@ -986,7 +986,7 @@ func (m *MainListModel) View() string {
 	help := []string{
 		"tab switch pane",
 		"↑/↓ nav",
-		"enter view/edit",
+		"enter view",
 		"e edit",
 		"E edit external",
 		"n new",

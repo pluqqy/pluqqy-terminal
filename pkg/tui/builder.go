@@ -673,14 +673,14 @@ func (m *PipelineBuilderModel) View() string {
 	
 	// Table column widths (adjusted for left column width)
 	nameWidth := 20
-	tokenWidth := 7  // For "~Token" plus padding
+	tokenWidth := 8  // For "~Tokens" plus padding
 	modifiedWidth := 12
 	usageWidth := 8
 	
 	// Render table header with 2-space shift
 	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
-		tokenWidth, "~Token",
+		tokenWidth, "~Tokens",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
