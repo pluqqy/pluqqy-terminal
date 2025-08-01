@@ -91,6 +91,7 @@ pluqqy
 - `a` - Archive pipeline/component (with confirmation)
 - `d` - Delete pipeline/component (with confirmation)
 - `S` - Set selected pipeline (generates PLUQQY.md)
+- `s` - Open settings editor
 - `p` - Toggle preview pane
 - `r` - Refresh pipeline list
 - `Ctrl+C` - Quit (double Ctrl+C to confirm)
@@ -156,6 +157,22 @@ The `set` command generates a `PLUQQY.md` file in your project root with section
 8. Check `PLUQQY.md` for the composed output
 
 ## Configuration
+
+### Settings Editor
+
+Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` from the main list view to customize:
+
+- **Output Settings**
+  - Default filename for generated output (default: `PLUQQY.md`)
+  - Export path for pipeline output files
+  - Output path for pipeline-generated files
+  
+- **Formatting Options**
+  - Toggle section headings in output
+  - Reorder sections using `J/K` keys
+  - Edit section types and headings
+
+Changes take effect immediately upon saving with `S`. The editor includes unsaved changes protection to prevent accidental data loss.
 
 ### External Editor
 
