@@ -389,6 +389,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.activeColumn = leftColumn
 				}
 			}
+			// Update preview when switching to non-preview column
+			if m.activeColumn != previewColumn {
+				m.updatePreview()
+			}
 
 		case "up", "k":
 			if m.activeColumn == previewColumn {
@@ -434,6 +438,9 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "p":
 			m.showPreview = !m.showPreview
 			m.updateViewportSizes()
+			if m.showPreview {
+				m.updatePreview()
+			}
 
 		case "ctrl+s":
 			// Save pipeline
@@ -1004,18 +1011,18 @@ func (m *PipelineBuilderModel) View() string {
 		rightStyle = activeStyle
 	}
 
-	leftColumn := leftStyle.
+	leftColumnView := leftStyle.
 		Width(columnWidth).
 		Height(contentHeight).
 		Render(leftContent.String())
 
-	rightColumn := rightStyle.
+	rightColumnView := rightStyle.
 		Width(columnWidth).
 		Height(contentHeight).
 		Render(rightContent.String())
 
 	// Join columns
-	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, " ", rightColumn)
+	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftColumnView, " ", rightColumnView)
 
 	// Build final view
 	var s strings.Builder
@@ -1074,7 +1081,12 @@ func (m *PipelineBuilderModel) View() string {
 		// Build preview content with header inside
 		var previewContent strings.Builder
 		// Create heading with colons and token info
-		previewHeading := "PIPELINE PREVIEW (PLUQQY.md)"
+		var previewHeading string
+		if m.activeColumn == leftColumn {
+			previewHeading = "COMPONENT PREVIEW"
+		} else {
+			previewHeading = "PIPELINE PREVIEW (PLUQQY.md)"
+		}
 		tokenInfo := tokenBadge
 		
 		// Calculate the actual rendered width of token info
@@ -1300,6 +1312,8 @@ func (m *PipelineBuilderModel) moveCursor(delta int) {
 			m.rightCursor = len(m.selectedComponents) - 1
 		}
 	}
+	// Update preview when cursor moves
+	m.updatePreview()
 }
 
 func (m *PipelineBuilderModel) addSelectedComponent() {
@@ -1329,6 +1343,9 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 					m.rightCursor = len(m.selectedComponents) - 1
 				}
 				
+				// Update preview after removing component
+				m.updatePreview()
+				
 				return
 			}
 		}
@@ -1346,6 +1363,9 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 		// Update the usage count locally to show predicted usage
 		// This gives immediate feedback before the pipeline is saved
 		m.updateLocalUsageCount(selected.path, 1)
+		
+		// Update preview after adding component
+		m.updatePreview()
 	}
 }
 
@@ -1461,6 +1481,9 @@ func (m *PipelineBuilderModel) removeSelectedComponent() {
 		
 		// Update the usage count locally
 		m.updateLocalUsageCount(componentPath, -1)
+		
+		// Update preview after removing component
+		m.updatePreview()
 	}
 }
 
@@ -1509,26 +1532,62 @@ func (m *PipelineBuilderModel) updatePreview() {
 		return
 	}
 
-	// Always show the complete pipeline preview
-	if len(m.selectedComponents) == 0 {
-		m.previewContent = "No components selected yet.\n\nAdd components to see the pipeline preview."
-		return
-	}
+	// Show preview based on active column
+	if m.activeColumn == leftColumn {
+		// Show component preview for left column
+		components := m.getAllAvailableComponents()
+		if len(components) == 0 {
+			m.previewContent = "No components to preview."
+			return
+		}
+		
+		if m.leftCursor >= 0 && m.leftCursor < len(components) {
+			comp := components[m.leftCursor]
+			
+			// Read component content
+			content, err := files.ReadComponent(comp.path)
+			if err != nil {
+				m.previewContent = fmt.Sprintf("Error loading component: %v", err)
+				return
+			}
+			
+			// Format component preview with metadata
+			var preview strings.Builder
+			preview.WriteString(fmt.Sprintf("# %s\n\n", comp.name))
+			preview.WriteString(fmt.Sprintf("**Type:** %s\n", strings.Title(comp.compType)))
+			preview.WriteString(fmt.Sprintf("**Path:** %s\n", comp.path))
+			preview.WriteString(fmt.Sprintf("**Usage Count:** %d\n", comp.usageCount))
+			preview.WriteString(fmt.Sprintf("**Token Count:** ~%d\n", comp.tokenCount))
+			if !comp.lastModified.IsZero() {
+				preview.WriteString(fmt.Sprintf("**Last Modified:** %s\n", comp.lastModified.Format("2006-01-02 15:04:05")))
+			}
+			preview.WriteString("\n---\n\n")
+			preview.WriteString(content.Content)
+			
+			m.previewContent = preview.String()
+		}
+	} else {
+		// Show pipeline preview for right column
+		if len(m.selectedComponents) == 0 {
+			m.previewContent = "No components selected yet.\n\nAdd components to see the pipeline preview."
+			return
+		}
 
-	// Create a temporary pipeline with current components
-	tempPipeline := &models.Pipeline{
-		Name:       m.pipeline.Name,
-		Components: m.selectedComponents,
-	}
+		// Create a temporary pipeline with current components
+		tempPipeline := &models.Pipeline{
+			Name:       m.pipeline.Name,
+			Components: m.selectedComponents,
+		}
 
-	// Generate the preview
-	output, err := composer.ComposePipeline(tempPipeline)
-	if err != nil {
-		m.previewContent = fmt.Sprintf("Error generating preview: %v", err)
-		return
-	}
+		// Generate the preview
+		output, err := composer.ComposePipeline(tempPipeline)
+		if err != nil {
+			m.previewContent = fmt.Sprintf("Error generating preview: %v", err)
+			return
+		}
 
-	m.previewContent = output
+		m.previewContent = output
+	}
 }
 
 // sanitizeFileName converts a user-provided name into a safe filename
