@@ -26,9 +26,16 @@ const (
 	previewPane
 )
 
+type pipelineItem struct {
+	name       string
+	path       string
+	tags       []string
+	tokenCount int
+}
+
 type MainListModel struct {
 	// Pipelines data
-	pipelines          []string
+	pipelines          []pipelineItem
 	pipelineCursor     int
 	
 	// Components data
@@ -98,12 +105,36 @@ func NewMainListModel() *MainListModel {
 }
 
 func (m *MainListModel) loadPipelines() {
-	pipelines, err := files.ListPipelines()
+	pipelineFiles, err := files.ListPipelines()
 	if err != nil {
 		m.err = err
 		return
 	}
-	m.pipelines = pipelines
+	
+	m.pipelines = nil
+	for _, pipelineFile := range pipelineFiles {
+		// Load pipeline to get metadata
+		pipeline, err := files.ReadPipeline(pipelineFile)
+		if err != nil {
+			continue
+		}
+		
+		// Calculate token count
+		tokenCount := 0
+		if pipeline != nil {
+			output, err := composer.ComposePipeline(pipeline)
+			if err == nil {
+				tokenCount = utils.EstimateTokens(output)
+			}
+		}
+		
+		m.pipelines = append(m.pipelines, pipelineItem{
+			name:       pipelineFile,
+			path:       pipelineFile,
+			tags:       pipeline.Tags,
+			tokenCount: tokenCount,
+		})
+	}
 }
 
 func (m *MainListModel) loadComponents() {
@@ -135,6 +166,11 @@ func (m *MainListModel) loadComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.prompts = append(m.prompts, componentItem{
 			name:         p,
 			path:         componentPath,
@@ -142,6 +178,7 @@ func (m *MainListModel) loadComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 	
@@ -165,6 +202,11 @@ func (m *MainListModel) loadComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.contexts = append(m.contexts, componentItem{
 			name:         c,
 			path:         componentPath,
@@ -172,6 +214,7 @@ func (m *MainListModel) loadComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 	
@@ -195,6 +238,11 @@ func (m *MainListModel) loadComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.rules = append(m.rules, componentItem{
 			name:         r,
 			path:         componentPath,
@@ -202,6 +250,7 @@ func (m *MainListModel) loadComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 }
@@ -280,7 +329,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmingDelete = false
 				if m.deletingFromPane == pipelinesPane {
 					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelineName := m.pipelines[m.pipelineCursor]
+						pipelineName := m.pipelines[m.pipelineCursor].name
 						return m, m.deletePipeline(pipelineName)
 					}
 				} else if m.deletingFromPane == componentsPane {
@@ -306,7 +355,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmingArchive = false
 				if m.archivingFromPane == pipelinesPane {
 					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelineName := m.pipelines[m.pipelineCursor]
+						pipelineName := m.pipelines[m.pipelineCursor].name
 						return m, m.archivePipeline(pipelineName)
 					}
 				} else if m.archivingFromPane == componentsPane {
@@ -411,7 +460,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineViewerView,
-							pipeline: m.pipelines[m.pipelineCursor],
+							pipeline: m.pipelines[m.pipelineCursor].name,
 						}
 					}
 				}
@@ -426,7 +475,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineBuilderView,
-							pipeline: m.pipelines[m.pipelineCursor],
+							pipeline: m.pipelines[m.pipelineCursor].name,
 						}
 					}
 				}
@@ -497,7 +546,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == pipelinesPane {
 				// Set selected pipeline (generate PLUQQY.md)
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					return m, m.setPipeline(m.pipelines[m.pipelineCursor])
+					return m, m.setPipeline(m.pipelines[m.pipelineCursor].name)
 				}
 			}
 		
@@ -507,7 +556,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
 					m.confirmingDelete = true
 					m.deletingFromPane = pipelinesPane
-					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor])
+					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor].name)
 				}
 			} else if m.activePane == componentsPane {
 				// Delete component with confirmation
@@ -534,7 +583,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
 					m.confirmingArchive = true
 					m.archivingFromPane = pipelinesPane
-					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor])
+					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor].name)
 				}
 			} else if m.activePane == componentsPane {
 				// Archive component with confirmation
@@ -669,14 +718,16 @@ func (m *MainListModel) View() string {
 		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths (adjusted for column width)
-	nameWidth := 20
-	tokenWidth := 8  // For "~Tokens" plus padding
-	modifiedWidth := 12
+	nameWidth := 18
+	tagsWidth := 15
+	tokenWidth := 7  // For "~Tokens" plus padding
+	modifiedWidth := 10
 	usageWidth := 8
 	
 	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
+		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
 		modifiedWidth, "Modified",
 		usageWidth, "Usage")
@@ -760,10 +811,17 @@ func (m *MainListModel) View() string {
 		// Format token count - right-aligned with consistent width
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
 		
-		// Build the row with extra padding between token and modified
-		row := fmt.Sprintf("%-*s %*s  %-*s %-*s",
+		// Format tags
+		tagsStr := renderTagChips(comp.tags, 2) // Show max 2 tags inline
+		if len(tagsStr) > tagsWidth-1 {
+			tagsStr = tagsStr[:tagsWidth-4] + "..."
+		}
+		
+		// Build the row with tags
+		row := fmt.Sprintf("%-*s %-*s %-*s  %-*s %-*s",
 			nameWidth, nameStr,
-			tokenWidth-1, tokenStr,  // -1 to account for the space before it
+			tagsWidth, tagsStr,
+			tokenWidth, tokenStr,
 			modifiedWidth, modifiedStr,
 			usageWidth, usageStr)
 		
@@ -839,12 +897,14 @@ func (m *MainListModel) View() string {
 		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths for pipelines
-	pipelineNameWidth := 35
+	pipelineNameWidth := 25
+	pipelineTagsWidth := 15
 	pipelineTokenWidth := 8  // For "~Tokens"
 	
 	// Render table header
-	pipelineHeader := fmt.Sprintf("  %-*s %*s", 
+	pipelineHeader := fmt.Sprintf("  %-*s %-*s %*s", 
 		pipelineNameWidth, "Name",
+		pipelineTagsWidth, "Tags",
 		pipelineTokenWidth, "~Tokens")
 	rightContent.WriteString(headerPadding.Render(pipelineHeaderStyle.Render(pipelineHeader)))
 	rightContent.WriteString("\n\n")
@@ -866,30 +926,26 @@ func (m *MainListModel) View() string {
 			pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines found."))
 		}
 	} else {
-		for i, pipelineName := range m.pipelines {
-			// Load pipeline to get token count
-			pipeline, err := files.ReadPipeline(pipelineName)
-			tokenCount := 0
-			if err == nil && pipeline != nil {
-				// Generate preview to calculate tokens
-				output, err := composer.ComposePipeline(pipeline)
-				if err == nil {
-					tokenCount = utils.EstimateTokens(output)
-				}
-			}
-			
+		for i, pipeline := range m.pipelines {
 			// Format the pipeline name
-			nameStr := pipelineName
+			nameStr := pipeline.name
 			if len(nameStr) > pipelineNameWidth-3 {
 				nameStr = nameStr[:pipelineNameWidth-6] + "..."
 			}
 			
+			// Format tags
+			tagsStr := renderTagChips(pipeline.tags, 2) // Show max 2 tags inline
+			if len(tagsStr) > pipelineTagsWidth-1 {
+				tagsStr = tagsStr[:pipelineTagsWidth-4] + "..."
+			}
+			
 			// Format token count - right-aligned
-			tokenStr := fmt.Sprintf("%d", tokenCount)
+			tokenStr := fmt.Sprintf("%d", pipeline.tokenCount)
 			
 			// Build the row
-			row := fmt.Sprintf("%-*s %*s",
+			row := fmt.Sprintf("%-*s %-*s %*s",
 				pipelineNameWidth, nameStr,
+				pipelineTagsWidth, tagsStr,
 				pipelineTokenWidth, tokenStr)
 			
 			// Apply cursor if needed
@@ -1019,7 +1075,7 @@ func (m *MainListModel) View() string {
 		if m.activePane == pipelinesPane {
 			pipelineName := "PLUQQY.md"
 			if len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-				pipelineName = m.pipelines[m.pipelineCursor]
+				pipelineName = m.pipelines[m.pipelineCursor].name
 			}
 			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 		} else if m.activePane == componentsPane {
@@ -1172,7 +1228,7 @@ func (m *MainListModel) updatePreview() {
 		}
 		
 		if m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-			pipelineName := m.pipelines[m.pipelineCursor]
+			pipelineName := m.pipelines[m.pipelineCursor].name
 			
 			// Load pipeline
 			pipeline, err := files.ReadPipeline(pipelineName)

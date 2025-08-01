@@ -142,7 +142,7 @@ func extractFrontmatter(content []byte) (*componentFrontmatter, []byte, error) {
 	// Return the content without frontmatter
 	remainingContent := content
 	if len(parts) >= 2 {
-		remainingContent = []byte(strings.Join([]string{"", parts[1]}, ""))
+		remainingContent = parts[1]
 		if len(parts) == 3 {
 			remainingContent = bytes.Join([][]byte{[]byte("---\n"), parts[2]}, nil)
 		}
@@ -179,7 +179,7 @@ func ReadComponent(path string) (*models.Component, error) {
 	componentType := getComponentType(path)
 	
 	// Extract frontmatter to get tags
-	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(content)
+	frontmatter, _, _ := extractFrontmatter(content)
 	
 	return &models.Component{
 		Path:     path,

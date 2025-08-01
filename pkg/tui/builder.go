@@ -91,6 +91,7 @@ type componentItem struct {
 	lastModified time.Time
 	usageCount   int
 	tokenCount   int
+	tags         []string
 }
 
 type clearEditSaveMsg struct{}
@@ -145,6 +146,11 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.prompts = append(m.prompts, componentItem{
 			name:         p,
 			path:         componentPath,
@@ -152,6 +158,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 
@@ -175,6 +182,11 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.contexts = append(m.contexts, componentItem{
 			name:         c,
 			path:         componentPath,
@@ -182,6 +194,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 
@@ -205,6 +218,11 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			tokenCount = utils.EstimateTokens(component.Content)
 		}
 		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
 		m.rules = append(m.rules, componentItem{
 			name:         r,
 			path:         componentPath,
@@ -212,6 +230,7 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			lastModified: modTime,
 			usageCount:   usage,
 			tokenCount:   tokenCount,
+			tags:         tags,
 		})
 	}
 }
