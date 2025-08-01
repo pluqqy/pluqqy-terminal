@@ -164,8 +164,8 @@ Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` fr
 
 - **Output Settings**
   - Default filename for generated output (default: `PLUQQY.md`)
-  - Export path for pipeline output files
-  - Output path for pipeline-generated files
+  - Export path for pipeline output files (default: `./` - your project root)
+  - Output path for pipeline-generated files (default: `.pluqqy/tmp/`)
   
 - **Formatting Options**
   - Toggle section headings in output
