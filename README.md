@@ -187,6 +187,15 @@ export EDITOR=nano
 
 # For VS Code users
 export EDITOR="code --wait"
+
+# For Cursor users
+export EDITOR="cursor --wait"
+
+# For Windsurf users
+export EDITOR="windsurf --wait"
+
+# For Zed users
+export EDITOR="zed --wait"
 ```
 
 ## Requirements
