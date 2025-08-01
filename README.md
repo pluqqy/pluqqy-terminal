@@ -58,10 +58,16 @@ This creates the following structure:
 ```
 .pluqqy/
 ├── pipelines/
-└── components/
-    ├── contexts/
-    ├── prompts/
-    └── rules/
+├── components/
+│   ├── contexts/
+│   ├── prompts/
+│   └── rules/
+└── archive/
+    ├── pipelines/
+    └── components/
+        ├── contexts/
+        ├── prompts/
+        └── rules/
 ```
 
 ### Launch the TUI
@@ -80,7 +86,8 @@ pluqqy
 - `e` - Edit component in TUI / Edit pipeline in builder
 - `E` - Edit component with external editor (components pane only)
 - `n` - Create new pipeline/component
-- `d` - Delete pipeline (with confirmation)
+- `a` - Archive pipeline/component (with confirmation)
+- `d` - Delete pipeline/component (with confirmation)
 - `S` - Set selected pipeline (generates PLUQQY.md)
 - `p` - Toggle preview pane
 - `r` - Refresh pipeline list

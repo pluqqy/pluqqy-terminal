@@ -59,6 +59,11 @@ func InitProjectStructure() error {
 		filepath.Join(PluqqyDir, ComponentsDir, ContextsDir),
 		filepath.Join(PluqqyDir, ComponentsDir, RulesDir),
 		filepath.Join(PluqqyDir, ArchiveDir),
+		filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir),
+		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir),
+		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, PromptsDir),
+		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, ContextsDir),
+		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, RulesDir),
 	}
 
 	for _, dir := range dirs {
@@ -355,6 +360,62 @@ func DeleteComponent(path string) error {
 	// Remove the file
 	if err := os.Remove(absPath); err != nil {
 		return fmt.Errorf("failed to delete component '%s': %w", path, err)
+	}
+	
+	return nil
+}
+
+// ArchivePipeline moves a pipeline file to the archive directory
+func ArchivePipeline(path string) error {
+	if err := validatePath(path); err != nil {
+		return fmt.Errorf("invalid pipeline path: %w", err)
+	}
+	
+	sourcePath := filepath.Join(PluqqyDir, PipelinesDir, path)
+	archivePath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, path)
+	
+	// Check if source file exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("pipeline not found at path '%s'", path)
+	}
+	
+	// Create archive directory if it doesn't exist
+	archiveDir := filepath.Dir(archivePath)
+	if err := os.MkdirAll(archiveDir, 0755); err != nil {
+		return fmt.Errorf("failed to create archive directory: %w", err)
+	}
+	
+	// Move the file
+	if err := os.Rename(sourcePath, archivePath); err != nil {
+		return fmt.Errorf("failed to archive pipeline '%s': %w", path, err)
+	}
+	
+	return nil
+}
+
+// ArchiveComponent moves a component file to the archive directory
+func ArchiveComponent(path string) error {
+	if err := validatePath(path); err != nil {
+		return fmt.Errorf("invalid component path: %w", err)
+	}
+	
+	sourcePath := filepath.Join(PluqqyDir, path)
+	archivePath := filepath.Join(PluqqyDir, ArchiveDir, path)
+	
+	// Check if source file exists
+	if _, err := os.Stat(sourcePath); os.IsNotExist(err) {
+		return fmt.Errorf("component not found at path '%s'", path)
+	}
+	
+	// Create archive directory if it doesn't exist
+	archiveDir := filepath.Dir(archivePath)
+	if err := os.MkdirAll(archiveDir, 0755); err != nil {
+		return fmt.Errorf("failed to create archive directory: %w", err)
+	}
+	
+	// Move the file
+	if err := os.Rename(sourcePath, archivePath); err != nil {
+		return fmt.Errorf("failed to archive component '%s': %w", path, err)
 	}
 	
 	return nil

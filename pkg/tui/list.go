@@ -59,6 +59,11 @@ type MainListModel struct {
 	deleteConfirmation string
 	deletingFromPane   pane // Track which pane initiated the delete
 	
+	// Archive confirmation
+	confirmingArchive   bool
+	archiveConfirmation string
+	archivingFromPane   pane // Track which pane initiated the archive
+	
 	// Component creation state
 	creatingComponent     bool
 	componentCreationType string
@@ -281,6 +286,32 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, nil
 		}
 		
+		// Handle archive confirmation mode
+		if m.confirmingArchive {
+			switch msg.String() {
+			case "y", "Y":
+				// Confirmed archive
+				m.confirmingArchive = false
+				if m.archivingFromPane == pipelinesPane {
+					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
+						pipelineName := m.pipelines[m.pipelineCursor]
+						return m, m.archivePipeline(pipelineName)
+					}
+				} else if m.archivingFromPane == componentsPane {
+					components := m.getAllComponents()
+					if m.componentCursor >= 0 && m.componentCursor < len(components) {
+						comp := components[m.componentCursor]
+						return m, m.archiveComponent(comp)
+					}
+				}
+			case "n", "N", "esc":
+				// Cancel archive
+				m.confirmingArchive = false
+				m.archiveConfirmation = ""
+			}
+			return m, nil
+		}
+		
 		// Normal mode key handling
 		switch msg.String() {
 		case "q":
@@ -474,6 +505,25 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.confirmingDelete = true
 					m.deletingFromPane = componentsPane
 					m.deleteConfirmation = fmt.Sprintf("Delete %s '%s'? (y/n)", comp.compType, comp.name)
+				}
+			}
+		
+		case "a":
+			if m.activePane == pipelinesPane {
+				// Archive pipeline with confirmation
+				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
+					m.confirmingArchive = true
+					m.archivingFromPane = pipelinesPane
+					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor])
+				}
+			} else if m.activePane == componentsPane {
+				// Archive component with confirmation
+				components := m.getAllComponents()
+				if m.componentCursor >= 0 && m.componentCursor < len(components) {
+					comp := components[m.componentCursor]
+					m.confirmingArchive = true
+					m.archivingFromPane = componentsPane
+					m.archiveConfirmation = fmt.Sprintf("Archive %s '%s'? (y/n)", comp.compType, comp.name)
 				}
 			}
 		}
@@ -1005,6 +1055,16 @@ func (m *MainListModel) View() string {
 		s.WriteString(contentStyle.Render(confirmStyle.Render(m.deleteConfirmation)))
 	}
 	
+	// Show archive confirmation if active
+	if m.confirmingArchive {
+		confirmStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")). // Orange for archive
+			Bold(true).
+			MarginTop(2)
+		s.WriteString("\n")
+		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirmation)))
+	}
+	
 	// Help text in bordered pane
 	help := []string{
 		"tab switch pane",
@@ -1013,6 +1073,7 @@ func (m *MainListModel) View() string {
 		"e edit",
 		"E edit external",
 		"n new",
+		"a archive",
 		"d delete",
 		"S set",
 		"p preview",
@@ -1211,6 +1272,47 @@ func (m *MainListModel) deleteComponent(comp componentItem) tea.Cmd {
 		}
 		
 		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
+	}
+}
+
+func (m *MainListModel) archivePipeline(pipelineName string) tea.Cmd {
+	return func() tea.Msg {
+		// Archive the pipeline file
+		err := files.ArchivePipeline(pipelineName)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to archive pipeline '%s': %v", pipelineName, err))
+		}
+		
+		// Reload the pipeline list
+		m.loadPipelines()
+		
+		// Adjust cursor if necessary
+		if m.pipelineCursor >= len(m.pipelines) && m.pipelineCursor > 0 {
+			m.pipelineCursor = len(m.pipelines) - 1
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Archived pipeline: %s", pipelineName))
+	}
+}
+
+func (m *MainListModel) archiveComponent(comp componentItem) tea.Cmd {
+	return func() tea.Msg {
+		// Archive the component file
+		err := files.ArchiveComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to archive %s '%s': %v", comp.compType, comp.name, err))
+		}
+		
+		// Reload the component list
+		m.loadComponents()
+		
+		// Adjust cursor if necessary
+		components := m.getAllComponents()
+		if m.componentCursor >= len(components) && m.componentCursor > 0 {
+			m.componentCursor = len(components) - 1
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Archived %s: %s", comp.compType, comp.name))
 	}
 }
 
