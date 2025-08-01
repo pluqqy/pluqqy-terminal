@@ -535,7 +535,7 @@ func (m *MainListModel) View() string {
 		Bold(true)
 
 	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(lipgloss.Color("245"))
 
 	typeHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -1338,7 +1338,7 @@ func (m *MainListModel) componentTypeSelectionView() string {
 		Padding(0, 1)
 
 	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252")).
+		Foreground(lipgloss.Color("245")).
 		Padding(0, 1)
 
 	descStyle := lipgloss.NewStyle().
@@ -1443,7 +1443,7 @@ func (m *MainListModel) componentNameInputView() string {
 		Foreground(lipgloss.Color("214")) // Orange like other headers
 
 	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(lipgloss.Color("245"))
 
 	inputStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -1753,7 +1753,7 @@ func (m *MainListModel) exitConfirmationView() string {
 		Foreground(lipgloss.Color("214")) // Orange for warning
 		
 	optionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
+		Foreground(lipgloss.Color("245"))
 	
 	// Calculate dimensions
 	contentWidth := m.width - 4

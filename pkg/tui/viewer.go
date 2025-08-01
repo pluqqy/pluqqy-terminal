@@ -355,7 +355,7 @@ func (m *PipelineViewerModel) updateViewportContent() {
 	
 	// Build components content
 	var componentsContent strings.Builder
-	componentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("252"))
+	componentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
 	
 	for i, comp := range m.pipeline.Components {
 		line := fmt.Sprintf("%d. [%s] %s", i+1, comp.Type, filepath.Base(comp.Path))
