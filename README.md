@@ -139,10 +139,18 @@ pluqqy
 
 ## Output
 
-The `set` command generates a `PLUQQY.md` file in your project root with sections:
+The `set` command generates a `PLUQQY.md` file in your project root. This naming convention is intentional:
+
+- **Non-conflicting**: Won't overwrite common files like `AGENT.md` or `CLAUDE.md`
+- **Claude Code Integration**: Simply reference `@PLUQQY.md` in Claude Code to load your entire pipeline
+- **Pipeline Agnostic**: No need to remember specific pipeline names
+- **Chainable**: Easily reference and combine multiple pipelines in Claude Code sessions
+- **Customizable**: Change the default filename in settings (press `s` from main view)
+
+The file contains sections in your configured order:
 
 - `CONTEXT` - Combined context components
-- `PROMPTS` - Combined prompt components  
+- `PROMPTS` - Combined prompt components
 - `IMPORTANT RULES` - Combined rules components
 
 ## Example
@@ -166,13 +174,13 @@ Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` fr
   - Default filename for generated output (default: `PLUQQY.md`)
   - Export path for pipeline output files (default: `./` - your project root)
   - Output path for pipeline-generated files (default: `.pluqqy/tmp/`)
-  
+
 - **Formatting Options**
   - Toggle section headings in output
   - Reorder sections using `J/K` keys
   - Edit section types and headings
 
-Changes take effect immediately upon saving with `S`. The editor includes unsaved changes protection to prevent accidental data loss.
+Changes take effect immediately upon saving with `S`.
 
 ### External Editor
 
