@@ -1,6 +1,7 @@
 package files
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -110,6 +111,46 @@ func InitProjectStructure() error {
 	return nil
 }
 
+// componentFrontmatter represents the YAML frontmatter in component files
+type componentFrontmatter struct {
+	Tags []string `yaml:"tags,omitempty"`
+}
+
+// extractFrontmatter extracts YAML frontmatter from markdown content
+func extractFrontmatter(content []byte) (*componentFrontmatter, []byte, error) {
+	if !bytes.HasPrefix(content, []byte("---")) {
+		// No frontmatter
+		return &componentFrontmatter{}, content, nil
+	}
+	
+	// Find the end of frontmatter
+	parts := bytes.SplitN(content, []byte("\n---\n"), 3)
+	if len(parts) < 2 {
+		// Malformed frontmatter
+		return &componentFrontmatter{}, content, nil
+	}
+	
+	// Parse the frontmatter (excluding the first ---)
+	frontmatterBytes := bytes.TrimPrefix(parts[0], []byte("---\n"))
+	
+	var frontmatter componentFrontmatter
+	if err := yaml.Unmarshal(frontmatterBytes, &frontmatter); err != nil {
+		// If parsing fails, just return empty frontmatter
+		return &componentFrontmatter{}, content, nil
+	}
+	
+	// Return the content without frontmatter
+	remainingContent := content
+	if len(parts) >= 2 {
+		remainingContent = []byte(strings.Join([]string{"", parts[1]}, ""))
+		if len(parts) == 3 {
+			remainingContent = bytes.Join([][]byte{[]byte("---\n"), parts[2]}, nil)
+		}
+	}
+	
+	return &frontmatter, remainingContent, nil
+}
+
 func ReadComponent(path string) (*models.Component, error) {
 	if err := validatePath(path); err != nil {
 		return nil, fmt.Errorf("invalid component path: %w", err)
@@ -137,12 +178,48 @@ func ReadComponent(path string) (*models.Component, error) {
 
 	componentType := getComponentType(path)
 	
+	// Extract frontmatter to get tags
+	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(content)
+	
 	return &models.Component{
 		Path:     path,
 		Type:     componentType,
-		Content:  string(content),
+		Content:  string(content), // Keep original content with frontmatter
 		Modified: info.ModTime(),
+		Tags:     frontmatter.Tags,
 	}, nil
+}
+
+// formatComponentContent adds or updates frontmatter with tags
+func formatComponentContent(content string, tags []string) string {
+	contentBytes := []byte(content)
+	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(contentBytes)
+	
+	// Update tags if provided
+	if tags != nil {
+		frontmatter.Tags = tags
+	}
+	
+	// If no tags and no existing frontmatter, return content as-is
+	if len(frontmatter.Tags) == 0 && !bytes.HasPrefix(contentBytes, []byte("---")) {
+		return content
+	}
+	
+	// Build new content with frontmatter
+	var buf bytes.Buffer
+	
+	// Write frontmatter if there are tags
+	if len(frontmatter.Tags) > 0 {
+		buf.WriteString("---\n")
+		frontmatterBytes, _ := yaml.Marshal(frontmatter)
+		buf.Write(frontmatterBytes)
+		buf.WriteString("---\n")
+	}
+	
+	// Write the content
+	buf.Write(contentWithoutFrontmatter)
+	
+	return buf.String()
 }
 
 func WriteComponent(path string, content string) error {
@@ -167,6 +244,12 @@ func WriteComponent(path string, content string) error {
 	}
 
 	return nil
+}
+
+// WriteComponentWithTags writes a component file with tags
+func WriteComponentWithTags(path string, content string, tags []string) error {
+	formattedContent := formatComponentContent(content, tags)
+	return WriteComponent(path, formattedContent)
 }
 
 func ReadPipeline(path string) (*models.Pipeline, error) {
@@ -570,4 +653,56 @@ func GetComponentStats(componentPath string) (time.Time, error) {
 	}
 	
 	return info.ModTime(), nil
+}
+
+// UpdateComponentTags updates only the tags of a component without modifying its content
+func UpdateComponentTags(path string, tags []string) error {
+	// Read the component
+	component, err := ReadComponent(path)
+	if err != nil {
+		return fmt.Errorf("failed to read component: %w", err)
+	}
+	
+	// Update the content with new tags
+	updatedContent := formatComponentContent(component.Content, tags)
+	
+	// Write back
+	return WriteComponent(path, updatedContent)
+}
+
+// AddComponentTag adds a single tag to a component
+func AddComponentTag(path string, tag string) error {
+	component, err := ReadComponent(path)
+	if err != nil {
+		return fmt.Errorf("failed to read component: %w", err)
+	}
+	
+	// Check if tag already exists
+	for _, t := range component.Tags {
+		if t == tag {
+			return nil // Tag already exists
+		}
+	}
+	
+	// Add the tag
+	newTags := append(component.Tags, tag)
+	return UpdateComponentTags(path, newTags)
+}
+
+// RemoveComponentTag removes a single tag from a component
+func RemoveComponentTag(path string, tag string) error {
+	component, err := ReadComponent(path)
+	if err != nil {
+		return fmt.Errorf("failed to read component: %w", err)
+	}
+	
+	// Filter out the tag
+	newTags := make([]string, 0, len(component.Tags))
+	for _, t := range component.Tags {
+		if t != tag {
+			newTags = append(newTags, t)
+		}
+	}
+	
+	return UpdateComponentTags(path, newTags)
 }

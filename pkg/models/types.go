@@ -17,6 +17,7 @@ type Component struct {
 	Type     string
 	Content  string
 	Modified time.Time
+	Tags     []string `yaml:"tags,omitempty"`
 }
 
 type ComponentRef struct {
@@ -30,6 +31,7 @@ type Pipeline struct {
 	Path       string         `yaml:"-"`
 	Components []ComponentRef `yaml:"components"`
 	OutputPath string         `yaml:"output_path,omitempty"`
+	Tags       []string       `yaml:"tags,omitempty"`
 }
 
 // Validate checks if the pipeline is valid
