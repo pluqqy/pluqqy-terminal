@@ -212,10 +212,10 @@ func (a *App) View() string {
 			} else if a.mainList.editingComponent && a.mainList.editingComponentName != "" {
 				title = "Component: " + a.mainList.editingComponentName
 			} else {
-				title = "Welcome to Pluqqy"
+				title = "Welcome to ✦ Pluqqy ✦"
 			}
 		} else {
-			title = "Welcome to Pluqqy"
+			title = "Welcome to ✦ Pluqqy ✦"
 		}
 	case pipelineBuilderView:
 		if a.builder != nil && a.builder.pipeline != nil {
