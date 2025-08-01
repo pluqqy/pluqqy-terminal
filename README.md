@@ -153,6 +153,12 @@ The file contains sections in your configured order:
 - `PROMPTS` - Combined prompt components
 - `IMPORTANT RULES` - Combined rules components
 
+**Tip for teams**: To keep `PLUQQY.md` tracked in git but ignore local changes:
+```bash
+git update-index --skip-worktree PLUQQY.md
+```
+This lets each developer use different pipelines without creating commit noise.
+
 ## Example
 
 1. Initialize project: `pluqqy init`
