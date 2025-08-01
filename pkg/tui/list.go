@@ -520,6 +520,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		
+		case "s":
+			// Open settings editor
+			return m, func() tea.Msg {
+				return SwitchViewMsg{
+					view: settingsEditorView,
+				}
+			}
+			
 		case "a":
 			if m.activePane == pipelinesPane {
 				// Archive pipeline with confirmation
@@ -1088,6 +1096,7 @@ func (m *MainListModel) View() string {
 		"a archive",
 		"d delete",
 		"S set",
+		"s settings",
 		"p preview",
 		"r refresh",
 		"ctrl+c quit",

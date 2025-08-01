@@ -14,6 +14,7 @@ const (
 	mainListView sessionState = iota
 	pipelineBuilderView
 	pipelineViewerView
+	settingsEditorView
 )
 
 type App struct {
@@ -21,6 +22,7 @@ type App struct {
 	mainList       *MainListModel
 	builder        *PipelineBuilderModel
 	viewer         *PipelineViewerModel
+	settingsEditor *SettingsEditorModel
 	width          int
 	height         int
 	statusMsg      string
@@ -57,6 +59,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.viewer != nil {
 			a.viewer.SetSize(msg.Width, availableHeight)
+		}
+		if a.settingsEditor != nil {
+			a.settingsEditor.SetSize(msg.Width, availableHeight)
 		}
 
 	case tea.KeyMsg:
@@ -113,6 +118,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Force a redraw to ensure layout is recalculated
 		return a, tea.ClearScreen
 
+	case settingsSavedMsg:
+		// Handle settings saved - reload components in main list
+		if a.mainList != nil {
+			a.mainList.loadComponents()
+		}
+		// Then switch view with the embedded message
+		return a.Update(msg.switchMsg)
+
 	case SwitchViewMsg:
 		// Handle view switching
 		switch msg.view {
@@ -159,6 +172,30 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.viewer.SetSize(a.width, a.height-headerHeight)
 			a.viewer.SetPipeline(msg.pipeline)
 			return a, a.viewer.Init()
+		case settingsEditorView:
+			a.state = settingsEditorView
+			if a.settingsEditor == nil {
+				a.settingsEditor = NewSettingsEditorModel()
+			}
+			// Calculate header height
+			header := renderHeader(a.width, "")
+			headerHeight := lipgloss.Height(header)
+			a.settingsEditor.SetSize(a.width, a.height-headerHeight)
+			return a, a.settingsEditor.Init()
+		}
+		
+		// Handle status message from view switch
+		if msg.status != "" {
+			a.statusMsg = msg.status
+			// Set timer to clear status after 3 seconds
+			if a.statusTimer != nil {
+				a.statusTimer.Stop()
+			}
+			a.statusTimer = time.NewTimer(3 * time.Second)
+			return a, func() tea.Msg {
+				<-a.statusTimer.C
+				return clearStatusMsg{}
+			}
 		}
 	}
 
@@ -182,6 +219,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m, cmd = a.viewer.Update(msg)
 		if pv, ok := m.(*PipelineViewerModel); ok {
 			a.viewer = pv
+		}
+	case settingsEditorView:
+		var m tea.Model
+		m, cmd = a.settingsEditor.Update(msg)
+		if se, ok := m.(*SettingsEditorModel); ok {
+			a.settingsEditor = se
 		}
 	}
 
@@ -225,6 +268,9 @@ func (a *App) View() string {
 		if a.viewer != nil && a.viewer.pipeline != nil {
 			title = "Pipeline: " + a.viewer.pipeline.Name
 		}
+	case settingsEditorView:
+		// No title - settings editor has its own header inside the pane
+		title = ""
 	}
 
 	// Render the header with title
@@ -238,6 +284,8 @@ func (a *App) View() string {
 		content = a.builder.View()
 	case pipelineViewerView:
 		content = a.viewer.View()
+	case settingsEditorView:
+		content = a.settingsEditor.View()
 	default:
 		content = "Unknown view"
 	}
@@ -307,6 +355,7 @@ type clearStatusMsg struct{}
 type SwitchViewMsg struct {
 	view     sessionState
 	pipeline string // optional pipeline name for viewer/builder
+	status   string // optional status message to display
 }
 
 // Models are implemented in separate files
