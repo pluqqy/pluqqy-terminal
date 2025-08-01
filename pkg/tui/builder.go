@@ -1085,7 +1085,11 @@ func (m *PipelineBuilderModel) View() string {
 		if m.activeColumn == leftColumn {
 			previewHeading = "COMPONENT PREVIEW"
 		} else {
-			previewHeading = "PIPELINE PREVIEW (PLUQQY.md)"
+			pipelineName := "PLUQQY.md"
+			if m.pipeline != nil && m.pipeline.Name != "" {
+				pipelineName = m.pipeline.Name + ".yaml"
+			}
+			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 		}
 		tokenInfo := tokenBadge
 		

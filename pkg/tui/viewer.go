@@ -220,7 +220,11 @@ func (m *PipelineViewerModel) View() string {
 	tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
 	
 	// Create the header with colons and token info
-	headerText := "PIPELINE PREVIEW (PLUQQY.md)"
+	pipelineName := "PLUQQY.md"
+	if m.pipelineName != "" {
+		pipelineName = m.pipelineName + ".yaml"
+	}
+	headerText := fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 	tokenInfo := tokenBadge
 	
 	// Calculate the actual rendered width of token info

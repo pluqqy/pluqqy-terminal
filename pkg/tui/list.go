@@ -928,7 +928,11 @@ func (m *MainListModel) View() string {
 		// Create heading with colons and token info
 		var previewHeading string
 		if m.activePane == pipelinesPane {
-			previewHeading = "PIPELINE PREVIEW (PLUQQY.md)"
+			pipelineName := "PLUQQY.md"
+			if len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
+				pipelineName = m.pipelines[m.pipelineCursor]
+			}
+			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 		} else if m.activePane == componentsPane {
 			previewHeading = "COMPONENT PREVIEW"
 		} else {
