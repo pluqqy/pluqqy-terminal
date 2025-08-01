@@ -357,16 +357,64 @@ func (m *PipelineViewerModel) updateViewportContent() {
 		return
 	}
 	
-	// Build components content
+	// Load settings for section order
+	settings, err := files.ReadSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultSettings()
+	}
+	
+	// Build components content respecting section order
 	var componentsContent strings.Builder
 	componentStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("245"))
+	typeHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214"))
 	
-	for i, comp := range m.pipeline.Components {
-		line := fmt.Sprintf("%d. [%s] %s", i+1, comp.Type, filepath.Base(comp.Path))
-		componentsContent.WriteString(componentStyle.Render(line))
-		if i < len(m.pipeline.Components)-1 {
+	// Group components by type
+	typeGroups := make(map[string][]models.ComponentRef)
+	for _, comp := range m.pipeline.Components {
+		typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
+	}
+	
+	// Display components in configured order
+	componentNumber := 1
+	sectionsDisplayed := 0
+	for _, section := range settings.Output.Formatting.Sections {
+		components, exists := typeGroups[section.Type]
+		if !exists || len(components) == 0 {
+			continue
+		}
+		
+		// Add spacing between sections
+		if sectionsDisplayed > 0 {
 			componentsContent.WriteString("\n")
 		}
+		
+		// Add section header
+		var sectionHeader string
+		switch section.Type {
+		case models.ComponentTypeContext:
+			sectionHeader = "CONTEXTS"
+		case models.ComponentTypePrompt:
+			sectionHeader = "PROMPTS"
+		case models.ComponentTypeRules:
+			sectionHeader = "RULES"
+		default:
+			sectionHeader = strings.ToUpper(section.Type)
+		}
+		
+		componentsContent.WriteString(typeHeaderStyle.Render("▸ " + sectionHeader))
+		componentsContent.WriteString("\n")
+		
+		// List components in this section
+		for _, comp := range components {
+			line := fmt.Sprintf("%d. %s", componentNumber, filepath.Base(comp.Path))
+			componentsContent.WriteString(componentStyle.Render(line))
+			componentsContent.WriteString("\n")
+			componentNumber++
+		}
+		
+		sectionsDisplayed++
 	}
 	
 	// Wrap content to viewport width to prevent overflow

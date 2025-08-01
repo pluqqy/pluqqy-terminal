@@ -85,13 +85,9 @@ type MainListModel struct {
 }
 
 func NewMainListModel() *MainListModel {
-	// Load settings for UI preferences
-	// Note: We override showPreview to false for the main list view
-	// settings, _ := files.ReadSettings()
-	
 	m := &MainListModel{
 		activePane:         componentsPane,
-		showPreview:        false, // Hide preview by default on main list view
+		showPreview:        false, // Start with preview hidden, user can toggle with 'p'
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
@@ -211,10 +207,26 @@ func (m *MainListModel) loadComponents() {
 }
 
 func (m *MainListModel) getAllComponents() []componentItem {
+	// Load settings for section order
+	settings, err := files.ReadSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultSettings()
+	}
+	
+	// Group components by type
+	typeGroups := make(map[string][]componentItem)
+	typeGroups[models.ComponentTypeContext] = m.contexts
+	typeGroups[models.ComponentTypePrompt] = m.prompts
+	typeGroups[models.ComponentTypeRules] = m.rules
+	
+	// Build ordered list based on sections
 	var all []componentItem
-	all = append(all, m.contexts...)
-	all = append(all, m.prompts...)
-	all = append(all, m.rules...)
+	for _, section := range settings.Output.Formatting.Sections {
+		if components, exists := typeGroups[section.Type]; exists {
+			all = append(all, components...)
+		}
+	}
+	
 	return all
 }
 
@@ -1219,10 +1231,16 @@ func (m *MainListModel) setPipeline(pipelineName string) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("Failed to generate pipeline output for '%s': %v", pipeline.Name, err))
 		}
 
-		// Write to PLUQQY.md
+		// Load settings for output path
+		settings, _ := files.ReadSettings()
+		if settings == nil {
+			settings = models.DefaultSettings()
+		}
+		
+		// Write to configured output file
 		outputPath := pipeline.OutputPath
 		if outputPath == "" {
-			outputPath = files.DefaultOutputFile
+			outputPath = filepath.Join(settings.Output.ExportPath, settings.Output.DefaultFilename)
 		}
 		
 		err = composer.WritePLUQQYFile(output, outputPath)

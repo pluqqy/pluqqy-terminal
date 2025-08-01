@@ -51,6 +51,9 @@ func validateFileSize(path string) error {
 }
 
 func InitProjectStructure() error {
+	// Load settings to get output path
+	settings := models.DefaultSettings()
+	
 	dirs := []string{
 		PluqqyDir,
 		filepath.Join(PluqqyDir, PipelinesDir),
@@ -64,11 +67,43 @@ func InitProjectStructure() error {
 		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, PromptsDir),
 		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, ContextsDir),
 		filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, RulesDir),
+		filepath.Join(PluqqyDir, strings.TrimSuffix(settings.Output.OutputPath, "/")), // tmp directory
 	}
 
 	for _, dir := range dirs {
 		if err := os.MkdirAll(dir, 0755); err != nil {
 			return fmt.Errorf("failed to create directory %s: %w", dir, err)
+		}
+	}
+	
+	// Create or update .gitignore to ignore tmp directory
+	gitignorePath := filepath.Join(PluqqyDir, ".gitignore")
+	gitignoreContent := "/tmp/\n"
+	
+	// Check if .gitignore already exists
+	if _, err := os.Stat(gitignorePath); err == nil {
+		// Read existing content
+		existing, err := os.ReadFile(gitignorePath)
+		if err == nil {
+			// Check if tmp is already ignored
+			if !strings.Contains(string(existing), "/tmp/") {
+				// Append to existing content
+				gitignoreContent = string(existing)
+				if !strings.HasSuffix(gitignoreContent, "\n") {
+					gitignoreContent += "\n"
+				}
+				gitignoreContent += "/tmp/\n"
+			} else {
+				// Already contains /tmp/, don't modify
+				gitignoreContent = ""
+			}
+		}
+	}
+	
+	// Write .gitignore if needed
+	if gitignoreContent != "" {
+		if err := os.WriteFile(gitignorePath, []byte(gitignoreContent), 0644); err != nil {
+			return fmt.Errorf("failed to create .gitignore: %w", err)
 		}
 	}
 
@@ -161,6 +196,18 @@ func ReadPipeline(path string) (*models.Pipeline, error) {
 
 	pipeline.Path = path
 	
+	// Normalize component types for backward compatibility (singular -> plural)
+	for i := range pipeline.Components {
+		switch pipeline.Components[i].Type {
+		case "context":
+			pipeline.Components[i].Type = models.ComponentTypeContext
+		case "prompt":
+			pipeline.Components[i].Type = models.ComponentTypePrompt
+		case "rules":
+			pipeline.Components[i].Type = models.ComponentTypeRules
+		}
+	}
+	
 	return &pipeline, nil
 }
 
@@ -221,9 +268,9 @@ func ListPipelines() ([]string, error) {
 func ListComponents(componentType string) ([]string, error) {
 	var subDir string
 	switch componentType {
-	case models.ComponentTypePrompt, "prompts":
+	case models.ComponentTypePrompt:
 		subDir = PromptsDir
-	case models.ComponentTypeContext, "contexts":
+	case models.ComponentTypeContext:
 		subDir = ContextsDir
 	case models.ComponentTypeRules:
 		subDir = RulesDir
@@ -478,20 +525,9 @@ func mergeSettings(settings *models.Settings, defaults *models.Settings) {
 		settings.Output.ExportPath = defaults.Output.ExportPath
 	}
 	
-	// Merge formatting settings
-	if settings.Output.Formatting.Headings.Context == "" {
-		settings.Output.Formatting.Headings.Context = defaults.Output.Formatting.Headings.Context
-	}
-	if settings.Output.Formatting.Headings.Prompts == "" {
-		settings.Output.Formatting.Headings.Prompts = defaults.Output.Formatting.Headings.Prompts
-	}
-	if settings.Output.Formatting.Headings.Rules == "" {
-		settings.Output.Formatting.Headings.Rules = defaults.Output.Formatting.Headings.Rules
-	}
-	
-	// Merge UI settings
-	if settings.UI.ComponentView == "" {
-		settings.UI.ComponentView = defaults.UI.ComponentView
+	// Merge sections configuration
+	if len(settings.Output.Formatting.Sections) == 0 {
+		settings.Output.Formatting.Sections = defaults.Output.Formatting.Sections
 	}
 }
 

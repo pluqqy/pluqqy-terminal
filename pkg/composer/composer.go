@@ -63,13 +63,49 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		})
 	}
 
-	// Write components grouped by type
-	for _, componentType := range typeOrder {
-		components := typeGroups[componentType]
+	// Write components grouped by type, ordered by settings.Sections
+	// First write sections in the configured order
+	for _, section := range settings.Output.Formatting.Sections {
+		components, exists := typeGroups[section.Type]
+		if !exists || len(components) == 0 {
+			// Skip sections that have no components
+			continue
+		}
 		
 		// Write type header if enabled in settings
 		if settings.Output.Formatting.ShowHeadings {
-			heading := getCustomHeading(componentType, settings)
+			output.WriteString(fmt.Sprintf("%s\n\n", section.Heading))
+		}
+
+		// Write components of this type
+		for _, comp := range components {
+			// Write content
+			output.WriteString(strings.TrimSpace(comp.content))
+			output.WriteString("\n\n")
+		}
+
+		output.WriteString("\n")
+	}
+	
+	// Then write any remaining types not in Sections (for backwards compatibility)
+	for _, componentType := range typeOrder {
+		// Skip if already written
+		written := false
+		for _, section := range settings.Output.Formatting.Sections {
+			if componentType == section.Type {
+				written = true
+				break
+			}
+		}
+		if written {
+			continue
+		}
+		
+		components := typeGroups[componentType]
+		// Write type header if enabled in settings
+		if settings.Output.Formatting.ShowHeadings {
+			// Use default heading for types not in sections config
+			heading := fmt.Sprintf("## %s", capitalizeType(componentType))
 			output.WriteString(fmt.Sprintf("%s\n\n", heading))
 		}
 
@@ -93,9 +129,9 @@ type componentWithContent struct {
 
 func capitalizeType(componentType string) string {
 	switch componentType {
-	case models.ComponentTypePrompt, "prompts":
+	case models.ComponentTypePrompt:
 		return "PROMPTS"
-	case models.ComponentTypeContext, "contexts":
+	case models.ComponentTypeContext:
 		return "CONTEXT"
 	case models.ComponentTypeRules:
 		return "IMPORTANT RULES"
@@ -105,19 +141,6 @@ func capitalizeType(componentType string) string {
 	}
 }
 
-func getCustomHeading(componentType string, settings *models.Settings) string {
-	switch componentType {
-	case models.ComponentTypeContext:
-		return settings.Output.Formatting.Headings.Context
-	case models.ComponentTypePrompt:
-		return settings.Output.Formatting.Headings.Prompts
-	case models.ComponentTypeRules:
-		return settings.Output.Formatting.Headings.Rules
-	default:
-		// Fallback to default capitalization
-		return fmt.Sprintf("## %s", capitalizeType(componentType))
-	}
-}
 
 // WritePLUQQYFile writes the composed pipeline to the output file
 func WritePLUQQYFile(content string, outputPath string) error {

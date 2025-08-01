@@ -97,12 +97,9 @@ type clearEditSaveMsg struct{}
 type clearPipelineSaveMsg struct{}
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
-	// Load settings for UI preferences
-	settings, _ := files.ReadSettings()
-	
 	m := &PipelineBuilderModel{
 		activeColumn: leftColumn,
-		showPreview:  settings.UI.ShowPreview,
+		showPreview:  true, // Show preview by default in builder for immediate feedback
 		editingName:  true,
 		nameInput:    "",
 		pipeline: &models.Pipeline{
@@ -844,48 +841,52 @@ func (m *PipelineBuilderModel) View() string {
 	if len(m.selectedComponents) == 0 {
 		rightScrollContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
 	} else {
+		// Load settings for section order
+		settings, err := files.ReadSettings()
+		if err != nil || settings == nil {
+			settings = models.DefaultSettings()
+		}
+		
 		// Group components by type
-		var contexts, prompts, rules []models.ComponentRef
+		typeGroups := make(map[string][]models.ComponentRef)
 		for _, comp := range m.selectedComponents {
-			switch comp.Type {
-			case models.ComponentTypeContext:
-				contexts = append(contexts, comp)
-			case models.ComponentTypePrompt:
-				prompts = append(prompts, comp)
-			case models.ComponentTypeRules:
-				rules = append(rules, comp)
-			}
+			typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 		}
 		
 		// Track overall index for cursor position
 		overallIndex := 0
+		remainingSections := 0
 		
-		// Render contexts
-		if len(contexts) > 0 {
-			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ CONTEXTS") + "\n")
-			for _, comp := range contexts {
-				cursor := "  "
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					cursor = "▸ "
-				}
-				
-				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
-				} else {
-					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
-				}
-				overallIndex++
-			}
-			if len(prompts) > 0 || len(rules) > 0 {
-				rightScrollContent.WriteString("\n")
+		// Count how many sections we'll actually display
+		for _, section := range settings.Output.Formatting.Sections {
+			if len(typeGroups[section.Type]) > 0 {
+				remainingSections++
 			}
 		}
 		
-		// Render prompts
-		if len(prompts) > 0 {
-			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ PROMPTS") + "\n")
-			for _, comp := range prompts {
+		// Render sections in the configured order
+		for _, section := range settings.Output.Formatting.Sections {
+			components, exists := typeGroups[section.Type]
+			if !exists || len(components) == 0 {
+				continue
+			}
+			
+			// Get the display name for this section type
+			var sectionHeader string
+			switch section.Type {
+			case models.ComponentTypeContext:
+				sectionHeader = "CONTEXTS"
+			case models.ComponentTypePrompt:
+				sectionHeader = "PROMPTS"
+			case models.ComponentTypeRules:
+				sectionHeader = "RULES"
+			default:
+				sectionHeader = strings.ToUpper(section.Type)
+			}
+			
+			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ " + sectionHeader) + "\n")
+			
+			for _, comp := range components {
 				cursor := "  "
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
 					cursor = "▸ "
@@ -899,27 +900,11 @@ func (m *PipelineBuilderModel) View() string {
 				}
 				overallIndex++
 			}
-			if len(rules) > 0 {
+			
+			// Add spacing between sections (but not after the last one)
+			remainingSections--
+			if remainingSections > 0 {
 				rightScrollContent.WriteString("\n")
-			}
-		}
-		
-		// Render rules
-		if len(rules) > 0 {
-			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ RULES") + "\n")
-			for _, comp := range rules {
-				cursor := "  "
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					cursor = "▸ "
-				}
-				
-				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
-				} else {
-					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
-				}
-				overallIndex++
 			}
 		}
 	}
@@ -931,60 +916,54 @@ func (m *PipelineBuilderModel) View() string {
 	
 	// Update viewport to follow cursor
 	if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+		// Load settings for section order
+		settings, err := files.ReadSettings()
+		if err != nil || settings == nil {
+			settings = models.DefaultSettings()
+		}
+		
 		// Calculate the line position of the cursor
 		currentLine := 0
 		overallIndex := 0
 		
-		// Track which type we're in
-		var contexts, prompts, rules []models.ComponentRef
+		// Group components by type
+		typeGroups := make(map[string][]models.ComponentRef)
 		for _, comp := range m.selectedComponents {
-			switch comp.Type {
-			case models.ComponentTypeContext:
-				contexts = append(contexts, comp)
-			case models.ComponentTypePrompt:
-				prompts = append(prompts, comp)
-			case models.ComponentTypeRules:
-				rules = append(rules, comp)
-			}
+			typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 		}
 		
-		// Count lines up to cursor position
-		if len(contexts) > 0 {
-			currentLine++ // CONTEXTS header
-			for range contexts {
+		// Count lines up to cursor position following section order
+		for sectionIdx, section := range settings.Output.Formatting.Sections {
+			components, exists := typeGroups[section.Type]
+			if !exists || len(components) == 0 {
+				continue
+			}
+			
+			currentLine++ // Section header
+			
+			for range components {
 				if overallIndex == m.rightCursor {
 					break
 				}
 				currentLine++
 				overallIndex++
 			}
-			if overallIndex < m.rightCursor && (len(prompts) > 0 || len(rules) > 0) {
+			
+			// Check if we found the cursor
+			if overallIndex >= m.rightCursor {
+				break
+			}
+			
+			// Add empty line if there are more sections
+			hasMoreSections := false
+			for j := sectionIdx + 1; j < len(settings.Output.Formatting.Sections); j++ {
+				if len(typeGroups[settings.Output.Formatting.Sections[j].Type]) > 0 {
+					hasMoreSections = true
+					break
+				}
+			}
+			if hasMoreSections {
 				currentLine++ // Empty line between sections
-			}
-		}
-		
-		if len(prompts) > 0 && overallIndex < m.rightCursor {
-			currentLine++ // PROMPTS header
-			for range prompts {
-				if overallIndex == m.rightCursor {
-					break
-				}
-				currentLine++
-				overallIndex++
-			}
-			if overallIndex < m.rightCursor && len(rules) > 0 {
-				currentLine++ // Empty line between sections
-			}
-		}
-		
-		if len(rules) > 0 && overallIndex < m.rightCursor {
-			currentLine++ // RULES header
-			for range rules {
-				if overallIndex == m.rightCursor {
-					break
-				}
-				currentLine++
-				overallIndex++
 			}
 		}
 		
@@ -1290,10 +1269,26 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 
 // Helper methods
 func (m *PipelineBuilderModel) getAllAvailableComponents() []componentItem {
+	// Load settings for section order
+	settings, err := files.ReadSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultSettings()
+	}
+	
+	// Group components by type
+	typeGroups := make(map[string][]componentItem)
+	typeGroups[models.ComponentTypeContext] = m.contexts
+	typeGroups[models.ComponentTypePrompt] = m.prompts
+	typeGroups[models.ComponentTypeRules] = m.rules
+	
+	// Build ordered list based on sections
 	var all []componentItem
-	all = append(all, m.contexts...)
-	all = append(all, m.prompts...)
-	all = append(all, m.rules...)
+	for _, section := range settings.Output.Formatting.Sections {
+		if components, exists := typeGroups[section.Type]; exists {
+			all = append(all, components...)
+		}
+	}
+	
 	return all
 }
 
@@ -1382,27 +1377,27 @@ func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef
 	m.reorganizeComponentsByType()
 }
 
-// reorganizeComponentsByType sorts components into groups: contexts, prompts, rules
+// reorganizeComponentsByType sorts components into groups according to section_order
 func (m *PipelineBuilderModel) reorganizeComponentsByType() {
-	// Separate components by type
-	var contexts, prompts, rules []models.ComponentRef
-	
-	for _, comp := range m.selectedComponents {
-		switch comp.Type {
-		case models.ComponentTypeContext:
-			contexts = append(contexts, comp)
-		case models.ComponentTypePrompt:
-			prompts = append(prompts, comp)
-		case models.ComponentTypeRules:
-			rules = append(rules, comp)
-		}
+	// Load settings for section order
+	settings, err := files.ReadSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultSettings()
 	}
 	
-	// Rebuild the array in grouped order
+	// Group components by type
+	typeGroups := make(map[string][]models.ComponentRef)
+	for _, comp := range m.selectedComponents {
+		typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
+	}
+	
+	// Rebuild the array in configured order
 	m.selectedComponents = nil
-	m.selectedComponents = append(m.selectedComponents, contexts...)
-	m.selectedComponents = append(m.selectedComponents, prompts...)
-	m.selectedComponents = append(m.selectedComponents, rules...)
+	for _, section := range settings.Output.Formatting.Sections {
+		if components, exists := typeGroups[section.Type]; exists {
+			m.selectedComponents = append(m.selectedComponents, components...)
+		}
+	}
 	
 	// Update order numbers
 	for i := range m.selectedComponents {

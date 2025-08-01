@@ -7,8 +7,8 @@ import (
 
 // Component type constants
 const (
-	ComponentTypeContext = "context"
-	ComponentTypePrompt  = "prompt"
+	ComponentTypeContext = "contexts"
+	ComponentTypePrompt  = "prompts"
 	ComponentTypeRules   = "rules"
 )
 

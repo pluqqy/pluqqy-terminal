@@ -62,12 +62,14 @@ This creates the following structure:
 │   ├── contexts/
 │   ├── prompts/
 │   └── rules/
-└── archive/
-    ├── pipelines/
-    └── components/
-        ├── contexts/
-        ├── prompts/
-        └── rules/
+├── archive/
+│   ├── pipelines/
+│   └── components/
+│       ├── contexts/
+│       ├── prompts/
+│       └── rules/
+├── tmp/              # For pipeline-generated output files
+└── .gitignore        # Ignores tmp directory
 ```
 
 ### Launch the TUI
