@@ -88,10 +88,6 @@ type PipelineBuilderModel struct {
 	editSaveTimer         *time.Timer
 	editViewport          viewport.Model
 	
-	// Pipeline save state
-	pipelineSaveMessage   string
-	pipelineSaveTimer     *time.Timer
-	
 	// Exit confirmation state
 	showExitConfirmation  bool
 	exitConfirmationType  string // "pipeline" or "component"
@@ -120,7 +116,6 @@ type componentItem struct {
 }
 
 type clearEditSaveMsg struct{}
-type clearPipelineSaveMsg struct{}
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
 	// Initialize search input
@@ -374,10 +369,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Force a redraw to ensure layout is recalculated
 		return m, tea.ClearScreen
 
-	case clearPipelineSaveMsg:
-		m.pipelineSaveMessage = ""
-		// Force a redraw to ensure layout is recalculated
-		return m, tea.ClearScreen
 
 	case tea.KeyMsg:
 		// Handle exit confirmation dialog
@@ -492,30 +483,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Normal mode keybindings
 		switch msg.String() {
 		case "esc":
-			// Handle status message if present
-			if m.pipelineSaveMessage != "" {
-				// If the error is about duplicate name, go back to name input
-				if strings.Contains(m.pipelineSaveMessage, "already exists") {
-					m.pipelineSaveMessage = ""
-					// Cancel timer if running
-					if m.pipelineSaveTimer != nil {
-						m.pipelineSaveTimer.Stop()
-					}
-					m.editingName = true
-					// Keep the current name so user can edit it
-					m.nameInput = m.pipeline.Name
-					// Force a redraw to ensure layout is recalculated
-					return m, tea.ClearScreen
-				}
-				// For other messages, just clear them
-				m.pipelineSaveMessage = ""
-				// Cancel timer if running
-				if m.pipelineSaveTimer != nil {
-					m.pipelineSaveTimer.Stop()
-				}
-				// Force a redraw to ensure layout is recalculated
-				return m, tea.ClearScreen
-			}
 			// Check if there are unsaved changes
 			if m.hasUnsavedChanges() {
 				// Show confirmation dialog
@@ -823,16 +790,14 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
+	searchBarHeight := 3              // Height for search bar
 	
 	// Height calculation matching Main List View:
-	// Base reservation: 17 lines (search bar, help pane, status, spacing)
-	contentHeight := m.height - 17
+	// Base reservation: 14 lines (header, help pane, spacing) + search bar
+	contentHeight := m.height - 14 - searchBarHeight
 
 	if m.showPreview {
-		// When preview is shown, we need to account for:
-		// - 2 extra newlines around preview (before and after)
-		// - Then split remaining space between columns and preview
-		contentHeight = (m.height - 17 - 2) / 2
+		contentHeight = contentHeight / 2
 	}
 	
 	// Ensure minimum height for content
@@ -1382,27 +1347,6 @@ func (m *PipelineBuilderModel) View() string {
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
-	// Status message area - always render to maintain consistent layout
-	saveMessageStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("82")). // Green for success
-		Width(m.width).
-		Align(lipgloss.Center).
-		Padding(0, 1)
-	
-	// Empty status style for maintaining layout
-	emptyStatusStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Height(1)
-	
-	s.WriteString("\n")
-	if m.pipelineSaveMessage != "" {
-		s.WriteString(saveMessageStyle.Render(m.pipelineSaveMessage))
-	} else {
-		// Render empty space to maintain layout with same dimensions
-		s.WriteString(emptyStatusStyle.Render(" "))
-	}
-
 	return s.String()
 }
 
@@ -1439,7 +1383,7 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
+	contentHeight := m.height - 15 - searchBarHeight    // Reserve space for search bar, help pane, status bar, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1880,16 +1824,14 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to check existing pipelines: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to check existing pipelines: %v", err))
 		}
 		
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
 				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					m.pipelineSaveMessage = fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name)
-					return nil
+					return StatusMsg(fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
 				}
 			}
 		}
@@ -1899,12 +1841,8 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Save pipeline
 		err = files.WritePipeline(m.pipeline)
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to save pipeline: %v", err))
 		}
-		
-		// Set save message
-		m.pipelineSaveMessage = fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path)
 		
 		// Update original components to match saved state
 		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
@@ -1913,19 +1851,8 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
 		
-		// Cancel any existing timer
-		if m.pipelineSaveTimer != nil {
-			m.pipelineSaveTimer.Stop()
-		}
-		
-		// Set timer to clear message after 2 seconds
-		m.pipelineSaveTimer = time.NewTimer(2 * time.Second)
-		
-		// Return a command to clear the message after timer
-		return func() tea.Msg {
-			<-m.pipelineSaveTimer.C
-			return clearPipelineSaveMsg{}
-		}
+		// Return success message
+		return StatusMsg(fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path))
 	}
 }
 
@@ -1940,16 +1867,14 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to check existing pipelines: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to check existing pipelines: %v", err))
 		}
 		
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
 				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					m.pipelineSaveMessage = fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name)
-					return nil
+					return StatusMsg(fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
 				}
 			}
 		}
@@ -1959,15 +1884,13 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Save pipeline
 		err = files.WritePipeline(m.pipeline)
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to save pipeline: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to save pipeline: %v", err))
 		}
 		
 		// Generate pipeline output
 		output, err := composer.ComposePipeline(m.pipeline)
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to generate output: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to generate output: %v", err))
 		}
 
 		// Write to PLUQQY.md
@@ -1978,12 +1901,8 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		
 		err = composer.WritePLUQQYFile(output, outputPath)
 		if err != nil {
-			m.pipelineSaveMessage = fmt.Sprintf("❌ Failed to write output: %v", err)
-			return nil
+			return StatusMsg(fmt.Sprintf("❌ Failed to write output: %v", err))
 		}
-		
-		// Set save message
-		m.pipelineSaveMessage = fmt.Sprintf("✓ Saved & Set → %s", outputPath)
 		
 		// Update preview if showing
 		if m.showPreview {
@@ -2003,19 +1922,8 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
 		
-		// Cancel any existing timer
-		if m.pipelineSaveTimer != nil {
-			m.pipelineSaveTimer.Stop()
-		}
-		
-		// Set timer to clear message after 2 seconds
-		m.pipelineSaveTimer = time.NewTimer(2 * time.Second)
-		
-		// Return a command to clear the message after timer
-		return func() tea.Msg {
-			<-m.pipelineSaveTimer.C
-			return clearPipelineSaveMsg{}
-		}
+		// Return success message
+		return StatusMsg(fmt.Sprintf("✓ Saved & Set → %s", outputPath))
 	}
 }
 
@@ -2040,7 +1948,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2331,7 +2239,7 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2438,7 +2346,7 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2554,7 +2462,7 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane (3) + borders (2) + spacing (5)
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar (3) + borders (2) + spacing (5)
 
 	// Build main content
 	var mainContent strings.Builder
@@ -3020,7 +2928,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 8 // Reserve space for help pane (3) + save message (2) + spacing (3)
+	contentHeight := m.height - 9 // Reserve space for help pane (3) + save message (2) + spacing (3) + status bar (1)
 
 	// Build main content
 	var mainContent strings.Builder

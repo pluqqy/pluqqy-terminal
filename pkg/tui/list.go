@@ -967,7 +967,7 @@ func (m *MainListModel) View() string {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for title, search bar, help pane, status message, and spacing
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for header, search bar, help pane, and spacing
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1527,7 +1527,7 @@ func (m *MainListModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for title, search bar, help pane, status message, and spacing
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for header, search bar, help pane, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -2119,7 +2119,7 @@ func (m *MainListModel) componentTypeSelectionView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2226,7 +2226,7 @@ func (m *MainListModel) componentNameInputView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2342,7 +2342,7 @@ func (m *MainListModel) componentContentEditView() string {
 
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 10 // Reserve space for help pane
+	contentHeight := m.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2894,7 +2894,7 @@ func (m *MainListModel) componentEditView() string {
 
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 6 // Reserve space for help pane (3) + spacing (3)
+	contentHeight := m.height - 7 // Reserve space for help pane (3) + spacing (3) + status bar (1)
 
 	// Build main content
 	var mainContent strings.Builder

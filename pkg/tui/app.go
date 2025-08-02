@@ -49,8 +49,9 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Calculate header height (no title for size calculation)
 		header := renderHeader(a.width, "")
 		headerHeight := lipgloss.Height(header)
-		// Pass window size to all sub-models, accounting for header
-		availableHeight := msg.Height - headerHeight
+		// Pass window size to all sub-models, accounting for header and status bar
+		// Always reserve 1 line for status message to prevent layout shifts
+		availableHeight := msg.Height - headerHeight - 1
 		if a.mainList != nil {
 			a.mainList.SetSize(msg.Width, availableHeight)
 		}
@@ -143,33 +144,29 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Always create a fresh builder to avoid state issues
 			a.builder = NewPipelineBuilderModel()
 			
-			// If pipeline specified, load it first to get the correct title
-			pipelineName := ""
+			// If pipeline specified, load it
 			if msg.pipeline != "" {
 				a.builder.SetPipeline(msg.pipeline)
-				if a.builder.pipeline != nil {
-					pipelineName = a.builder.pipeline.Name
-				}
 			}
 			
-			// Calculate header height with the actual title
-			title := ""
-			if pipelineName != "" {
-				title = "Pipeline: " + pipelineName
+			// Set size if we have dimensions (header height already accounted for in WindowSizeMsg)
+			if a.width > 0 && a.height > 0 {
+				header := renderHeader(a.width, "")
+				headerHeight := lipgloss.Height(header)
+				a.builder.SetSize(a.width, a.height-headerHeight-1) // -1 for status bar
 			}
-			header := renderHeader(a.width, title)
-			headerHeight := lipgloss.Height(header)
-			a.builder.SetSize(a.width, a.height-headerHeight)
 			return a, a.builder.Init()
 		case pipelineViewerView:
 			a.state = pipelineViewerView
 			if a.viewer == nil {
 				a.viewer = NewPipelineViewerModel()
 			}
-			// Calculate header height
-			header := renderHeader(a.width, "")
-			headerHeight := lipgloss.Height(header)
-			a.viewer.SetSize(a.width, a.height-headerHeight)
+			// Set size if we have dimensions (header height already accounted for in WindowSizeMsg)
+			if a.width > 0 && a.height > 0 {
+				header := renderHeader(a.width, "")
+				headerHeight := lipgloss.Height(header)
+				a.viewer.SetSize(a.width, a.height-headerHeight-1) // -1 for status bar
+			}
 			a.viewer.SetPipeline(msg.pipeline)
 			return a, a.viewer.Init()
 		case settingsEditorView:
@@ -177,10 +174,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.settingsEditor == nil {
 				a.settingsEditor = NewSettingsEditorModel()
 			}
-			// Calculate header height
-			header := renderHeader(a.width, "")
-			headerHeight := lipgloss.Height(header)
-			a.settingsEditor.SetSize(a.width, a.height-headerHeight)
+			// Set size if we have dimensions (header height already accounted for in WindowSizeMsg)
+			if a.width > 0 && a.height > 0 {
+				header := renderHeader(a.width, "")
+				headerHeight := lipgloss.Height(header)
+				a.settingsEditor.SetSize(a.width, a.height-headerHeight-1) // -1 for status bar
+			}
 			return a, a.settingsEditor.Init()
 		}
 		
