@@ -830,8 +830,8 @@ func (m *PipelineBuilderModel) View() string {
 	tokenWidth := 8  // For "~Tokens" plus padding
 	usageWidth := 10
 	
-	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
+	// Render table header with 2-space shift - extra spacing before Usage to align with tag overflow
+	header := fmt.Sprintf("  %-*s %-*s %-*s   %-*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
@@ -907,8 +907,8 @@ func (m *PipelineBuilderModel) View() string {
 		
 		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
 		
-		// Join all parts
-		row := fmt.Sprintf("%s %s %s  %-*s",
+		// Join all parts - extra spacing before usage to account for tag overflow like "+1"
+		row := fmt.Sprintf("%s %s %s    %-*s",
 			namePart,
 			tagsPart,
 			tokenPart,

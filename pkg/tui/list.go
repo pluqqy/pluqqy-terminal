@@ -1031,8 +1031,8 @@ func (m *MainListModel) View() string {
 	tokenWidth := 8  // For "~Tokens" plus padding
 	usageWidth := 10
 	
-	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
+	// Render table header with 2-space shift - extra spacing before Usage to align with tag overflow
+	header := fmt.Sprintf("  %-*s %-*s %-*s   %-*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
@@ -1125,8 +1125,8 @@ func (m *MainListModel) View() string {
 		tokenPart := fmt.Sprintf("%-*s", tokenWidth, tokenStr)
 		usagePart := fmt.Sprintf("%-*s", usageWidth, usageStr)
 		
-		// Join all parts
-		row := namePart + " " + tagsPart + " " + tokenPart + "  " + usagePart
+		// Join all parts - extra spacing before usage to account for tag overflow like "+1"
+		row := namePart + " " + tagsPart + " " + tokenPart + "    " + usagePart
 		
 		// Apply cursor if needed
 		if m.activePane == componentsPane && i == m.componentCursor {
