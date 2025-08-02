@@ -13,6 +13,8 @@ This approach keeps your context minimal and focused - only including what's rel
 - 🎨 **Beautiful TUI** - Clean, intuitive terminal interface with Pluqqy ASCII art branding
 - 📊 **Token Counter** - Real-time token estimation for your composed pipelines
 - 🔍 **Component Grouping** - Organized view of components by type with metadata
+- 🏷️ **Tagging System** - Organize and categorize components and pipelines with colored tags
+- 🔎 **Advanced Search** - Powerful search engine with field-based queries (tag:api, type:prompt)
 - 📝 **Built-in Editor** - Edit components directly in the TUI without external editors
 - 🔄 **Live Preview** - See your composed pipeline in real-time as you build
 - ⚡ **Duplicate Prevention** - Automatically prevents adding the same component twice
@@ -87,6 +89,7 @@ pluqqy
 - `Enter` - View/edit pipeline or component
 - `e` - Edit component in TUI / Edit pipeline in builder
 - `E` - Edit component with external editor (components pane only)
+- `t` - Edit tags for selected component or pipeline
 - `n` - Create new pipeline/component
 - `a` - Archive pipeline/component (with confirmation)
 - `d` - Delete pipeline/component (with confirmation)
@@ -128,10 +131,45 @@ pluqqy
 - `E` - Open in external editor
 - `Esc` - Cancel (with unsaved changes confirmation)
 
+#### Tag Editor
+
+- `Tab` - Switch between current tags pane and available tags cloud
+- `Enter` - Add tag (from input field or tag cloud)
+- `←/→` - Navigate tags for selection
+- `d` - Remove tag from current item (main pane only)
+- `D` - Delete tag from registry (tag cloud only, with usage warning)
+- `Ctrl+S` - Save tag changes
+- `Esc` - Cancel without saving
+- Type directly to add new tags with autocomplete suggestions
+
+## Tagging System
+
+Pluqqy includes a powerful tagging system to help organize and find your components and pipelines:
+
+### Tag Features
+- **Color-Coded Tags** - Each tag gets a unique color for easy visual identification
+- **Tag Registry** - Central registry (`.pluqqy/tags.yaml`) stores tag metadata
+- **Tag Editor** - Beautiful side-by-side interface for managing tags
+- **Usage Tracking** - See how many components/pipelines use each tag before deletion
+- **Autocomplete** - Smart suggestions as you type based on existing tags
+
+### Tag Storage
+- **Components**: Tags stored in YAML frontmatter at the top of markdown files
+- **Pipelines**: Tags stored in the `tags` field of the YAML file
+- **Registry**: Optional tag descriptions and custom colors in `.pluqqy/tags.yaml`
+
+### Search Capabilities
+The built-in search engine supports powerful queries:
+- `tag:api` - Find items with the "api" tag
+- `type:prompt` - Find all prompt components
+- `tag:api AND type:context` - Combine filters
+- `content:"error handling"` - Full-text search in content
+
 ## UI Features
 
 - **Token Counter** - Shows estimated token count in the preview pane with color-coded status (green/yellow/red)
 - **Component Metadata** - View file sizes and paths in the component list
+- **Tag Display** - Tags shown as colored chips in component and pipeline lists
 - **Scrollable Panes** - All panes support smooth scrolling for long content
 - **Help Footer** - Context-sensitive help text at the bottom of each screen
 - **Status Messages** - Clear feedback for all actions with auto-dismiss

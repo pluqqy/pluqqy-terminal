@@ -15,6 +15,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/tags"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
@@ -89,6 +90,23 @@ type MainListModel struct {
 	// Exit confirmation state
 	showExitConfirmation  bool
 	exitConfirmationType  string // "component" or "component-edit"
+	
+	// Tag editing state
+	editingTags           bool
+	editingTagsPath       string
+	editingTagsType       string // "component" or "pipeline"
+	currentTags           []string
+	tagInput              string
+	tagCursor             int
+	availableTags         []string
+	showTagSuggestions    bool
+	tagCloudActive        bool   // Whether tag cloud pane is active
+	tagCloudCursor        int    // Selected tag in cloud
+	
+	// Tag deletion state
+	confirmingTagDelete   bool
+	deletingTag           string
+	deletingTagUsage      *tags.UsageStats
 }
 
 func NewMainListModel() *MainListModel {
@@ -255,6 +273,80 @@ func (m *MainListModel) loadComponents() {
 	}
 }
 
+func (m *MainListModel) startTagEditing(path string, currentTags []string, itemType string) {
+	m.editingTags = true
+	m.editingTagsPath = path
+	m.editingTagsType = itemType
+	m.currentTags = make([]string, len(currentTags))
+	copy(m.currentTags, currentTags)
+	m.tagInput = ""
+	m.tagCursor = 0
+	m.showTagSuggestions = false
+	
+	// Load available tags from registry
+	m.loadAvailableTags()
+}
+
+func (m *MainListModel) loadAvailableTags() {
+	registry, err := tags.NewRegistry()
+	if err != nil {
+		m.availableTags = []string{}
+		return
+	}
+	
+	allTags := registry.ListTags()
+	m.availableTags = make([]string, 0, len(allTags))
+	for _, tag := range allTags {
+		m.availableTags = append(m.availableTags, tag.Name)
+	}
+	
+	// Also add tags that exist in components but not in registry
+	seenTags := make(map[string]bool)
+	for _, tag := range m.availableTags {
+		seenTags[tag] = true
+	}
+	
+	// Add tags from all components
+	for _, comp := range m.prompts {
+		for _, tag := range comp.tags {
+			normalized := models.NormalizeTagName(tag)
+			if !seenTags[normalized] {
+				m.availableTags = append(m.availableTags, normalized)
+				seenTags[normalized] = true
+			}
+		}
+	}
+	for _, comp := range m.contexts {
+		for _, tag := range comp.tags {
+			normalized := models.NormalizeTagName(tag)
+			if !seenTags[normalized] {
+				m.availableTags = append(m.availableTags, normalized)
+				seenTags[normalized] = true
+			}
+		}
+	}
+	for _, comp := range m.rules {
+		for _, tag := range comp.tags {
+			normalized := models.NormalizeTagName(tag)
+			if !seenTags[normalized] {
+				m.availableTags = append(m.availableTags, normalized)
+				seenTags[normalized] = true
+			}
+		}
+	}
+	
+	// Add tags from pipelines
+	for _, pipeline := range m.pipelines {
+		for _, tag := range pipeline.tags {
+			normalized := models.NormalizeTagName(tag)
+			if !seenTags[normalized] {
+				m.availableTags = append(m.availableTags, normalized)
+				seenTags[normalized] = true
+			}
+		}
+	}
+}
+
 func (m *MainListModel) getAllComponents() []componentItem {
 	// Load settings for section order
 	settings, err := files.ReadSettings()
@@ -319,6 +411,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle component editing mode
 		if m.editingComponent {
 			return m.handleComponentEditing(msg)
+		}
+		
+		// Handle tag editing mode
+		if m.editingTags {
+			return m.handleTagEditing(msg)
 		}
 		
 		// Handle delete confirmation mode
@@ -516,6 +613,21 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged
 		
+		case "t":
+			// Edit tags
+			if m.activePane == componentsPane {
+				components := m.getAllComponents()
+				if m.componentCursor >= 0 && m.componentCursor < len(components) {
+					comp := components[m.componentCursor]
+					m.startTagEditing(comp.path, comp.tags, "component")
+				}
+			} else if m.activePane == pipelinesPane {
+				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
+					pipeline := m.pipelines[m.pipelineCursor]
+					m.startTagEditing(pipeline.path, pipeline.tags, "pipeline")
+				}
+			}
+		
 		case "n":
 			if m.activePane == pipelinesPane {
 				// Create new pipeline (switch to builder)
@@ -656,6 +768,11 @@ func (m *MainListModel) View() string {
 	// If editing component, show edit view
 	if m.editingComponent {
 		return m.componentEditView()
+	}
+	
+	// If editing tags, show tag edit view
+	if m.editingTags {
+		return m.tagEditView()
 	}
 
 	// Styles
@@ -813,17 +930,33 @@ func (m *MainListModel) View() string {
 		
 		// Format tags
 		tagsStr := renderTagChips(comp.tags, 2) // Show max 2 tags inline
-		if len(tagsStr) > tagsWidth-1 {
-			tagsStr = tagsStr[:tagsWidth-4] + "..."
+		tagsRenderedWidth := lipgloss.Width(tagsStr)
+		if tagsRenderedWidth > tagsWidth {
+			// For styled text, we need to render plain tags when truncating
+			plainTags := strings.Join(comp.tags, " ")
+			if len(plainTags) > tagsWidth-4 {
+				plainTags = plainTags[:tagsWidth-4] + "..."
+			}
+			tagsStr = plainTags
 		}
 		
-		// Build the row with tags
-		row := fmt.Sprintf("%-*s %-*s %-*s  %-*s %-*s",
-			nameWidth, nameStr,
-			tagsWidth, tagsStr,
-			tokenWidth, tokenStr,
-			modifiedWidth, modifiedStr,
-			usageWidth, usageStr)
+		// Build the row components separately
+		// Use padding to ensure consistent column alignment
+		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
+		
+		// For tags, we need to pad based on rendered width
+		tagsPadding := tagsWidth - lipgloss.Width(tagsStr)
+		if tagsPadding < 0 {
+			tagsPadding = 0
+		}
+		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
+		
+		tokenPart := fmt.Sprintf("%-*s", tokenWidth, tokenStr)
+		modifiedPart := fmt.Sprintf("%-*s", modifiedWidth, modifiedStr)
+		usagePart := fmt.Sprintf("%-*s", usageWidth, usageStr)
+		
+		// Join all parts
+		row := namePart + " " + tagsPart + " " + tokenPart + "  " + modifiedPart + " " + usagePart
 		
 		// Apply cursor if needed
 		if m.activePane == componentsPane && i == m.componentCursor {
@@ -935,18 +1068,33 @@ func (m *MainListModel) View() string {
 			
 			// Format tags
 			tagsStr := renderTagChips(pipeline.tags, 2) // Show max 2 tags inline
-			if len(tagsStr) > pipelineTagsWidth-1 {
-				tagsStr = tagsStr[:pipelineTagsWidth-4] + "..."
+			tagsRenderedWidth := lipgloss.Width(tagsStr)
+			if tagsRenderedWidth > pipelineTagsWidth {
+				// For styled text, we need to render plain tags when truncating
+				plainTags := strings.Join(pipeline.tags, " ")
+				if len(plainTags) > pipelineTagsWidth-4 {
+					plainTags = plainTags[:pipelineTagsWidth-4] + "..."
+				}
+				tagsStr = plainTags
 			}
 			
 			// Format token count - right-aligned
 			tokenStr := fmt.Sprintf("%d", pipeline.tokenCount)
 			
-			// Build the row
-			row := fmt.Sprintf("%-*s %-*s %*s",
-				pipelineNameWidth, nameStr,
-				pipelineTagsWidth, tagsStr,
-				pipelineTokenWidth, tokenStr)
+			// Build the row components separately
+			namePart := fmt.Sprintf("%-*s", pipelineNameWidth, nameStr)
+			
+			// For tags, we need to pad based on rendered width
+			tagsPadding := pipelineTagsWidth - lipgloss.Width(tagsStr)
+			if tagsPadding < 0 {
+				tagsPadding = 0
+			}
+			tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
+			
+			tokenPart := fmt.Sprintf("%*s", pipelineTokenWidth, tokenStr)
+			
+			// Join all parts
+			row := namePart + " " + tagsPart + " " + tokenPart
 			
 			// Apply cursor if needed
 			if m.activePane == pipelinesPane && i == m.pipelineCursor {
@@ -1148,6 +1296,7 @@ func (m *MainListModel) View() string {
 		"enter view",
 		"e edit",
 		"E edit external",
+		"t tag edit",
 		"n new",
 		"a archive",
 		"d delete",
@@ -1474,6 +1623,203 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 	}
 	
 	return m, nil
+}
+
+func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Handle tag deletion confirmation
+	if m.confirmingTagDelete {
+		switch msg.String() {
+		case "y", "Y":
+			// Confirmed deletion
+			m.confirmingTagDelete = false
+			return m, m.deleteTagFromRegistry()
+		case "n", "N", "esc":
+			// Cancelled deletion
+			m.confirmingTagDelete = false
+			m.deletingTag = ""
+			m.deletingTagUsage = nil
+			return m, nil
+		}
+		return m, nil
+	}
+	
+	switch msg.String() {
+	case "esc":
+		// Cancel tag editing
+		m.editingTags = false
+		m.tagInput = ""
+		m.currentTags = nil
+		m.showTagSuggestions = false
+		m.tagCloudActive = false
+		m.tagCloudCursor = 0
+		return m, nil
+		
+	case "ctrl+s":
+		// Save tags
+		return m, m.saveTags()
+		
+	case "enter":
+		if m.tagCloudActive {
+			// Add tag from cloud
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
+				tag := availableForSelection[m.tagCloudCursor]
+				if !m.hasTag(tag) {
+					m.currentTags = append(m.currentTags, tag)
+				}
+			}
+		} else {
+			// Add tag from input
+			if m.tagInput != "" {
+				// Normalize the tag
+				normalized := models.NormalizeTagName(m.tagInput)
+				if normalized != "" && !m.hasTag(normalized) {
+					m.currentTags = append(m.currentTags, normalized)
+				}
+				m.tagInput = ""
+				m.showTagSuggestions = false
+			}
+		}
+		return m, nil
+		
+	case "tab":
+		if m.tagCloudActive {
+			// Switch back to main pane
+			m.tagCloudActive = false
+			m.tagInput = ""
+		} else {
+			// Switch to tag cloud pane
+			m.tagCloudActive = true
+			m.tagCloudCursor = 0
+			m.showTagSuggestions = false
+		}
+		return m, nil
+		
+	case "left":
+		if m.tagCloudActive {
+			// Navigate in tag cloud
+			if m.tagCloudCursor > 0 {
+				m.tagCloudCursor--
+			}
+		} else {
+			// Move cursor left in current tags
+			if m.tagInput == "" && m.tagCursor > 0 {
+				m.tagCursor--
+			}
+		}
+		return m, nil
+		
+	case "right":
+		if m.tagCloudActive {
+			// Navigate in tag cloud
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor < len(availableForSelection)-1 {
+				m.tagCloudCursor++
+			}
+		} else {
+			// Move cursor right in current tags
+			if m.tagInput == "" && m.tagCursor < len(m.currentTags)-1 {
+				m.tagCursor++
+			}
+		}
+		return m, nil
+		
+	case "d":
+		// Remove tag from current item (only in main pane when not typing)
+		if !m.tagCloudActive && m.tagInput == "" && len(m.currentTags) > 0 {
+			if m.tagCursor >= 0 && m.tagCursor < len(m.currentTags) {
+				m.currentTags = append(m.currentTags[:m.tagCursor], m.currentTags[m.tagCursor+1:]...)
+				if m.tagCursor >= len(m.currentTags) && m.tagCursor > 0 {
+					m.tagCursor--
+				}
+			}
+		}
+		return m, nil
+		
+	case "backspace", "delete":
+		if !m.tagCloudActive && m.tagInput != "" {
+			// Delete from input
+			if len(m.tagInput) > 0 {
+				m.tagInput = m.tagInput[:len(m.tagInput)-1]
+				m.showTagSuggestions = len(m.tagInput) > 0
+			}
+		}
+		return m, nil
+		
+	case "D", "ctrl+d":
+		// Delete tag from registry (only in tag cloud)
+		if m.tagCloudActive {
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
+				tagToDelete := availableForSelection[m.tagCloudCursor]
+				
+				// Get usage stats
+				usage, err := tags.CountTagUsage(tagToDelete)
+				if err != nil {
+					return m, func() tea.Msg {
+						return StatusMsg(fmt.Sprintf("❌ Failed to check tag usage: %v", err))
+					}
+				}
+				
+				m.deletingTag = tagToDelete
+				m.deletingTagUsage = usage
+				m.confirmingTagDelete = true
+			}
+		}
+		return m, nil
+		
+	default:
+		// Add to input only when in main pane
+		if !m.tagCloudActive && len(msg.String()) == 1 {
+			m.tagInput += msg.String()
+			m.showTagSuggestions = true
+		}
+		return m, nil
+	}
+}
+
+func (m *MainListModel) saveTags() tea.Cmd {
+	return func() tea.Msg {
+		var err error
+		
+		if m.editingTagsType == "component" {
+			// Update component tags
+			err = files.UpdateComponentTags(m.editingTagsPath, m.currentTags)
+		} else {
+			// Update pipeline tags
+			pipeline, err := files.ReadPipeline(m.editingTagsPath)
+			if err != nil {
+				return StatusMsg(fmt.Sprintf("❌ Failed to read pipeline: %v", err))
+			}
+			pipeline.Tags = m.currentTags
+			err = files.WritePipeline(pipeline)
+		}
+		
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("❌ Failed to save tags: %v", err))
+		}
+		
+		// Update the registry with any new tags
+		registry, _ := tags.NewRegistry()
+		if registry != nil {
+			for _, tag := range m.currentTags {
+				registry.GetOrCreateTag(tag)
+			}
+			registry.Save()
+		}
+		
+		// Reload data to reflect changes
+		m.loadComponents()
+		m.loadPipelines()
+		
+		// Exit tag editing mode
+		m.editingTags = false
+		m.tagInput = ""
+		m.currentTags = nil
+		m.showTagSuggestions = false
+		
+		return StatusMsg("✅ Tags saved successfully")
+	}
 }
 
 func (m *MainListModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -1869,6 +2215,474 @@ func (m *MainListModel) componentContentEditView() string {
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
+}
+
+func (m *MainListModel) tagEditView() string {
+	// Styles
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")) // Orange like other headers
+	inputStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170")).
+		Padding(0, 1).
+		Width(40)
+	suggestionStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+	selectedSuggestionStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color("236")).
+		Foreground(lipgloss.Color("170"))
+		
+	// Calculate dimensions for side-by-side layout
+	totalWidth := m.width - 4
+	paneWidth := (totalWidth - 2) / 2 // -2 for gap between panes
+	paneHeight := m.height - 10 // Leave room for help pane
+	
+	// Header padding
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	// Build main content
+	var mainContent strings.Builder
+	
+	// Show deletion confirmation if active
+	if m.confirmingTagDelete {
+		confirmStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true)
+		warningStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")) // Orange for warning
+		
+		mainContent.WriteString(headerPadding.Render(confirmStyle.Render("⚠️  Delete Tag from Registry?")))
+		mainContent.WriteString("\n\n")
+		
+		mainContent.WriteString(headerPadding.Render(fmt.Sprintf("Tag: %s", titleStyle.Render(m.deletingTag))))
+		mainContent.WriteString("\n\n")
+		
+		if m.deletingTagUsage != nil && m.deletingTagUsage.TotalCount > 0 {
+			mainContent.WriteString(headerPadding.Render(warningStyle.Render("This tag is currently in use:")))
+			mainContent.WriteString("\n")
+			if m.deletingTagUsage.ComponentCount > 0 {
+				mainContent.WriteString(headerPadding.Render(fmt.Sprintf("  • %d component%s", 
+					m.deletingTagUsage.ComponentCount,
+					pluralize(m.deletingTagUsage.ComponentCount))))
+				mainContent.WriteString("\n")
+			}
+			if m.deletingTagUsage.PipelineCount > 0 {
+				mainContent.WriteString(headerPadding.Render(fmt.Sprintf("  • %d pipeline%s", 
+					m.deletingTagUsage.PipelineCount,
+					pluralize(m.deletingTagUsage.PipelineCount))))
+				mainContent.WriteString("\n")
+			}
+			mainContent.WriteString("\n")
+			mainContent.WriteString(headerPadding.Render(warningStyle.Render("The tag will be removed from the registry but will remain on items that use it.")))
+		} else {
+			mainContent.WriteString(headerPadding.Render("This tag is not currently in use."))
+		}
+		mainContent.WriteString("\n\n")
+		
+		mainContent.WriteString(headerPadding.Render("Delete this tag? (y/n)"))
+		
+		// Apply border and return early
+		confirmBorderStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("196")) // Red border for deletion
+		mainPane := confirmBorderStyle.
+			Width(totalWidth).
+			Height(paneHeight).
+			Render(mainContent.String())
+			
+		// Still show help
+		help := []string{
+			"y confirm delete",
+			"n/esc cancel",
+		}
+		
+		helpBorderStyle := lipgloss.NewStyle().
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color("240")).
+			Width(m.width - 4).
+			Padding(0, 1)
+		
+		helpContent := formatHelpText(help)
+		
+		var s strings.Builder
+		contentStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+			
+		s.WriteString(contentStyle.Render(mainPane))
+		s.WriteString("\n")
+		s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+		
+		return s.String()
+	}
+	
+	// Get item name
+	itemName := ""
+	if m.editingTagsType == "component" {
+		components := m.getAllComponents()
+		if m.componentCursor >= 0 && m.componentCursor < len(components) {
+			itemName = components[m.componentCursor].name
+		}
+	} else {
+		if m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
+			itemName = m.pipelines[m.pipelineCursor].name
+		}
+	}
+	
+	// Header at the top
+	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
+	remainingWidth := paneWidth - len(heading) - 7 // Adjust for smaller pane width
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+	
+	// Current tags
+	mainContent.WriteString(headerPadding.Render("Current tags:\n"))
+	if len(m.currentTags) == 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		mainContent.WriteString(headerPadding.Render(dimStyle.Render("(no tags)")))
+	} else {
+		var tagDisplay strings.Builder
+		for i, tag := range m.currentTags {
+			// Get color from registry
+			registry, _ := tags.NewRegistry()
+			color := models.GetTagColor(tag, "")
+			if registry != nil {
+				if t, exists := registry.GetTag(tag); exists && t.Color != "" {
+					color = t.Color
+				}
+			}
+			
+			style := lipgloss.NewStyle().
+				Background(lipgloss.Color(color)).
+				Foreground(lipgloss.Color("255")).
+				Padding(0, 1)
+			
+			// Add selection indicators with consistent spacing
+			if i == m.tagCursor && m.tagInput == "" {
+				// Selected tag with triangle indicators
+				indicatorStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("170")). // Bright green for indicators
+					Bold(true)
+				tagDisplay.WriteString(indicatorStyle.Render("▶"))
+				tagDisplay.WriteString(style.Render(tag))
+				tagDisplay.WriteString(indicatorStyle.Render("◀"))
+			} else {
+				// Add invisible spacers to maintain consistent width
+				tagDisplay.WriteString(" ")
+				tagDisplay.WriteString(style.Render(tag))
+				tagDisplay.WriteString(" ")
+			}
+			
+			// Add space between tags
+			if i < len(m.currentTags)-1 {
+				tagDisplay.WriteString("  ") // Double space for better separation
+			}
+		}
+		mainContent.WriteString(headerPadding.Render(tagDisplay.String()))
+	}
+	mainContent.WriteString("\n\n")
+	
+	// Input field
+	mainContent.WriteString(headerPadding.Render("Add tag:"))
+	mainContent.WriteString("\n")
+	
+	// Create input display with cursor
+	cursorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("170")).
+		Bold(true)
+	
+	inputDisplay := m.tagInput
+	if !m.tagCloudActive && m.tagInput != "" {
+		// Add cursor to existing input when active
+		inputDisplay = m.tagInput + cursorStyle.Render("│")
+	}
+	
+	// Show placeholder if empty
+	if m.tagInput == "" {
+		placeholderStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Italic(true)
+		if !m.tagCloudActive {
+			inputDisplay = placeholderStyle.Render("Type to add a new tag...") + cursorStyle.Render("│")
+		} else {
+			inputDisplay = placeholderStyle.Render("Type to add a new tag...")
+		}
+	}
+	
+	// Highlight input border when active
+	activeInputStyle := inputStyle
+	if !m.tagCloudActive {
+		activeInputStyle = inputStyle.BorderForeground(lipgloss.Color("170"))
+	}
+	
+	mainContent.WriteString(headerPadding.Render(activeInputStyle.Render(inputDisplay)))
+	mainContent.WriteString("\n\n")
+	
+	// Suggestions
+	if m.showTagSuggestions && len(m.tagInput) > 0 {
+		mainContent.WriteString(headerPadding.Render("Suggestions:\n"))
+		suggestions := m.getTagSuggestions()
+		for i, suggestion := range suggestions {
+			if i > 5 { // Limit to 6 suggestions
+				break
+			}
+			var suggestionLine string
+			if i == 0 {
+				// Selected suggestion with background
+				suggestionLine = selectedSuggestionStyle.
+					Padding(0, 1). // Add padding inside the styled area
+					Render(suggestion)
+			} else {
+				// Regular suggestion
+				suggestionLine = suggestionStyle.Render("  " + suggestion)
+			}
+			mainContent.WriteString(headerPadding.Render(suggestionLine))
+			mainContent.WriteString("\n")
+		}
+		mainContent.WriteString("\n")
+	}
+	
+	// Apply border to main content
+	activeBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170"))
+	inactiveBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240"))
+	
+	mainPaneBorder := inactiveBorderStyle
+	if !m.tagCloudActive {
+		mainPaneBorder = activeBorderStyle
+	}
+	
+	mainPane := mainPaneBorder.
+		Width(paneWidth).
+		Height(paneHeight).
+		Render(mainContent.String())
+
+	// Build tag cloud pane
+	var tagCloudContent strings.Builder
+	
+	// Tag cloud header
+	tagCloudTitle := "AVAILABLE TAGS"
+	tagCloudRemainingWidth := paneWidth - len(tagCloudTitle) - 7 // Adjust for smaller width
+	if tagCloudRemainingWidth < 0 {
+		tagCloudRemainingWidth = 0
+	}
+	tagCloudContent.WriteString(headerPadding.Render(titleStyle.Render(tagCloudTitle) + " " + colonStyle.Render(strings.Repeat(":", tagCloudRemainingWidth))))
+	tagCloudContent.WriteString("\n\n")
+	
+	// Display available tags
+	if len(m.availableTags) == 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		tagCloudContent.WriteString(headerPadding.Render(dimStyle.Render("(no available tags)")))
+	} else {
+		// Group tags in rows
+		var tagRows strings.Builder
+		rowTags := 0
+		currentRowWidth := 0
+		maxRowWidth := paneWidth - 6 // Account for padding
+		
+		availableForCloud := m.getAvailableTagsForCloud()
+		for i, tag := range availableForCloud {
+			// Get tag color
+			registry, _ := tags.NewRegistry()
+			color := models.GetTagColor(tag, "")
+			if registry != nil {
+				if t, exists := registry.GetTag(tag); exists && t.Color != "" {
+					color = t.Color
+				}
+			}
+			
+			tagStyle := lipgloss.NewStyle().
+				Background(lipgloss.Color(color)).
+				Foreground(lipgloss.Color("255")).
+				Padding(0, 1)
+			
+			// Calculate tag display width
+			var tagDisplay string
+			if m.tagCloudActive && i == m.tagCloudCursor {
+				indicatorStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("170")).
+					Bold(true)
+				tagDisplay = indicatorStyle.Render("▶") + tagStyle.Render(tag) + indicatorStyle.Render("◀")
+			} else {
+				tagDisplay = " " + tagStyle.Render(tag) + " "
+			}
+			
+			tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
+			
+			// Check if we need a new row
+			if rowTags > 0 && currentRowWidth + tagWidth > maxRowWidth {
+				tagRows.WriteString("\n")
+				rowTags = 0
+				currentRowWidth = 0
+			}
+			
+			tagRows.WriteString(tagDisplay)
+			tagRows.WriteString("  ")
+			currentRowWidth += tagWidth + 2
+			rowTags++
+		}
+		
+		tagCloudContent.WriteString(headerPadding.Render(tagRows.String()))
+	}
+	
+	tagCloudBorder := inactiveBorderStyle
+	if m.tagCloudActive {
+		tagCloudBorder = activeBorderStyle
+	}
+	
+	tagCloudPane := tagCloudBorder.
+		Width(paneWidth).
+		Height(paneHeight).
+		Render(tagCloudContent.String())
+
+	// Help section
+	var help []string
+	if m.tagCloudActive {
+		help = []string{
+			"tab switch pane",
+			"enter add tag",
+			"←/→ navigate",
+			"D delete from registry",
+			"ctrl+s save",
+			"esc cancel",
+		}
+	} else {
+		help = []string{
+			"tab switch pane",
+			"enter add tag",
+			"←/→ select tag",
+			"d/delete remove tag",
+			"ctrl+s save",
+			"esc cancel",
+		}
+	}
+
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+
+	helpContent := formatHelpText(help)
+
+	// Combine panes side by side
+	sideBySide := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		mainPane,
+		"  ", // Gap between panes
+		tagCloudPane,
+	)
+
+	// Combine all elements
+	var s strings.Builder
+
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+
+	s.WriteString(contentStyle.Render(sideBySide))
+	s.WriteString("\n")
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+
+	return s.String()
+}
+
+func (m *MainListModel) getTagSuggestions() []string {
+	if m.tagInput == "" {
+		return []string{}
+	}
+	
+	input := strings.ToLower(m.tagInput)
+	var suggestions []string
+	
+	// First, exact prefix matches
+	for _, tag := range m.availableTags {
+		if strings.HasPrefix(strings.ToLower(tag), input) && !m.hasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	// Then, contains matches
+	for _, tag := range m.availableTags {
+		if !strings.HasPrefix(strings.ToLower(tag), input) && 
+		   strings.Contains(strings.ToLower(tag), input) && 
+		   !m.hasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	return suggestions
+}
+
+func (m *MainListModel) hasTag(tag string) bool {
+	normalized := models.NormalizeTagName(tag)
+	for _, t := range m.currentTags {
+		if models.NormalizeTagName(t) == normalized {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *MainListModel) getAvailableTagsForCloud() []string {
+	var available []string
+	for _, tag := range m.availableTags {
+		if !m.hasTag(tag) {
+			available = append(available, tag)
+		}
+	}
+	return available
+}
+
+func (m *MainListModel) deleteTagFromRegistry() tea.Cmd {
+	return func() tea.Msg {
+		// Delete from registry
+		registry, err := tags.NewRegistry()
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("❌ Failed to load tag registry: %v", err))
+		}
+		
+		registry.RemoveTag(m.deletingTag)
+		
+		if err := registry.Save(); err != nil {
+			return StatusMsg(fmt.Sprintf("❌ Failed to save tag registry: %v", err))
+		}
+		
+		// Update available tags
+		m.loadAvailableTags()
+		
+		// Adjust cursor if needed
+		availableForCloud := m.getAvailableTagsForCloud()
+		if m.tagCloudCursor >= len(availableForCloud) && m.tagCloudCursor > 0 {
+			m.tagCloudCursor = len(availableForCloud) - 1
+		}
+		
+		// Clear deletion state
+		deletedTag := m.deletingTag
+		m.deletingTag = ""
+		m.deletingTagUsage = nil
+		
+		return StatusMsg(fmt.Sprintf("✓ Deleted tag '%s' from registry", deletedTag))
+	}
+}
+
+func pluralize(count int) string {
+	if count == 1 {
+		return ""
+	}
+	return "s"
 }
 
 func (m *MainListModel) componentEditView() string {
