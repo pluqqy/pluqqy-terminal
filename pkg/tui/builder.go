@@ -82,15 +82,15 @@ type PipelineBuilderModel struct {
 	showTagSuggestions    bool
 	tagCloudActive        bool
 	tagCloudCursor        int
-	confirmingTagDelete   bool
+	tagDeleteConfirm      *ConfirmationModel
 	deletingTag           string
 	deletingTagUsage      []string
 	editSaveTimer         *time.Timer
 	editViewport          viewport.Model
 	
-	// Exit confirmation state
-	showExitConfirmation  bool
-	exitConfirmationType  string // "pipeline" or "component"
+	// Exit confirmation
+	exitConfirm          *ConfirmationModel
+	exitConfirmationType string // "pipeline" or "component"
 	
 	// Change tracking
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
@@ -134,10 +134,12 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 			Name:       "",
 			Components: []models.ComponentRef{},
 		},
-		previewViewport: viewport.New(80, 20), // Default size, will be resized
-		leftViewport:    viewport.New(40, 20), // Default size, will be resized
-		rightViewport:   viewport.New(40, 20), // Default size, will be resized
-		searchInput:     ti,
+		previewViewport:  viewport.New(80, 20), // Default size, will be resized
+		leftViewport:     viewport.New(40, 20), // Default size, will be resized
+		rightViewport:    viewport.New(40, 20), // Default size, will be resized
+		searchInput:      ti,
+		exitConfirm:      NewConfirmation(),
+		tagDeleteConfirm: NewConfirmation(),
 	}
 	
 	// Initialize search engine
@@ -371,37 +373,9 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 
 	case tea.KeyMsg:
-		// Handle exit confirmation dialog
-		if m.showExitConfirmation {
-			switch msg.String() {
-			case "y", "Y":
-				m.showExitConfirmation = false
-				if m.exitConfirmationType == "pipeline" {
-					return m, func() tea.Msg {
-						return SwitchViewMsg{view: mainListView}
-					}
-				} else if m.exitConfirmationType == "component" {
-					// For component creation, just go back to name input
-					m.creationStep = 1
-					m.componentContent = ""
-				} else if m.exitConfirmationType == "component-edit" {
-					// For component editing, exit without saving
-					m.editingComponent = false
-					m.componentContent = ""
-					m.editingComponentPath = ""
-					m.editingComponentName = ""
-					m.editSaveMessage = ""
-					m.originalContent = ""
-					if m.editSaveTimer != nil {
-						m.editSaveTimer.Stop()
-					}
-				}
-				return m, nil
-			case "n", "N", "esc":
-				m.showExitConfirmation = false
-				return m, nil
-			}
-			return m, nil
+		// Handle exit confirmation
+		if m.exitConfirm.Active() {
+			return m, m.exitConfirm.Update(msg)
 		}
 		
 		// Handle component creation mode
@@ -486,8 +460,21 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Check if there are unsaved changes
 			if m.hasUnsavedChanges() {
 				// Show confirmation dialog
-				m.showExitConfirmation = true
 				m.exitConfirmationType = "pipeline"
+				m.exitConfirm.ShowDialog(
+					"⚠️  Unsaved Changes",
+					"You have unsaved changes in this pipeline.",
+					"Exit without saving?",
+					true, // destructive
+					m.width - 4,
+					10,
+					func() tea.Cmd {
+						return func() tea.Msg {
+							return SwitchViewMsg{view: mainListView}
+						}
+					},
+					nil, // onCancel
+				)
 				return m, nil
 			}
 			// No unsaved changes, exit immediately
@@ -786,8 +773,8 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// If showing exit confirmation, display dialog
-	if m.showExitConfirmation {
-		return m.exitConfirmationView()
+	if m.exitConfirm.Active() {
+		return m.exitConfirm.View()
 	}
 
 	// If creating component, show creation wizard
@@ -2112,6 +2099,8 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	return s.String()
 }
 
+// exitConfirmationView is no longer used - replaced by ConfirmationModel
+/*
 func (m *PipelineBuilderModel) exitConfirmationView() string {
 	// Styles matching the rest of the UI
 	borderStyle := lipgloss.NewStyle().
@@ -2190,6 +2179,7 @@ func (m *PipelineBuilderModel) exitConfirmationView() string {
 		
 	return dialogStyle.Render(mainPane)
 }
+*/
 
 func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.creationStep {
@@ -2241,8 +2231,22 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 		case "esc":
 			// If content has been entered, show confirmation
 			if strings.TrimSpace(m.componentContent) != "" {
-				m.showExitConfirmation = true
 				m.exitConfirmationType = "component"
+				m.exitConfirm.ShowDialog(
+					"⚠️  Unsaved Changes",
+					"You have unsaved content in this component.",
+					"Exit without saving?",
+					true, // destructive
+					m.width - 4,
+					10,
+					func() tea.Cmd {
+						// Go back to name input
+						m.creationStep = 1
+						m.componentContent = ""
+						return nil
+					},
+					nil, // onCancel
+				)
 			} else {
 				m.creationStep = 1
 				m.componentContent = ""
@@ -2746,8 +2750,29 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 		// Check if content has changed
 		if m.componentContent != m.originalContent {
 			// Show confirmation dialog
-			m.showExitConfirmation = true
 			m.exitConfirmationType = "component-edit"
+			m.exitConfirm.ShowDialog(
+				"⚠️  Unsaved Changes",
+				"You have unsaved changes to this component.",
+				"Exit without saving?",
+				true, // destructive
+				m.width - 4,
+				10,
+				func() tea.Cmd {
+					// Exit without saving
+					m.editingComponent = false
+					m.componentContent = ""
+					m.editingComponentPath = ""
+					m.editingComponentName = ""
+					m.editSaveMessage = ""
+					m.originalContent = ""
+					if m.editSaveTimer != nil {
+						m.editSaveTimer.Stop()
+					}
+					return nil
+				},
+				nil, // onCancel
+			)
 			return m, nil
 		}
 		// No changes, exit immediately
@@ -2781,18 +2806,8 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 }
 
 func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.confirmingTagDelete {
-		switch msg.String() {
-		case "y", "Y":
-			m.confirmingTagDelete = false
-			return m, m.deleteTagFromRegistry()
-		case "n", "N", "esc":
-			m.confirmingTagDelete = false
-			m.deletingTag = ""
-			m.deletingTagUsage = nil
-			return m, nil
-		}
-		return m, nil
+	if m.tagDeleteConfirm.Active() {
+		return m, m.tagDeleteConfirm.Update(msg)
 	}
 	
 	switch msg.String() {
@@ -2921,7 +2936,36 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 				m.deletingTag = availableForSelection[m.tagCloudCursor]
 				usage := m.getTagUsage(m.deletingTag)
 				m.deletingTagUsage = usage
-				m.confirmingTagDelete = true
+				
+				// Show confirmation dialog for tag deletion
+				var details []string
+				if len(usage) > 0 {
+					for _, u := range usage {
+						details = append(details, u)
+					}
+				}
+				
+				m.tagDeleteConfirm.Show(ConfirmationConfig{
+					Title:       "Delete Tag from Registry?",
+					Message:     fmt.Sprintf("Tag: %s", m.deletingTag),
+					Warning:     func() string {
+						if len(usage) > 0 {
+							return "This tag is currently in use by:"
+						}
+						return "This tag is not currently in use."
+					}(),
+					Details:     details,
+					Destructive: true,
+					Type:        ConfirmTypeDialog,
+					Width:       m.width - 4,
+					Height:      15,
+				}, func() tea.Cmd {
+					return m.deleteTagFromRegistry()
+				}, func() tea.Cmd {
+					m.deletingTag = ""
+					m.deletingTagUsage = nil
+					return nil
+				})
 			}
 		} else if m.tagInput == "" && m.tagCursor < len(m.currentTags) {
 			// In current tags: just remove from component
@@ -3298,50 +3342,8 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	
 	var mainContent strings.Builder
 	
-	if m.confirmingTagDelete {
-		confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
-		warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
-		
-		mainContent.WriteString(headerPadding.Render(confirmStyle.Render("⚠️  Delete Tag from Registry?")))
-		mainContent.WriteString("\n\n")
-		mainContent.WriteString(headerPadding.Render(fmt.Sprintf("Tag: %s", titleStyle.Render(m.deletingTag))))
-		mainContent.WriteString("\n\n")
-		
-		if m.deletingTagUsage != nil && len(m.deletingTagUsage) > 0 {
-			mainContent.WriteString(headerPadding.Render(warningStyle.Render("This tag is currently in use by:")))
-			mainContent.WriteString("\n")
-			for _, usage := range m.deletingTagUsage {
-				mainContent.WriteString(headerPadding.Render(fmt.Sprintf("  • %s", usage)))
-				mainContent.WriteString("\n")
-			}
-			mainContent.WriteString("\n")
-			mainContent.WriteString(headerPadding.Render(warningStyle.Render("The tag will be removed from the registry but will remain on items that use it.")))
-		} else {
-			mainContent.WriteString(headerPadding.Render("This tag is not currently in use."))
-		}
-		mainContent.WriteString("\n\n")
-		
-		// Show styled confirmation options
-		deleteOptions := formatConfirmOptions(true) + "  (delete / cancel)"
-		centeredOptions := lipgloss.NewStyle().
-			Width(paneWidth - 4).
-			Align(lipgloss.Center).
-			Render(deleteOptions)
-		mainContent.WriteString(centeredOptions)
-		
-		confirmBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("196"))
-		mainPane := confirmBorderStyle.Width(m.width - 4).Height(paneHeight).Render(mainContent.String())
-		
-		help := []string{"y confirm delete", "n/esc cancel"}
-		helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width - 4).Padding(0, 1)
-		helpContent := formatHelpText(help)
-		
-		var s strings.Builder
-		contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
-		s.WriteString(contentStyle.Render(mainPane))
-		s.WriteString("\n")
-		s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-		return s.String()
+	if m.tagDeleteConfirm.Active() {
+		return m.tagDeleteConfirm.View()
 	}
 	
 	components := m.getAllAvailableComponents()

@@ -64,15 +64,11 @@ type MainListModel struct {
 	// Error handling
 	err                error
 	
-	// Delete confirmation
-	confirmingDelete   bool
-	deleteConfirmation string
-	deletingFromPane   pane // Track which pane initiated the delete
-	
-	// Archive confirmation
-	confirmingArchive   bool
-	archiveConfirmation string
-	archivingFromPane   pane // Track which pane initiated the archive
+	// Confirmations
+	deleteConfirm     *ConfirmationModel
+	deletingFromPane  pane // Track which pane initiated the delete
+	archiveConfirm    *ConfirmationModel
+	archivingFromPane pane // Track which pane initiated the archive
 	
 	// Component creation state
 	creatingComponent     bool
@@ -89,9 +85,9 @@ type MainListModel struct {
 	originalContent       string
 	editViewport          viewport.Model
 	
-	// Exit confirmation state
-	showExitConfirmation  bool
-	exitConfirmationType  string // "component" or "component-edit"
+	// Exit confirmation
+	exitConfirm          *ConfirmationModel
+	exitConfirmationType string // "component" or "component-edit"
 	
 	// Tag editing state
 	editingTags           bool
@@ -105,10 +101,10 @@ type MainListModel struct {
 	tagCloudActive        bool   // Whether tag cloud pane is active
 	tagCloudCursor        int    // Selected tag in cloud
 	
-	// Tag deletion state
-	confirmingTagDelete   bool
-	deletingTag           string
-	deletingTagUsage      *tags.UsageStats
+	// Tag deletion
+	tagDeleteConfirm  *ConfirmationModel
+	deletingTag       string
+	deletingTagUsage  *tags.UsageStats
 	
 	// Search engine
 	searchEngine          *search.Engine
@@ -134,6 +130,10 @@ func NewMainListModel() *MainListModel {
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
 		searchInput:        ti,
+		deleteConfirm:      NewConfirmation(),
+		archiveConfirm:     NewConfirmation(),
+		exitConfirm:        NewConfirmation(),
+		tagDeleteConfirm:   NewConfirmation(),
 	}
 	m.loadPipelines()
 	m.loadComponents()
@@ -538,29 +538,9 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		
-		// Handle exit confirmation dialog
-		if m.showExitConfirmation {
-			switch msg.String() {
-			case "y", "Y":
-				m.showExitConfirmation = false
-				if m.exitConfirmationType == "component" {
-					// For component creation, just go back to type selection
-					m.creationStep = 0
-					m.componentContent = ""
-				} else if m.exitConfirmationType == "component-edit" {
-					// For component editing, exit without saving
-					m.editingComponent = false
-					m.componentContent = ""
-					m.editingComponentPath = ""
-					m.editingComponentName = ""
-					m.originalContent = ""
-				}
-				return m, nil
-			case "n", "N", "esc":
-				m.showExitConfirmation = false
-				return m, nil
-			}
-			return m, nil
+		// Handle exit confirmation
+		if m.exitConfirm.Active() {
+			return m, m.exitConfirm.Update(msg)
 		}
 		
 		// Handle component creation mode
@@ -578,56 +558,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleTagEditing(msg)
 		}
 		
-		// Handle delete confirmation mode
-		if m.confirmingDelete {
-			switch msg.String() {
-			case "y", "Y":
-				// Confirmed deletion
-				m.confirmingDelete = false
-				if m.deletingFromPane == pipelinesPane {
-					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelinePath := m.pipelines[m.pipelineCursor].path
-						return m, m.deletePipeline(pipelinePath)
-					}
-				} else if m.deletingFromPane == componentsPane {
-					components := m.getCurrentComponents()
-					if m.componentCursor >= 0 && m.componentCursor < len(components) {
-						comp := components[m.componentCursor]
-						return m, m.deleteComponent(comp)
-					}
-				}
-			case "n", "N", "esc":
-				// Cancel deletion
-				m.confirmingDelete = false
-				m.deleteConfirmation = ""
-			}
-			return m, nil
+		// Handle delete confirmation
+		if m.deleteConfirm.Active() {
+			return m, m.deleteConfirm.Update(msg)
 		}
 		
-		// Handle archive confirmation mode
-		if m.confirmingArchive {
-			switch msg.String() {
-			case "y", "Y":
-				// Confirmed archive
-				m.confirmingArchive = false
-				if m.archivingFromPane == pipelinesPane {
-					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelinePath := m.pipelines[m.pipelineCursor].path
-						return m, m.archivePipeline(pipelinePath)
-					}
-				} else if m.archivingFromPane == componentsPane {
-					components := m.getCurrentComponents()
-					if m.componentCursor >= 0 && m.componentCursor < len(components) {
-						comp := components[m.componentCursor]
-						return m, m.archiveComponent(comp)
-					}
-				}
-			case "n", "N", "esc":
-				// Cancel archive
-				m.confirmingArchive = false
-				m.archiveConfirmation = ""
-			}
-			return m, nil
+		// Handle archive confirmation
+		if m.archiveConfirm.Active() {
+			return m, m.archiveConfirm.Update(msg)
 		}
 		
 		// Normal mode key handling
@@ -844,18 +782,34 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == pipelinesPane {
 				// Delete pipeline with confirmation
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					m.confirmingDelete = true
 					m.deletingFromPane = pipelinesPane
-					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? %s", m.pipelines[m.pipelineCursor].name, formatConfirmOptions(true))
+					pipelineName := m.pipelines[m.pipelineCursor].name
+					pipelinePath := m.pipelines[m.pipelineCursor].path
+					
+					m.deleteConfirm.ShowInline(
+						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
+						true, // destructive
+						func() tea.Cmd {
+							return m.deletePipeline(pipelinePath)
+						},
+						nil, // onCancel
+					)
 				}
 			} else if m.activePane == componentsPane {
 				// Delete component with confirmation
 				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
-					m.confirmingDelete = true
 					m.deletingFromPane = componentsPane
-					m.deleteConfirmation = fmt.Sprintf("Delete %s '%s'? %s", comp.compType, comp.name, formatConfirmOptions(true))
+					
+					m.deleteConfirm.ShowInline(
+						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
+						true, // destructive
+						func() tea.Cmd {
+							return m.deleteComponent(comp)
+						},
+						nil, // onCancel
+					)
 				}
 			}
 		
@@ -871,18 +825,34 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == pipelinesPane {
 				// Archive pipeline with confirmation
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					m.confirmingArchive = true
 					m.archivingFromPane = pipelinesPane
-					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? %s", m.pipelines[m.pipelineCursor].name, formatConfirmOptions(true))
+					pipelineName := m.pipelines[m.pipelineCursor].name
+					pipelinePath := m.pipelines[m.pipelineCursor].path
+					
+					m.archiveConfirm.ShowInline(
+						fmt.Sprintf("Archive pipeline '%s'?", pipelineName),
+						true, // destructive
+						func() tea.Cmd {
+							return m.archivePipeline(pipelinePath)
+						},
+						nil, // onCancel
+					)
 				}
 			} else if m.activePane == componentsPane {
 				// Archive component with confirmation
 				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
-					m.confirmingArchive = true
 					m.archivingFromPane = componentsPane
-					m.archiveConfirmation = fmt.Sprintf("Archive %s '%s'? %s", comp.compType, comp.name, formatConfirmOptions(true))
+					
+					m.archiveConfirm.ShowInline(
+						fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
+						true, // destructive
+						func() tea.Cmd {
+							return m.archiveComponent(comp)
+						},
+						nil, // onCancel
+					)
 				}
 			}
 		}
@@ -934,8 +904,8 @@ func (m *MainListModel) View() string {
 	}
 	
 	// If showing exit confirmation, display dialog
-	if m.showExitConfirmation {
-		return m.exitConfirmationView()
+	if m.exitConfirm.Active() {
+		return m.exitConfirm.View()
 	}
 	
 	// If creating component, show creation wizard
@@ -1458,23 +1428,25 @@ func (m *MainListModel) View() string {
 	}
 
 	// Show delete confirmation if active
-	if m.confirmingDelete {
+	if m.deleteConfirm.Active() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true).
-			MarginTop(2)
+			MarginTop(2).
+			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(contentStyle.Render(confirmStyle.Render(m.deleteConfirmation)))
+		s.WriteString(confirmStyle.Render(m.deleteConfirm.ViewWithWidth(m.width - 4)))
 	}
 	
 	// Show archive confirmation if active
-	if m.confirmingArchive {
+	if m.archiveConfirm.Active() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214")). // Orange for archive
 			Bold(true).
-			MarginTop(2)
+			MarginTop(2).
+			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirmation)))
+		s.WriteString(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4)))
 	}
 	
 	// Help text in bordered pane
@@ -1805,8 +1777,22 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 		case "esc":
 			// If content has been entered, show confirmation
 			if strings.TrimSpace(m.componentContent) != "" {
-				m.showExitConfirmation = true
 				m.exitConfirmationType = "component"
+				m.exitConfirm.ShowDialog(
+					"⚠️  Unsaved Changes",
+					"You have unsaved content in this component.",
+					"Exit without saving?",
+					true, // destructive
+					m.width - 4,
+					10,
+					func() tea.Cmd {
+						// Exit - go back to type selection
+						m.creationStep = 0
+						m.componentContent = ""
+						return nil
+					},
+					nil, // onCancel
+				)
 			} else {
 				m.creationStep = 1
 				m.componentContent = ""
@@ -1834,20 +1820,8 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 
 func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle tag deletion confirmation
-	if m.confirmingTagDelete {
-		switch msg.String() {
-		case "y", "Y":
-			// Confirmed deletion
-			m.confirmingTagDelete = false
-			return m, m.deleteTagFromRegistry()
-		case "n", "N", "esc":
-			// Cancelled deletion
-			m.confirmingTagDelete = false
-			m.deletingTag = ""
-			m.deletingTagUsage = nil
-			return m, nil
-		}
-		return m, nil
+	if m.tagDeleteConfirm.Active() {
+		return m, m.tagDeleteConfirm.Update(msg)
 	}
 	
 	switch msg.String() {
@@ -1948,7 +1922,37 @@ func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				
 				m.deletingTag = tagToDelete
 				m.deletingTagUsage = usage
-				m.confirmingTagDelete = true
+				
+				// Show tag deletion confirmation with details
+				var details []string
+				if usage.PipelineCount > 0 {
+					details = append(details, fmt.Sprintf("Used in %d pipeline(s)", usage.PipelineCount))
+				}
+				if usage.ComponentCount > 0 {
+					details = append(details, fmt.Sprintf("Used in %d component(s)", usage.ComponentCount))
+				}
+				
+				warning := ""
+				if usage.PipelineCount > 0 || usage.ComponentCount > 0 {
+					warning = "The tag will be removed from the registry but will remain on items that use it."
+				}
+				
+				m.tagDeleteConfirm.Show(ConfirmationConfig{
+					Title:       "⚠️  Delete Tag from Registry?",
+					Message:     fmt.Sprintf("Delete tag '%s'?", tagToDelete),
+					Warning:     warning,
+					Details:     details,
+					Destructive: true,
+					Type:        ConfirmTypeDialog,
+					Width:       m.width - 4,
+					Height:      12,
+				}, func() tea.Cmd {
+					return m.deleteTagFromRegistry()
+				}, func() tea.Cmd {
+					m.deletingTag = ""
+					m.deletingTagUsage = nil
+					return nil
+				})
 			}
 		} else {
 			// Remove tag from current item (only in main pane when not typing)
@@ -2061,8 +2065,25 @@ func (m *MainListModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.C
 		// Check if content has changed
 		if m.componentContent != m.originalContent {
 			// Show confirmation dialog
-			m.showExitConfirmation = true
 			m.exitConfirmationType = "component-edit"
+			m.exitConfirm.ShowDialog(
+				"⚠️  Unsaved Changes",
+				"You have unsaved changes to this component.",
+				"Exit without saving?",
+				true, // destructive
+				m.width - 4,
+				10,
+				func() tea.Cmd {
+					// Exit without saving
+					m.editingComponent = false
+					m.componentContent = ""
+					m.editingComponentPath = ""
+					m.editingComponentName = ""
+					m.originalContent = ""
+					return nil
+				},
+				nil, // onCancel
+			)
 			return m, nil
 		}
 		// No changes, exit immediately
@@ -2454,7 +2475,13 @@ func (m *MainListModel) tagEditView() string {
 	var mainContent strings.Builder
 	
 	// Show deletion confirmation if active
-	if m.confirmingTagDelete {
+	if m.tagDeleteConfirm.Active() {
+		// Use the confirmation module's dialog view
+		return m.tagDeleteConfirm.View()
+	}
+	
+	// Original tag edit view code continues below
+	if false { // Keep old code for reference
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true)
@@ -2530,7 +2557,7 @@ func (m *MainListModel) tagEditView() string {
 		s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 		
 		return s.String()
-	}
+	} // end if false
 	
 	// Get item name
 	itemName := ""
@@ -2994,7 +3021,8 @@ func (m *MainListModel) componentEditView() string {
 	return s.String()
 }
 
-func (m *MainListModel) exitConfirmationView() string {
+// exitConfirmationView is replaced by the confirmation module
+/* func (m *MainListModel) exitConfirmationView() string {
 	// Styles matching the rest of the UI
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -3069,7 +3097,7 @@ func (m *MainListModel) exitConfirmationView() string {
 		PaddingRight(1)
 		
 	return dialogStyle.Render(mainPane)
-}
+} */
 
 func (m *MainListModel) saveNewComponent() tea.Cmd {
 	return func() tea.Msg {

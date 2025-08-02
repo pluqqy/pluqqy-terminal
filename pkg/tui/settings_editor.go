@@ -44,7 +44,7 @@ type SettingsEditorModel struct {
 	err        error
 	
 	// Confirmation dialog
-	confirmingExit bool
+	exitConfirm *ConfirmationModel
 }
 
 const (
@@ -64,6 +64,7 @@ func NewSettingsEditorModel() *SettingsEditorModel {
 		sectionHeadingInput:  textinput.New(),
 		showHeadings:         true,
 		viewport:             viewport.New(80, 20), // Default size
+		exitConfirm:          NewConfirmation(),
 	}
 	
 	// Configure text inputs
@@ -244,22 +245,8 @@ func (m *SettingsEditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle confirmation dialogs
-		if m.confirmingExit {
-			switch msg.String() {
-			case "y", "Y":
-				// Yes, exit without saving
-				m.confirmingExit = false
-				return m, func() tea.Msg {
-					return SwitchViewMsg{view: mainListView}
-				}
-			case "n", "N", "esc":
-				// No, stay in editor
-				m.confirmingExit = false
-				m.updateViewportContent()
-				return m, nil
-			}
-			// Ignore other keys during confirmation
-			return m, nil
+		if m.exitConfirm.Active() {
+			return m, m.exitConfirm.Update(msg)
 		}
 		
 		// Normal navigation
@@ -267,7 +254,23 @@ func (m *SettingsEditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "esc":
 			// Check if there are unsaved changes
 			if m.hasChanges {
-				m.confirmingExit = true
+				m.exitConfirm.ShowDialog(
+					"EXIT CONFIRMATION",
+					"You have unsaved changes in settings.",
+					"Are you sure you want to exit?",
+					true, // destructive
+					m.width - 4,
+					10,
+					func() tea.Cmd {
+						return func() tea.Msg {
+							return SwitchViewMsg{view: mainListView}
+						}
+					},
+					func() tea.Cmd {
+						m.updateViewportContent()
+						return nil
+					},
+				)
 				return m, nil
 			}
 			// No changes, exit immediately
@@ -446,8 +449,8 @@ func (m *SettingsEditorModel) View() string {
 	var s strings.Builder
 	
 	// Show exit confirmation dialog if active
-	if m.confirmingExit {
-		return m.renderExitConfirmation()
+	if m.exitConfirm.Active() {
+		return m.exitConfirm.View()
 	}
 	
 	s.WriteString(contentStyle.Render(borderStyle.Render(content.String())))
@@ -569,7 +572,7 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	
 	
 	// Show section editing form if active
-	if m.editingSection && !m.confirmingExit {
+	if m.editingSection && !m.exitConfirm.Active() {
 		editStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("170")).
@@ -669,6 +672,8 @@ type settingsSavedMsg struct {
 	switchMsg SwitchViewMsg
 }
 
+// renderExitConfirmation is no longer used - replaced by ConfirmationModel
+/*
 func (m *SettingsEditorModel) renderExitConfirmation() string {
 	// Styles matching Pipeline Builder
 	borderStyle := lipgloss.NewStyle().
@@ -738,6 +743,7 @@ func (m *SettingsEditorModel) renderExitConfirmation() string {
 		
 	return dialogStyle.Render(mainPane)
 }
+*/
 
 func (m *SettingsEditorModel) SetSize(width, height int) {
 	m.width = width
