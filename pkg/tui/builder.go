@@ -823,25 +823,11 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	
-	// Height calculations:
-	// m.height is already the available height after header (passed by app.go)
-	// We need to reserve:
-	// - 3 for search bar
-	// - 5 for help pane (border + 2 lines of content)
-	// - 2 for status message
-	// - 2 for spacing (1 after search, 1 before help)
-	// Total: 12 lines
-	baseReservedHeight := 12
-	
-	// When preview is shown, we need additional space:
-	// - 2 for newlines around preview
-	var contentHeight int
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
+
 	if m.showPreview {
-		availableForContent := m.height - baseReservedHeight - 2 // -2 for preview spacing
-		contentHeight = availableForContent / 2 // Split between columns and preview
-	} else {
-		contentHeight = m.height - baseReservedHeight
+		contentHeight = contentHeight / 2
 	}
 	
 	// Ensure minimum height for content
@@ -1449,15 +1435,8 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	
-	// Height calculations:
-	// m.height is already the available height after header (passed by app.go)
-	// We need to reserve:
-	// - 3 for search bar
-	// - 5 for help pane (border + 2 lines of content)
-	// - 2 for status message
-	// - 4 for spacing between elements
-	contentHeight := m.height - 14
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
