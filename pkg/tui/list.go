@@ -1120,16 +1120,7 @@ func (m *MainListModel) View() string {
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
 		
 		// Format tags
-		tagsStr := renderTagChips(comp.tags, 2) // Show max 2 tags inline
-		tagsRenderedWidth := lipgloss.Width(tagsStr)
-		if tagsRenderedWidth > tagsWidth {
-			// For styled text, we need to render plain tags when truncating
-			plainTags := strings.Join(comp.tags, " ")
-			if len(plainTags) > tagsWidth-4 {
-				plainTags = plainTags[:tagsWidth-4] + "..."
-			}
-			tagsStr = plainTags
-		}
+		tagsStr := renderTagChipsWithWidth(comp.tags, tagsWidth, 2) // Show max 2 tags inline
 		
 		// Build the row components separately
 		// Use padding to ensure consistent column alignment
@@ -1269,16 +1260,7 @@ func (m *MainListModel) View() string {
 			}
 			
 			// Format tags
-			tagsStr := renderTagChips(pipeline.tags, 2) // Show max 2 tags inline
-			tagsRenderedWidth := lipgloss.Width(tagsStr)
-			if tagsRenderedWidth > pipelineTagsWidth {
-				// For styled text, we need to render plain tags when truncating
-				plainTags := strings.Join(pipeline.tags, " ")
-				if len(plainTags) > pipelineTagsWidth-4 {
-					plainTags = plainTags[:pipelineTagsWidth-4] + "..."
-				}
-				tagsStr = plainTags
-			}
+			tagsStr := renderTagChipsWithWidth(pipeline.tags, pipelineTagsWidth, 2) // Show max 2 tags inline
 			
 			// Format token count - right-aligned
 			tokenStr := fmt.Sprintf("%d", pipeline.tokenCount)

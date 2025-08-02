@@ -904,16 +904,7 @@ func (m *PipelineBuilderModel) View() string {
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
 		
 		// Format tags
-		tagsStr := renderTagChips(comp.tags, 2) // Show max 2 tags inline
-		tagsRenderedWidth := lipgloss.Width(tagsStr)
-		if tagsRenderedWidth > tagsWidth {
-			// For styled text, we need to render plain tags when truncating
-			plainTags := strings.Join(comp.tags, " ")
-			if len(plainTags) > tagsWidth-4 {
-				plainTags = plainTags[:tagsWidth-4] + "..."
-			}
-			tagsStr = plainTags
-		}
+		tagsStr := renderTagChipsWithWidth(comp.tags, tagsWidth, 2) // Show max 2 tags inline
 		
 		// Build the row components separately
 		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
