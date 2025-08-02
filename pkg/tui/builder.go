@@ -505,6 +505,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.searchInput.Blur()
 				case leftColumn:
 					m.activeColumn = rightColumn
+					// Reset right cursor when entering right column
+					m.rightCursor = 0
 				case rightColumn:
 					m.activeColumn = previewColumn
 				case previewColumn:
@@ -519,6 +521,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.searchInput.Blur()
 				case leftColumn:
 					m.activeColumn = rightColumn
+					// Reset right cursor when entering right column
+					m.rightCursor = 0
 				case rightColumn:
 					m.activeColumn = searchColumn
 					m.searchInput.Focus()
@@ -549,12 +553,44 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activeColumn == previewColumn {
 				// Scroll preview page up
 				m.previewViewport.ViewUp()
+			} else if m.activeColumn == rightColumn {
+				// Page up in right column - move cursor up by viewport height
+				pageSize := m.rightViewport.Height
+				for i := 0; i < pageSize && m.rightCursor > 0; i++ {
+					m.rightCursor--
+				}
 			}
 			
 		case "pgdown":
 			if m.activeColumn == previewColumn {
 				// Scroll preview page down
 				m.previewViewport.ViewDown()
+			} else if m.activeColumn == rightColumn {
+				// Page down in right column - move cursor down by viewport height
+				pageSize := m.rightViewport.Height
+				maxCursor := len(m.selectedComponents) - 1
+				for i := 0; i < pageSize && m.rightCursor < maxCursor; i++ {
+					m.rightCursor++
+				}
+			}
+			
+		case "home":
+			if m.activeColumn == leftColumn {
+				m.leftCursor = 0
+			} else if m.activeColumn == rightColumn {
+				m.rightCursor = 0
+			}
+			
+		case "end":
+			if m.activeColumn == leftColumn {
+				components := m.getAllAvailableComponents()
+				if len(components) > 0 {
+					m.leftCursor = len(components) - 1
+				}
+			} else if m.activeColumn == rightColumn {
+				if len(m.selectedComponents) > 0 {
+					m.rightCursor = len(m.selectedComponents) - 1
+				}
 			}
 
 		case "enter":
@@ -1090,8 +1126,8 @@ func (m *PipelineBuilderModel) View() string {
 	wrappedRightContent := wordwrap.String(rightScrollContent.String(), m.rightViewport.Width)
 	m.rightViewport.SetContent(wrappedRightContent)
 	
-	// Update viewport to follow cursor
-	if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+	// Update viewport to follow cursor (even when right column is not active)
+	if len(m.selectedComponents) > 0 {
 		// Load settings for section order
 		settings, err := files.ReadSettings()
 		if err != nil || settings == nil {
@@ -1530,6 +1566,9 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 				// Update the usage count before removing
 				m.updateLocalUsageCount(selected.path, -1)
 				
+				// Set cursor to the position being removed so viewport scrolls there
+				m.rightCursor = i
+				
 				// Remove the component
 				m.selectedComponents = append(
 					m.selectedComponents[:i],
@@ -1539,10 +1578,14 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 				// Reorganize to maintain grouping
 				m.reorganizeComponentsByType()
 				
-				// Adjust right cursor if needed
-				if m.rightCursor >= len(m.selectedComponents) && m.rightCursor > 0 {
+				// After reorganization, find where the cursor should be
+				// If we removed the last item, move cursor to the new last item
+				if m.rightCursor >= len(m.selectedComponents) && len(m.selectedComponents) > 0 {
 					m.rightCursor = len(m.selectedComponents) - 1
+				} else if len(m.selectedComponents) == 0 {
+					m.rightCursor = 0
 				}
+				// Otherwise keep cursor at the same position to show where removal happened
 				
 				// Update preview after removing component
 				m.updatePreview()
@@ -1577,6 +1620,15 @@ func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef
 	
 	// Reorganize to maintain type grouping
 	m.reorganizeComponentsByType()
+	
+	// Find the position of the newly added component and move cursor there
+	for i, comp := range m.selectedComponents {
+		if comp.Path == newComp.Path && comp.Type == newComp.Type {
+			m.rightCursor = i
+			// The viewport will auto-scroll to the cursor in the View method
+			break
+		}
+	}
 }
 
 // reorganizeComponentsByType sorts components into groups according to section_order
