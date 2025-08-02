@@ -823,7 +823,8 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for help pane, status message, and spacing (matching main list view)
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1434,7 +1435,8 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 16    // Reserve space for search bar, help pane, status message, and spacing
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
