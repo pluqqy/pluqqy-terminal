@@ -2881,7 +2881,7 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 		
-	case "D":
+	case "ctrl+d":
 		if m.tagCloudActive {
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
@@ -2890,8 +2890,8 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 				m.deletingTagUsage = usage
 				m.confirmingTagDelete = true
 			}
-		} else if m.tagInput == "" && m.tagCursor > 0 && m.tagCursor <= len(m.currentTags) {
-			m.deletingTag = m.currentTags[m.tagCursor-1]
+		} else if m.tagInput == "" && m.tagCursor < len(m.currentTags) {
+			m.deletingTag = m.currentTags[m.tagCursor]
 			usage := m.getTagUsage(m.deletingTag)
 			m.deletingTagUsage = usage
 			m.confirmingTagDelete = true
@@ -3315,14 +3315,25 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			
 			style := lipgloss.NewStyle().Background(lipgloss.Color(color)).Foreground(lipgloss.Color("255")).Padding(0, 1)
 			
+			// Add selection indicators with consistent spacing
 			if i == m.tagCursor && m.tagInput == "" {
-				indicatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
+				// Selected tag with triangle indicators
+				indicatorStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("170")). // Bright green for indicators
+					Bold(true)
 				tagDisplay.WriteString(indicatorStyle.Render("▶ "))
 				tagDisplay.WriteString(style.Render(tag))
 				tagDisplay.WriteString(indicatorStyle.Render(" ◀"))
 			} else {
-				if i > 0 { tagDisplay.WriteString("  ") }
+				// Add invisible spacers to maintain consistent width
+				tagDisplay.WriteString("  ")
 				tagDisplay.WriteString(style.Render(tag))
+				tagDisplay.WriteString("  ")
+			}
+			
+			// Add spacing between tags
+			if i < len(m.currentTags)-1 {
+				tagDisplay.WriteString("  ")
 			}
 		}
 		mainContent.WriteString(headerPadding.Render(tagDisplay.String()))
@@ -3391,11 +3402,16 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		}
 	}
 	
-	var leftPane strings.Builder
-	leftPane.WriteString(mainContent.String())
-	
+	// Build right pane content
 	var rightContent strings.Builder
-	rightContent.WriteString(headerPadding.Render(titleStyle.Render("AVAILABLE TAGS") + " " + colonStyle.Render(strings.Repeat(":", paneWidth-20))))
+	
+	// Available tags header
+	availableTagsTitle := "AVAILABLE TAGS"
+	availableTagsRemainingWidth := paneWidth - len(availableTagsTitle) - 7 // Adjust for smaller width
+	if availableTagsRemainingWidth < 0 {
+		availableTagsRemainingWidth = 0
+	}
+	rightContent.WriteString(headerPadding.Render(titleStyle.Render(availableTagsTitle) + " " + colonStyle.Render(strings.Repeat(":", availableTagsRemainingWidth))))
 	rightContent.WriteString("\n\n")
 	
 	// Always display available tags
@@ -3447,7 +3463,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			
 			// Check if we need to start a new row
 			if rowTags > 0 && currentRowWidth+tagWidth+2 > maxRowWidth {
-				tagRows.WriteString("\n")
+				tagRows.WriteString("\n\n") // Double newline for vertical spacing
 				rowTags = 0
 				currentRowWidth = 0
 			}
@@ -3463,23 +3479,64 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		rightContent.WriteString(headerPadding.Render(tagRows.String()))
 	}
 	
-	var rightPane strings.Builder
-	rightPane.WriteString(rightContent.String())
+	// Create border styles
+	activeBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170"))
 	
-	leftBorder := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Width(paneWidth).Height(paneHeight)
-	rightBorder := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(paneWidth).Height(paneHeight)
+	inactiveBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240"))
 	
-	if m.tagCloudActive {
-		leftBorder = leftBorder.BorderForeground(lipgloss.Color("240"))
-		rightBorder = rightBorder.BorderForeground(lipgloss.Color("170"))
+	leftPaneBorder := inactiveBorderStyle
+	if !m.tagCloudActive {
+		leftPaneBorder = activeBorderStyle
 	}
 	
-	leftPaneView := leftBorder.Render(leftPane.String())
-	rightPaneView := rightBorder.Render(rightPane.String())
+	leftPane := leftPaneBorder.
+		Width(paneWidth).
+		Height(paneHeight).
+		Render(mainContent.String())
 	
-	mainView := lipgloss.JoinHorizontal(lipgloss.Top, leftPaneView, " ", rightPaneView)
+	rightPaneBorder := inactiveBorderStyle
+	if m.tagCloudActive {
+		rightPaneBorder = activeBorderStyle
+	}
 	
-	help := []string{"enter add/select", "←/→ nav tags", "↑/↓ suggestions/cloud", "tab switch pane", "backspace remove", "D delete from registry", "ctrl+s save", "esc cancel"}
+	rightPane := rightPaneBorder.
+		Width(paneWidth).
+		Height(paneHeight).
+		Render(rightContent.String())
+	
+	// Join panes side by side
+	mainView := lipgloss.JoinHorizontal(
+		lipgloss.Top,
+		leftPane,
+		" ", // Single space gap, same as main list view
+		rightPane,
+	)
+	
+	// Help section - match Main List View exactly
+	var help []string
+	if m.tagCloudActive {
+		help = []string{
+			"tab switch pane",
+			"enter add tag",
+			"←/→ navigate",
+			"ctrl+d delete tag",
+			"ctrl+s save",
+			"esc cancel",
+		}
+	} else {
+		help = []string{
+			"tab switch pane",
+			"enter add tag",
+			"←/→ select tag",
+			"ctrl+d delete tag",
+			"ctrl+s save",
+			"esc cancel",
+		}
+	}
 	helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width - 4).Padding(0, 1)
 	helpContent := formatHelpText(help)
 	
