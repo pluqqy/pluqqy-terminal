@@ -982,30 +982,34 @@ func (m *PipelineBuilderModel) View() string {
 	// Create heading with colons spanning the width
 	rightHeading := "PIPELINE COMPONENTS"
 	
-	// Calculate space for heading and tags
-	headingAndTagsLine := rightHeading
-	if m.pipeline != nil && len(m.pipeline.Tags) > 0 {
-		// Add tags after heading
-		tagsStr := renderTagChips(m.pipeline.Tags, 3) // Show max 3 tags
-		headingAndTagsLine = rightHeading + "  " + tagsStr
-	}
-	
-	// Calculate remaining width for colons
-	rightRemainingWidth := columnWidth - lipgloss.Width(headingAndTagsLine) - 5 // -5 for space and padding
+	// Calculate remaining width for colons (just for heading now)
+	rightRemainingWidth := columnWidth - len(rightHeading) - 5 // -5 for space and padding
 	if rightRemainingWidth < 0 {
 		rightRemainingWidth = 0
 	}
 	
-	// Render heading with tags and colons
+	// Render heading without tags
+	rightContent.WriteString(headerPadding.Render(
+		typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+	rightContent.WriteString("\n")
+	
+	// Always render tag row (even if empty) for consistent layout
+	tagRowStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1).
+		PaddingTop(1).    // Add top margin
+		PaddingBottom(1). // Add bottom margin
+		Height(3) // Total height including padding
+	
 	if m.pipeline != nil && len(m.pipeline.Tags) > 0 {
-		tagsStr := renderTagChips(m.pipeline.Tags, 3)
-		rightContent.WriteString(headerPadding.Render(
-			typeHeaderStyle.Render(rightHeading) + "  " + tagsStr + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+		// Render tags with more space available (full column width minus padding)
+		tagsStr := renderTagChipsWithWidth(m.pipeline.Tags, columnWidth-4, 5) // Show more tags with available space
+		rightContent.WriteString(tagRowStyle.Render(tagsStr))
 	} else {
-		rightContent.WriteString(headerPadding.Render(
-			typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+		// Empty row to maintain layout
+		rightContent.WriteString(tagRowStyle.Render(" "))
 	}
-	rightContent.WriteString("\n\n")
+	rightContent.WriteString("\n")
 	
 	// Build scrollable content for right viewport
 	var rightScrollContent strings.Builder
@@ -1395,16 +1399,22 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 	}
 	
 	// Update left and right viewports for table content
-	// Reserve space for headers: heading (2 lines) + table header (2 lines) = 4 lines
-	viewportHeight := contentHeight - 4
-	if viewportHeight < 5 {
-		viewportHeight = 5
+	// Left column: heading (1) + empty (1) + table header (1) + empty (1) = 4 lines
+	leftViewportHeight := contentHeight - 4
+	if leftViewportHeight < 5 {
+		leftViewportHeight = 5
+	}
+	
+	// Right column: heading (1) + tag row with padding (3) + empty (1) = 5 lines
+	rightViewportHeight := contentHeight - 5
+	if rightViewportHeight < 5 {
+		rightViewportHeight = 5
 	}
 	
 	m.leftViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
-	m.leftViewport.Height = viewportHeight
+	m.leftViewport.Height = leftViewportHeight
 	m.rightViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
-	m.rightViewport.Height = viewportHeight
+	m.rightViewport.Height = rightViewportHeight
 	
 	// Update preview viewport
 	if m.showPreview {
