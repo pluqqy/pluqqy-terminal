@@ -1724,31 +1724,9 @@ func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 		
-	case "d":
-		// Remove tag from current item (only in main pane when not typing)
-		if !m.tagCloudActive && m.tagInput == "" && len(m.currentTags) > 0 {
-			if m.tagCursor >= 0 && m.tagCursor < len(m.currentTags) {
-				m.currentTags = append(m.currentTags[:m.tagCursor], m.currentTags[m.tagCursor+1:]...)
-				if m.tagCursor >= len(m.currentTags) && m.tagCursor > 0 {
-					m.tagCursor--
-				}
-			}
-		}
-		return m, nil
-		
-	case "backspace", "delete":
-		if !m.tagCloudActive && m.tagInput != "" {
-			// Delete from input
-			if len(m.tagInput) > 0 {
-				m.tagInput = m.tagInput[:len(m.tagInput)-1]
-				m.showTagSuggestions = len(m.tagInput) > 0
-			}
-		}
-		return m, nil
-		
-	case "D", "ctrl+d":
-		// Delete tag from registry (only in tag cloud)
+	case "ctrl+d":
 		if m.tagCloudActive {
+			// Delete tag from registry (only in tag cloud)
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
 				tagToDelete := availableForSelection[m.tagCloudCursor]
@@ -1764,6 +1742,26 @@ func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				m.deletingTag = tagToDelete
 				m.deletingTagUsage = usage
 				m.confirmingTagDelete = true
+			}
+		} else {
+			// Remove tag from current item (only in main pane when not typing)
+			if m.tagInput == "" && len(m.currentTags) > 0 {
+				if m.tagCursor >= 0 && m.tagCursor < len(m.currentTags) {
+					m.currentTags = append(m.currentTags[:m.tagCursor], m.currentTags[m.tagCursor+1:]...)
+					if m.tagCursor >= len(m.currentTags) && m.tagCursor > 0 {
+						m.tagCursor--
+					}
+				}
+			}
+		}
+		return m, nil
+		
+	case "backspace", "delete":
+		if !m.tagCloudActive && m.tagInput != "" {
+			// Delete from input
+			if len(m.tagInput) > 0 {
+				m.tagInput = m.tagInput[:len(m.tagInput)-1]
+				m.showTagSuggestions = len(m.tagInput) > 0
 			}
 		}
 		return m, nil
@@ -2553,7 +2551,7 @@ func (m *MainListModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ navigate",
-			"D delete from registry",
+			"ctrl+d delete from registry",
 			"ctrl+s save",
 			"esc cancel",
 		}
@@ -2562,7 +2560,7 @@ func (m *MainListModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ select tag",
-			"d/delete remove tag",
+			"ctrl+d remove tag",
 			"ctrl+s save",
 			"esc cancel",
 		}

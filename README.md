@@ -136,8 +136,7 @@ pluqqy
 - `Tab` - Switch between current tags pane and available tags cloud
 - `Enter` - Add tag (from input field or tag cloud)
 - `←/→` - Navigate tags for selection
-- `d` - Remove tag from current item (main pane only)
-- `D` - Delete tag from registry (tag cloud only, with usage warning)
+- `Ctrl+D` - Remove tag from current item (main pane) / Delete from registry (tag cloud, with confirmation)
 - `Ctrl+S` - Save tag changes
 - `Esc` - Cancel without saving
 - Type directly to add new tags with autocomplete suggestions
