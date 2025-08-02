@@ -1102,19 +1102,8 @@ func (m *MainListModel) View() string {
 		}
 		
 		
-		// Format usage count with visual indicator
+		// Format usage count
 		usageStr := fmt.Sprintf("%d", comp.usageCount)
-		if comp.usageCount > 0 {
-			bars := ""
-			barCount := comp.usageCount
-			if barCount > 5 {
-				barCount = 5
-			}
-			for j := 0; j < barCount; j++ {
-				bars += "█"
-			}
-			usageStr = fmt.Sprintf("%-2d %s", comp.usageCount, bars)
-		}
 		
 		// Format token count - right-aligned with consistent width
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
