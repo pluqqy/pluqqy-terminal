@@ -831,7 +831,7 @@ func (m *PipelineBuilderModel) View() string {
 	usageWidth := 10
 	
 	// Render table header with 2-space shift - extra spaces between columns
-	header := fmt.Sprintf("  %-*s %-*s  %-*s  %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s  %*s  %*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
@@ -908,7 +908,7 @@ func (m *PipelineBuilderModel) View() string {
 		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
 		
 		// Join all parts - extra space between tags and tokens, and between tokens and usage
-		row := fmt.Sprintf("%s %s  %s  %-*s",
+		row := fmt.Sprintf("%s %s  %s  %*s",
 			namePart,
 			tagsPart,
 			tokenPart,

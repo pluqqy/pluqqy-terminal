@@ -1032,7 +1032,7 @@ func (m *MainListModel) View() string {
 	usageWidth := 10
 	
 	// Render table header with 2-space shift - extra space between Tags and ~Tokens
-	header := fmt.Sprintf("  %-*s %-*s  %-*s %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s  %*s %*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
