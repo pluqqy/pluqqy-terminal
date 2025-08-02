@@ -824,16 +824,15 @@ func (m *PipelineBuilderModel) View() string {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	
-	// Let's be more explicit about what we're reserving:
-	// - Search bar: 3 lines (1 border top + 1 content + 1 border bottom)
-	// - Help pane: 3 lines (1 border top + 1 content + 1 border bottom) 
-	// - Status area: 3 lines (1 newline + 1 content with marginTop + 1 marginTop)
-	// - Spacing: multiple newlines throughout
-	// Main List View uses: m.height - 17
+	// Height calculation matching Main List View:
+	// Base reservation: 17 lines (search bar, help pane, status, spacing)
 	contentHeight := m.height - 17
 
 	if m.showPreview {
-		contentHeight = contentHeight / 2
+		// When preview is shown, we need to account for:
+		// - 2 extra newlines around preview (before and after)
+		// - Then split remaining space between columns and preview
+		contentHeight = (m.height - 17 - 2) / 2
 	}
 	
 	// Ensure minimum height for content
