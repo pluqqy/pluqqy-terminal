@@ -413,28 +413,14 @@ func (m *SettingsEditorModel) View() string {
 	// Build main content container
 	var content strings.Builder
 	
-	// Main header inside the pane (like other views)
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214"))
-		
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-		
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-		
+	// Use ViewTitle component for consistent styling
 	mainHeading := "SETTINGS EDITOR"
 	if m.hasChanges {
-		mainHeading += " " + lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Render("(modified)")
+		mainHeading += " (modified)"
 	}
-	remainingWidth := m.width - 8 - len(mainHeading) // Account for padding and borders
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	content.WriteString(headerPadding.Render(headerStyle.Render(mainHeading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	content.WriteString("\n\n")
+	viewTitle := NewViewTitle(mainHeading)
+	content.WriteString(viewTitle.ViewWithAlignment(m.width - 4))
+	content.WriteString("\n")
 	
 	// Update viewport content
 	m.updateViewportContent()

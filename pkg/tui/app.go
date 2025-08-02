@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 	"time"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 )
@@ -32,8 +32,8 @@ type App struct {
 
 func NewApp() *App {
 	return &App{
-		state:       mainListView,
-		mainList:    NewMainListModel(),
+		state:    mainListView,
+		mainList: NewMainListModel(),
 	}
 }
 
@@ -113,7 +113,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			<-a.statusTimer.C
 			return clearStatusMsg{}
 		}
-		
+
 	case clearStatusMsg:
 		a.statusMsg = ""
 		// Force a redraw to ensure layout is recalculated
@@ -143,12 +143,12 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.state = pipelineBuilderView
 			// Always create a fresh builder to avoid state issues
 			a.builder = NewPipelineBuilderModel()
-			
+
 			// If pipeline specified, load it
 			if msg.pipeline != "" {
 				a.builder.SetPipeline(msg.pipeline)
 			}
-			
+
 			// Set size if we have dimensions (header height already accounted for in WindowSizeMsg)
 			if a.width > 0 && a.height > 0 {
 				header := renderHeader(a.width, "")
@@ -182,7 +182,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return a, a.settingsEditor.Init()
 		}
-		
+
 		// Handle status message from view switch
 		if msg.status != "" {
 			a.statusMsg = msg.status
@@ -256,10 +256,10 @@ func (a *App) View() string {
 			} else if a.mainList.editingTags {
 				title = "Tag Editor"
 			} else {
-				title = "Welcome to ✦ Pluqqy ✦"
+				title = "✦ Pluqqy ✦ Dashboard ✦"
 			}
 		} else {
-			title = "Welcome to ✦ Pluqqy ✦"
+			title = "✦ Welcome to ✦ Pluqqy ✦"
 		}
 	case pipelineBuilderView:
 		if a.builder != nil {
@@ -307,9 +307,9 @@ func (a *App) View() string {
 			Width(a.width).
 			Align(lipgloss.Center).
 			Padding(0, 1)
-		
+
 		statusBar := statusStyle.Render(a.statusMsg)
-		
+
 		// Position at the bottom
 		totalHeight := lipgloss.Height(fullContent)
 		remainingHeight := a.height - totalHeight - 1
@@ -334,7 +334,7 @@ func formatHelpText(items []string) string {
 		Foreground(lipgloss.Color("248")) // Brighter grey for shortcuts
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")) // Darker grey for descriptions
-	
+
 	formatted := make([]string, len(items))
 	for i, item := range items {
 		// Find the first space to separate shortcut from description
@@ -347,7 +347,7 @@ func formatHelpText(items []string) string {
 			formatted[i] = descStyle.Render(item)
 		}
 	}
-	
+
 	separator := descStyle.Render(" • ")
 	return strings.Join(formatted, separator)
 }
@@ -359,7 +359,7 @@ func formatHelpTextRows(rows [][]string, width int) string {
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241")) // Darker grey for descriptions
 	separator := descStyle.Render(" • ")
-	
+
 	var lines []string
 	for _, row := range rows {
 		formatted := make([]string, len(row))
@@ -374,7 +374,7 @@ func formatHelpTextRows(rows [][]string, width int) string {
 				formatted[i] = descStyle.Render(item)
 			}
 		}
-		
+
 		rowText := strings.Join(formatted, separator)
 		// Right-align the row
 		rowWidth := lipgloss.Width(rowText)
@@ -386,7 +386,7 @@ func formatHelpTextRows(rows [][]string, width int) string {
 		}
 		lines = append(lines, rowText)
 	}
-	
+
 	return strings.Join(lines, "\n")
 }
 
@@ -403,7 +403,7 @@ func formatConfirmOptions(destructive bool) string {
 		Foreground(lipgloss.Color("255")). // White text
 		Padding(0, 1).
 		Bold(true)
-	
+
 	noStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(func() string {
 			if destructive {
@@ -414,7 +414,7 @@ func formatConfirmOptions(destructive bool) string {
 		Foreground(lipgloss.Color("255")). // White text
 		Padding(0, 1).
 		Bold(true)
-	
+
 	return yesStyle.Render("[Y]es") + "  /  " + noStyle.Render("[N]o")
 }
 

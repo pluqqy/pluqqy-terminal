@@ -2017,10 +2017,6 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
 	promptStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
 
@@ -2037,10 +2033,14 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	// Build main content
 	var mainContent strings.Builder
 
-	// Header with colons
+	// Header with colons (pane heading style)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
+	
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	heading := "CREATE NEW PIPELINE"
 	remainingWidth := contentWidth - len(heading) - 5

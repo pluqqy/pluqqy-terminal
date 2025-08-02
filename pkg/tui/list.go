@@ -2153,10 +2153,6 @@ func (m *MainListModel) componentTypeSelectionView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("170")).
 		Background(lipgloss.Color("236")).
@@ -2177,10 +2173,14 @@ func (m *MainListModel) componentTypeSelectionView() string {
 	// Build main content
 	var mainContent strings.Builder
 
-	// Header with colons
+	// Header with colons (pane heading style)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
+	
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	heading := "CREATE NEW COMPONENT"
 	remainingWidth := contentWidth - len(heading) - 5
@@ -2193,7 +2193,8 @@ func (m *MainListModel) componentTypeSelectionView() string {
 	mainContent.WriteString("\n\n")
 
 	// Component type selection
-	mainContent.WriteString(headerPadding.Render("Select component type:"))
+	contentPadding := headerPadding
+	mainContent.WriteString(contentPadding.Render("Select component type:"))
 	mainContent.WriteString("\n\n")
 
 	types := []struct {
@@ -2270,10 +2271,6 @@ func (m *MainListModel) componentNameInputView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
 	promptStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
 
@@ -2290,10 +2287,14 @@ func (m *MainListModel) componentNameInputView() string {
 	// Build main content
 	var mainContent strings.Builder
 
-	// Header with colons
+	// Header with colons (pane heading style)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
+	
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(m.componentCreationType))
 	remainingWidth := contentWidth - len(heading) - 5
@@ -2401,10 +2402,6 @@ func (m *MainListModel) componentContentEditView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
 	// Calculate dimensions
 	contentWidth := m.width - 4 // Match help pane width
 	contentHeight := m.height - 11 // Reserve space for help pane and status bar
@@ -2412,10 +2409,14 @@ func (m *MainListModel) componentContentEditView() string {
 	// Build main content
 	var mainContent strings.Builder
 
-	// Header with colons
+	// Header with colons (pane heading style)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
+	
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	heading := fmt.Sprintf("EDIT %s: %s", strings.ToUpper(m.componentCreationType), m.componentName)
 	remainingWidth := contentWidth - len(heading) - 5
@@ -2612,8 +2613,9 @@ func (m *MainListModel) tagEditView() string {
 		}
 	}
 	
-	// Header at the top
+	// Use ViewTitle component but with dynamic coloring based on active pane
 	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
+	// For tag editor, we'll render the title manually with dynamic colors
 	remainingWidth := paneWidth - len(heading) - 7 // Adjust for smaller pane width
 	if remainingWidth < 0 {
 		remainingWidth = 0
@@ -3007,10 +3009,6 @@ func (m *MainListModel) componentEditView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
 	contentHeight := m.height - 7 // Reserve space for help pane (3) + spacing (3) + status bar (1)
@@ -3018,10 +3016,14 @@ func (m *MainListModel) componentEditView() string {
 	// Build main content
 	var mainContent strings.Builder
 
-	// Header with colons
+	// Header with colons (pane heading style)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
+	
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(m.editingComponentName))
 	remainingWidth := contentWidth - len(heading) - 5
