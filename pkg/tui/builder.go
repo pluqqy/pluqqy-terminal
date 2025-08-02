@@ -800,7 +800,7 @@ func (m *PipelineBuilderModel) View() string {
 		BorderForeground(lipgloss.Color("240"))
 
 	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("28")).
+		Foreground(lipgloss.Color("170")). // Purple to match MLV
 		Background(lipgloss.Color("236")).
 		Bold(true)
 
@@ -948,31 +948,22 @@ func (m *PipelineBuilderModel) View() string {
 		
 		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
 		
-		// Join all parts - extra space between tags and tokens, and between tokens and usage
-		row := fmt.Sprintf("%s %s  %s  %*s",
-			namePart,
-			tagsPart,
-			tokenPart,
-			usageWidth, usageStr)
-		
-		// Apply cursor if needed
+		// Build row with styling
+		var row string
 		if m.activeColumn == leftColumn && i == m.leftCursor {
-			row = "▸ " + row
-		} else {
-			row = "  " + row
-		}
-		
-		// Apply styling
-		if m.activeColumn == leftColumn && i == m.leftCursor {
-			leftScrollContent.WriteString(selectedStyle.Render(row))
+			// Apply selection styling only to name column
+			row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
 		} else if isAdded {
 			// Use a dimmed style for already added components
 			addedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
-			leftScrollContent.WriteString(addedStyle.Render(row))
+			row = "  " + addedStyle.Render(namePart) + " " + tagsPart + "  " + addedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
 		} else {
-			leftScrollContent.WriteString(normalStyle.Render(row))
+			// Normal row styling
+			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
 		}
+		
+		leftScrollContent.WriteString(row)
 		
 		if i < len(allComponents)-1 {
 			leftScrollContent.WriteString("\n")
@@ -1115,16 +1106,14 @@ func (m *PipelineBuilderModel) View() string {
 			rightScrollContent.WriteString(typeHeaderStyle.Render("▸ " + sectionHeader) + "\n")
 			
 			for _, comp := range components {
-				cursor := "  "
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					cursor = "▸ "
-				}
+				name := filepath.Base(comp.Path)
 				
-				line := fmt.Sprintf("%s%s", cursor, filepath.Base(comp.Path))
 				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
-					rightScrollContent.WriteString(selectedStyle.Render(line) + "\n")
+					// White arrow with selected name
+					rightScrollContent.WriteString("▸ " + selectedStyle.Render(name) + "\n")
 				} else {
-					rightScrollContent.WriteString(normalStyle.Render(line) + "\n")
+					// Normal styling
+					rightScrollContent.WriteString("  " + normalStyle.Render(name) + "\n")
 				}
 				overallIndex++
 			}
@@ -2305,7 +2294,7 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("28")).
+		Foreground(lipgloss.Color("170")). // Purple to match MLV
 		Background(lipgloss.Color("236")).
 		Bold(true).
 		Padding(0, 1)

@@ -1087,22 +1087,17 @@ func (m *MainListModel) View() string {
 		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
 		usagePart := fmt.Sprintf("%*s", usageWidth, usageStr)
 		
-		// Join all parts - extra space between tags and tokens
-		row := namePart + " " + tagsPart + "  " + tokenPart + " " + usagePart
-		
-		// Apply cursor if needed
+		// Build row with styling
+		var row string
 		if m.activePane == componentsPane && i == m.componentCursor {
-			row = "▸ " + row
+			// Apply selection styling only to name column
+			row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
 		} else {
-			row = "  " + row
+			// Normal row styling
+			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
 		}
 		
-		// Apply styling
-		if m.activePane == componentsPane && i == m.componentCursor {
-			componentsScrollContent.WriteString(selectedStyle.Render(row))
-		} else {
-			componentsScrollContent.WriteString(normalStyle.Render(row))
-		}
+		componentsScrollContent.WriteString(row)
 		
 			if i < len(m.filteredComponents)-1 {
 				componentsScrollContent.WriteString("\n")
@@ -1243,22 +1238,17 @@ func (m *MainListModel) View() string {
 			
 			tokenPart := fmt.Sprintf("%*s", pipelineTokenWidth, tokenStr)
 			
-			// Join all parts
-			row := namePart + " " + tagsPart + " " + tokenPart
-			
-			// Apply cursor if needed
+			// Build row with styling
+			var row string
 			if m.activePane == pipelinesPane && i == m.pipelineCursor {
-				row = "▸ " + row
+				// Apply selection styling only to name column
+				row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
 			} else {
-				row = "  " + row
+				// Normal row styling
+				row = "  " + normalStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
 			}
 			
-			// Apply styling
-			if m.activePane == pipelinesPane && i == m.pipelineCursor {
-				pipelinesScrollContent.WriteString(selectedStyle.Render(row))
-			} else {
-				pipelinesScrollContent.WriteString(normalStyle.Render(row))
-			}
+			pipelinesScrollContent.WriteString(row)
 			
 			if i < len(m.pipelines)-1 {
 				pipelinesScrollContent.WriteString("\n")

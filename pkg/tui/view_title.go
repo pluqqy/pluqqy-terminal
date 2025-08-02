@@ -29,10 +29,13 @@ func (v *ViewTitle) View() string {
 		return ""
 	}
 
-	// Title style with white text on pink background
+	// Title style with white text on black background
+	// Note: Lipgloss doesn't support rounded corners on backgrounds directly,
+	// only on borders. To achieve a similar effect, we could use a border
+	// with matching background, but it would add extra height/width.
 	titleStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("255")). // White text
-		Background(lipgloss.Color("205")). // Pink background to match logo
+		Background(lipgloss.Color("0")).   // Black background for better contrast
 		Bold(true).
 		Padding(0, 1) // Add padding inside the background
 
