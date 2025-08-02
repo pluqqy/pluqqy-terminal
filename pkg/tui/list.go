@@ -1053,12 +1053,26 @@ func (m *MainListModel) View() string {
 			emptyStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("214")). // Orange
 				Bold(true)
-			componentsScrollContent.WriteString(emptyStyle.Render("No components found.\n\nPress 'n' to create one"))
+			
+			// Check if we have components but they're filtered out
+			allComponents := m.getAllComponents()
+			if len(allComponents) > 0 && m.searchQuery != "" {
+				componentsScrollContent.WriteString(emptyStyle.Render("No components match your search."))
+			} else {
+				componentsScrollContent.WriteString(emptyStyle.Render("No components found.\n\nPress 'n' to create one"))
+			}
 		} else {
 			// Inactive pane - show dimmed message
 			dimmedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
-			componentsScrollContent.WriteString(dimmedStyle.Render("No components found."))
+			
+			// Check if we have components but they're filtered out
+			allComponents := m.getAllComponents()
+			if len(allComponents) > 0 && m.searchQuery != "" {
+				componentsScrollContent.WriteString(dimmedStyle.Render("No components match your search."))
+			} else {
+				componentsScrollContent.WriteString(dimmedStyle.Render("No components found."))
+			}
 		}
 	} else {
 		currentType := ""
@@ -1242,12 +1256,24 @@ func (m *MainListModel) View() string {
 			emptyStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("214")). // Orange
 				Bold(true)
-			pipelinesScrollContent.WriteString(emptyStyle.Render("No pipelines found.\n\nPress 'n' to create one"))
+			
+			// Check if we have pipelines but they're filtered out
+			if len(m.pipelines) > 0 && m.searchQuery != "" {
+				pipelinesScrollContent.WriteString(emptyStyle.Render("No pipelines match your search."))
+			} else {
+				pipelinesScrollContent.WriteString(emptyStyle.Render("No pipelines found.\n\nPress 'n' to create one"))
+			}
 		} else {
 			// Inactive pane - show dimmed message
 			dimmedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
-			pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines found."))
+			
+			// Check if we have pipelines but they're filtered out
+			if len(m.pipelines) > 0 && m.searchQuery != "" {
+				pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines match your search."))
+			} else {
+				pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines found."))
+			}
 		}
 	} else {
 		for i, pipeline := range m.filteredPipelines {
