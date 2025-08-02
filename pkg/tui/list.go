@@ -1489,7 +1489,7 @@ func (m *MainListModel) View() string {
 			"enter view",
 			"e edit",
 			"E edit external",
-			"t tag edit",
+			"t tag",
 			"n new",
 			"a archive",
 			"d delete",

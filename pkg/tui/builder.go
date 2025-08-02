@@ -615,12 +615,18 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updatePreview()
 			}
 		case "t":
-			// Edit tags for component
+			// Edit tags - context aware based on active column
 			if m.activeColumn == leftColumn {
+				// Edit component tags
 				components := m.getAllAvailableComponents()
 				if m.leftCursor >= 0 && m.leftCursor < len(components) {
 					comp := components[m.leftCursor]
 					m.startTagEditing(comp.path, comp.tags)
+				}
+			} else if m.activeColumn == rightColumn {
+				// Edit pipeline tags
+				if m.pipeline != nil {
+					m.startPipelineTagEditing(m.pipeline.Tags)
 				}
 			}
 		case "/":
@@ -1367,7 +1373,7 @@ func (m *PipelineBuilderModel) View() string {
 			"n new",
 			"e edit",
 			"E edit external",
-			"t tag edit",
+			"t tag",
 			"del remove",
 			"K/J reorder",
 			"p preview",
@@ -3151,6 +3157,21 @@ func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string
 	m.loadAvailableTags()
 }
 
+func (m *PipelineBuilderModel) startPipelineTagEditing(currentTags []string) {
+	m.editingTags = true
+	m.editingTagsPath = "" // Empty path indicates pipeline tags
+	m.currentTags = make([]string, len(currentTags))
+	copy(m.currentTags, currentTags)
+	m.tagInput = ""
+	m.tagCursor = 0
+	m.showTagSuggestions = false
+	m.tagCloudActive = false
+	m.tagCloudCursor = 0
+	
+	// Load available tags
+	m.loadAvailableTags()
+}
+
 func (m *PipelineBuilderModel) loadAvailableTags() {
 	// Get all tags from registry
 	registry, err := tags.NewRegistry()
@@ -3195,10 +3216,21 @@ func (m *PipelineBuilderModel) hasTag(tag string) bool {
 
 func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 	return func() tea.Msg {
-		// Update component tags
-		err := files.UpdateComponentTags(m.editingTagsPath, m.currentTags)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to save tags: %v", err))
+		var err error
+		
+		if m.editingTagsPath == "" {
+			// Editing pipeline tags
+			if m.pipeline != nil {
+				m.pipeline.Tags = make([]string, len(m.currentTags))
+				copy(m.pipeline.Tags, m.currentTags)
+				// Note: Pipeline will be saved when user saves the pipeline
+			}
+		} else {
+			// Editing component tags
+			err = files.UpdateComponentTags(m.editingTagsPath, m.currentTags)
+			if err != nil {
+				return StatusMsg(fmt.Sprintf("Failed to save tags: %v", err))
+			}
 		}
 		
 		// Exit tag editing mode
