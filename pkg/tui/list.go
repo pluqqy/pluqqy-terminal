@@ -846,7 +846,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
 					m.confirmingDelete = true
 					m.deletingFromPane = pipelinesPane
-					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor].name)
+					m.deleteConfirmation = fmt.Sprintf("Delete pipeline '%s'? %s", m.pipelines[m.pipelineCursor].name, formatConfirmOptions(true))
 				}
 			} else if m.activePane == componentsPane {
 				// Delete component with confirmation
@@ -855,7 +855,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					comp := components[m.componentCursor]
 					m.confirmingDelete = true
 					m.deletingFromPane = componentsPane
-					m.deleteConfirmation = fmt.Sprintf("Delete %s '%s'? (y/n)", comp.compType, comp.name)
+					m.deleteConfirmation = fmt.Sprintf("Delete %s '%s'? %s", comp.compType, comp.name, formatConfirmOptions(true))
 				}
 			}
 		
@@ -873,7 +873,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
 					m.confirmingArchive = true
 					m.archivingFromPane = pipelinesPane
-					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? (y/n)", m.pipelines[m.pipelineCursor].name)
+					m.archiveConfirmation = fmt.Sprintf("Archive pipeline '%s'? %s", m.pipelines[m.pipelineCursor].name, formatConfirmOptions(true))
 				}
 			} else if m.activePane == componentsPane {
 				// Archive component with confirmation
@@ -882,7 +882,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					comp := components[m.componentCursor]
 					m.confirmingArchive = true
 					m.archivingFromPane = componentsPane
-					m.archiveConfirmation = fmt.Sprintf("Archive %s '%s'? (y/n)", comp.compType, comp.name)
+					m.archiveConfirmation = fmt.Sprintf("Archive %s '%s'? %s", comp.compType, comp.name, formatConfirmOptions(true))
 				}
 			}
 		}
@@ -1942,7 +1942,7 @@ func (m *MainListModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 				usage, err := tags.CountTagUsage(tagToDelete)
 				if err != nil {
 					return m, func() tea.Msg {
-						return StatusMsg(fmt.Sprintf("❌ Failed to check tag usage: %v", err))
+						return StatusMsg(fmt.Sprintf("× Failed to check tag usage: %v", err))
 					}
 				}
 				
@@ -1994,14 +1994,14 @@ func (m *MainListModel) saveTags() tea.Cmd {
 			// Update pipeline tags
 			pipeline, err := files.ReadPipeline(m.editingTagsPath)
 			if err != nil {
-				return StatusMsg(fmt.Sprintf("❌ Failed to read pipeline: %v", err))
+				return StatusMsg(fmt.Sprintf("× Failed to read pipeline: %v", err))
 			}
 			pipeline.Tags = m.currentTags
 			err = files.WritePipeline(pipeline)
 		}
 		
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to save tags: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to save tags: %v", err))
 		}
 		
 		// Update the registry with any new tags
@@ -2026,7 +2026,7 @@ func (m *MainListModel) saveTags() tea.Cmd {
 		m.currentTags = nil
 		m.showTagSuggestions = false
 		
-		return StatusMsg("✅ Tags saved successfully")
+		return StatusMsg("✓ Tags saved successfully")
 	}
 }
 
@@ -2051,7 +2051,7 @@ func (m *MainListModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.C
 			err := files.WriteComponent(m.editingComponentPath, m.componentContent)
 			if err != nil {
 				return m, func() tea.Msg {
-					return StatusMsg(fmt.Sprintf("❌ Failed to save before external edit: %v", err))
+					return StatusMsg(fmt.Sprintf("× Failed to save before external edit: %v", err))
 				}
 			}
 		}
@@ -2489,7 +2489,13 @@ func (m *MainListModel) tagEditView() string {
 		}
 		mainContent.WriteString("\n\n")
 		
-		mainContent.WriteString(headerPadding.Render("Delete this tag? (y/n)"))
+		// Show styled confirmation options
+		deleteOptions := formatConfirmOptions(true) + "  (delete / cancel)"
+		centeredOptions := lipgloss.NewStyle().
+			Width(paneWidth - 4).
+			Align(lipgloss.Center).
+			Render(deleteOptions)
+		mainContent.WriteString(centeredOptions)
 		
 		// Apply border and return early
 		confirmBorderStyle := lipgloss.NewStyle().
@@ -2858,13 +2864,13 @@ func (m *MainListModel) deleteTagFromRegistry() tea.Cmd {
 		// Delete from registry
 		registry, err := tags.NewRegistry()
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to load tag registry: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to load tag registry: %v", err))
 		}
 		
 		registry.RemoveTag(m.deletingTag)
 		
 		if err := registry.Save(); err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to save tag registry: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to save tag registry: %v", err))
 		}
 		
 		// Update available tags
@@ -3001,9 +3007,6 @@ func (m *MainListModel) exitConfirmationView() string {
 		
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")) // Orange for warning
-		
-	optionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245"))
 	
 	// Calculate dimensions
 	contentWidth := m.width - 4
@@ -3044,12 +3047,12 @@ func (m *MainListModel) exitConfirmationView() string {
 	mainContent.WriteString(centeredExitWarning)
 	mainContent.WriteString("\n\n")
 	
-	// Options
-	options := "[Y]es, exit  /  [N]o, stay"
+	// Options - exit is destructive
+	options := formatConfirmOptions(true) + "  (exit / stay)"
 	centeredOptions := lipgloss.NewStyle().
 		Width(contentWidth - 4).
 		Align(lipgloss.Center).
-		Render(optionStyle.Render(options))
+		Render(options)
 	mainContent.WriteString(centeredOptions)
 	
 	// Apply border to main content
@@ -3091,12 +3094,12 @@ func (m *MainListModel) saveNewComponent() tea.Cmd {
 		// Check if component already exists (case-insensitive)
 		existingComponents, err := files.ListComponents(componentType)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to check existing components: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to check existing components: %v", err))
 		}
 		
 		for _, existing := range existingComponents {
 			if strings.EqualFold(existing, filename) {
-				return StatusMsg(fmt.Sprintf("❌ %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
+				return StatusMsg(fmt.Sprintf("× %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
 			}
 		}
 		
@@ -3126,7 +3129,7 @@ func (m *MainListModel) saveEditedComponent() tea.Cmd {
 		// Write component
 		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to save: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
 		}
 		
 		// Clear editing state

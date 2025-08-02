@@ -1894,14 +1894,14 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to check existing pipelines: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to check existing pipelines: %v", err))
 		}
 		
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
 				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					return StatusMsg(fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
+					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
 				}
 			}
 		}
@@ -1911,7 +1911,7 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		// Save pipeline
 		err = files.WritePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to save pipeline: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to save pipeline: %v", err))
 		}
 		
 		// Update original components to match saved state
@@ -1937,14 +1937,14 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to check existing pipelines: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to check existing pipelines: %v", err))
 		}
 		
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
 				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					return StatusMsg(fmt.Sprintf("❌ Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
+					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
 				}
 			}
 		}
@@ -1954,13 +1954,13 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		// Save pipeline
 		err = files.WritePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to save pipeline: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to save pipeline: %v", err))
 		}
 		
 		// Generate pipeline output
 		output, err := composer.ComposePipeline(m.pipeline)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to generate output: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to generate output: %v", err))
 		}
 
 		// Write to PLUQQY.md
@@ -1971,7 +1971,7 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		
 		err = composer.WritePLUQQYFile(output, outputPath)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to write output: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to write output: %v", err))
 		}
 		
 		// Update preview if showing
@@ -2125,9 +2125,6 @@ func (m *PipelineBuilderModel) exitConfirmationView() string {
 		
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")) // Orange for warning
-		
-	optionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
 	
 	// Calculate dimensions
 	contentWidth := m.width - 4
@@ -2170,12 +2167,12 @@ func (m *PipelineBuilderModel) exitConfirmationView() string {
 	mainContent.WriteString(centeredExitWarning)
 	mainContent.WriteString("\n\n")
 	
-	// Options
-	options := "[Y]es, exit  /  [N]o, stay"
+	// Options - exit is destructive
+	options := formatConfirmOptions(true) + "  (exit / stay)"
 	centeredOptions := lipgloss.NewStyle().
 		Width(contentWidth - 4).
 		Align(lipgloss.Center).
-		Render(optionStyle.Render(options))
+		Render(options)
 	mainContent.WriteString(centeredOptions)
 	
 	// Apply border to main content
@@ -2631,12 +2628,12 @@ func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
 		// Check if component already exists (case-insensitive)
 		existingComponents, err := files.ListComponents(componentType)
 		if err != nil {
-			return StatusMsg(fmt.Sprintf("❌ Failed to check existing components: %v", err))
+			return StatusMsg(fmt.Sprintf("× Failed to check existing components: %v", err))
 		}
 		
 		for _, existing := range existingComponents {
 			if strings.EqualFold(existing, filename) {
-				return StatusMsg(fmt.Sprintf("❌ %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
+				return StatusMsg(fmt.Sprintf("× %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
 			}
 		}
 		
@@ -3323,7 +3320,14 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			mainContent.WriteString(headerPadding.Render("This tag is not currently in use."))
 		}
 		mainContent.WriteString("\n\n")
-		mainContent.WriteString(headerPadding.Render("Delete this tag? (y/n)"))
+		
+		// Show styled confirmation options
+		deleteOptions := formatConfirmOptions(true) + "  (delete / cancel)"
+		centeredOptions := lipgloss.NewStyle().
+			Width(paneWidth - 4).
+			Align(lipgloss.Center).
+			Render(deleteOptions)
+		mainContent.WriteString(centeredOptions)
 		
 		confirmBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("196"))
 		mainPane := confirmBorderStyle.Width(m.width - 4).Height(paneHeight).Render(mainContent.String())

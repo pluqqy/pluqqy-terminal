@@ -681,9 +681,6 @@ func (m *SettingsEditorModel) renderExitConfirmation() string {
 		
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")) // Orange for warning
-		
-	optionStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("252"))
 	
 	// Calculate dimensions
 	contentWidth := m.width - 4
@@ -718,12 +715,12 @@ func (m *SettingsEditorModel) renderExitConfirmation() string {
 	mainContent.WriteString(centeredExitWarning)
 	mainContent.WriteString("\n\n")
 	
-	// Options
-	options := "[Y]es, exit  /  [N]o, stay"
+	// Options - exit is destructive
+	options := formatConfirmOptions(true) + "  (exit / stay)"
 	centeredOptions := lipgloss.NewStyle().
 		Width(contentWidth - 4).
 		Align(lipgloss.Center).
-		Render(optionStyle.Render(options))
+		Render(options)
 	mainContent.WriteString(centeredOptions)
 	
 	// Apply border to main content

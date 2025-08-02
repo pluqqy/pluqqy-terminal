@@ -352,6 +352,34 @@ func formatHelpText(items []string) string {
 	return strings.Join(formatted, separator)
 }
 
+// formatConfirmOptions formats Yes/No options with appropriate styling
+// For destructive actions, Yes gets red background, No gets green
+func formatConfirmOptions(destructive bool) string {
+	yesStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(func() string {
+			if destructive {
+				return "196" // Red for destructive Yes
+			}
+			return "28" // Green for non-destructive Yes
+		}())).
+		Foreground(lipgloss.Color("255")). // White text
+		Padding(0, 1).
+		Bold(true)
+	
+	noStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(func() string {
+			if destructive {
+				return "28" // Green for safe No
+			}
+			return "196" // Red for destructive No
+		}())).
+		Foreground(lipgloss.Color("255")). // White text
+		Padding(0, 1).
+		Bold(true)
+	
+	return yesStyle.Render("[Y]es") + "  /  " + noStyle.Render("[N]o")
+}
+
 // Messages for communication between views
 type StatusMsg string
 
