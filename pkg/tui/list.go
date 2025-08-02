@@ -8,7 +8,6 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -110,26 +109,20 @@ type MainListModel struct {
 	searchEngine          *search.Engine
 	
 	// Search state
-	searchInput           textinput.Model
+	searchBar             *SearchBar
 	searchQuery           string
 	filteredPipelines     []pipelineItem
 	filteredComponents    []componentItem
 }
 
 func NewMainListModel() *MainListModel {
-	ti := textinput.New()
-	ti.Placeholder = "Search..."
-	ti.Prompt = ""
-	ti.CharLimit = 200
-	ti.Width = 40
-	
 	m := &MainListModel{
 		activePane:         componentsPane,
 		showPreview:        false, // Start with preview hidden, user can toggle with 'p'
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
-		searchInput:        ti,
+		searchBar:          NewSearchBar(),
 		deleteConfirm:      NewConfirmation(),
 		archiveConfirm:     NewConfirmation(),
 		exitConfirm:        NewConfirmation(),
@@ -513,11 +506,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle search input when search pane is active
 		if m.activePane == searchPane && !m.editingTags && !m.creatingComponent && !m.editingComponent {
 			var cmd tea.Cmd
-			m.searchInput, cmd = m.searchInput.Update(msg)
+			m.searchBar, cmd = m.searchBar.Update(msg)
 			
 			// Check if search query changed
-			if m.searchQuery != m.searchInput.Value() {
-				m.searchQuery = m.searchInput.Value()
+			if m.searchQuery != m.searchBar.Value() {
+				m.searchQuery = m.searchBar.Value()
 				m.performSearch()
 			}
 			
@@ -525,11 +518,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				// Clear search and return to components pane
-				m.searchInput.SetValue("")
+				m.searchBar.SetValue("")
 				m.searchQuery = ""
 				m.performSearch()
 				m.activePane = componentsPane
-				m.searchInput.Blur()
+				m.searchBar.SetActive(false)
 				return m, nil
 			case "tab":
 				// Let tab handling below take care of navigation
@@ -580,26 +573,26 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch m.activePane {
 				case searchPane:
 					m.activePane = componentsPane
-					m.searchInput.Blur()
+					m.searchBar.SetActive(false)
 				case componentsPane:
 					m.activePane = pipelinesPane
 				case pipelinesPane:
 					m.activePane = previewPane
 				case previewPane:
 					m.activePane = searchPane
-					m.searchInput.Focus()
+					m.searchBar.SetActive(true)
 				}
 			} else {
 				// When preview is hidden, cycle through search, components, and pipelines
 				switch m.activePane {
 				case searchPane:
 					m.activePane = componentsPane
-					m.searchInput.Blur()
+					m.searchBar.SetActive(false)
 				case componentsPane:
 					m.activePane = pipelinesPane
 				case pipelinesPane:
 					m.activePane = searchPane
-					m.searchInput.Focus()
+					m.searchBar.SetActive(true)
 				}
 			}
 			// Update preview when switching to non-preview pane
@@ -660,7 +653,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			// Jump to search
 			m.activePane = searchPane
-			m.searchInput.Focus()
+			m.searchBar.SetActive(true)
 			return m, nil
 		
 		case "enter":
@@ -952,27 +945,9 @@ func (m *MainListModel) View() string {
 		contentHeight = 10
 	}
 
-	// Build search bar
-	var searchBar strings.Builder
-	searchStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(func() string {
-			if m.activePane == searchPane {
-				return "170"
-			}
-			return "240"
-		}())).
-		Width(m.width - 4).
-		Padding(0, 1)
-	
-	// Create search icon with larger font
-	searchIconStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Bold(true)
-	
-	searchIcon := searchIconStyle.Render("⌕ ")
-	searchContent := lipgloss.JoinHorizontal(lipgloss.Center, searchIcon, m.searchInput.View())
-	searchBar.WriteString(searchStyle.Render(searchContent))
+	// Update search bar active state and render it
+	m.searchBar.SetActive(m.activePane == searchPane)
+	m.searchBar.SetWidth(m.width)
 
 	// Build left column (components)
 	var leftContent strings.Builder
@@ -1346,7 +1321,7 @@ func (m *MainListModel) View() string {
 		PaddingRight(1)
 	
 	// Add search bar first
-	s.WriteString(contentStyle.Render(searchBar.String()))
+	s.WriteString(m.searchBar.View())
 	s.WriteString("\n")
 	
 	// Then add the columns
@@ -1522,8 +1497,8 @@ func (m *MainListModel) View() string {
 func (m *MainListModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	// Update search input width to match container
-	m.searchInput.Width = width - 10 // Account for borders, padding, and icon
+	// Update search bar width
+	m.searchBar.SetWidth(width)
 	m.updateViewportSizes()
 }
 

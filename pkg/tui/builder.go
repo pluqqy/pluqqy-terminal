@@ -9,7 +9,6 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -97,7 +96,7 @@ type PipelineBuilderModel struct {
 	originalContent       string                // Original content for component editing
 	
 	// Search state
-	searchInput           textinput.Model
+	searchBar             *SearchBar
 	searchQuery           string
 	searchEngine          *search.Engine
 	filteredPrompts       []componentItem
@@ -118,13 +117,6 @@ type componentItem struct {
 type clearEditSaveMsg struct{}
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
-	// Initialize search input
-	ti := textinput.New()
-	ti.Placeholder = "Search..."
-	ti.Prompt = ""
-	ti.CharLimit = 100
-	ti.Width = 40
-	
 	m := &PipelineBuilderModel{
 		activeColumn: leftColumn,
 		showPreview:  true, // Show preview by default in builder for immediate feedback
@@ -137,7 +129,7 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		previewViewport:  viewport.New(80, 20), // Default size, will be resized
 		leftViewport:     viewport.New(40, 20), // Default size, will be resized
 		rightViewport:    viewport.New(40, 20), // Default size, will be resized
-		searchInput:      ti,
+		searchBar:        NewSearchBar(),
 		exitConfirm:      NewConfirmation(),
 		tagDeleteConfirm: NewConfirmation(),
 	}
@@ -428,23 +420,23 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			switch msg.String() {
 			case "esc":
 				// Clear search and switch to left column
-				m.searchInput.SetValue("")
+				m.searchBar.SetValue("")
 				m.searchQuery = ""
 				m.performSearch()
 				m.activeColumn = leftColumn
-				m.searchInput.Blur()
+				m.searchBar.SetActive(false)
 				return m, nil
 			case "tab":
 				// Let tab be handled by the main navigation logic
 				// Don't process it here
 			default:
-				// For all other keys, update the search input
+				// For all other keys, update the search bar
 				var cmd tea.Cmd
-				m.searchInput, cmd = m.searchInput.Update(msg)
+				m.searchBar, cmd = m.searchBar.Update(msg)
 				
 				// Check if search query changed
-				if m.searchQuery != m.searchInput.Value() {
-					m.searchQuery = m.searchInput.Value()
+				if m.searchQuery != m.searchBar.Value() {
+					m.searchQuery = m.searchBar.Value()
 					m.performSearch()
 				}
 				
@@ -489,7 +481,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				switch m.activeColumn {
 				case searchColumn:
 					m.activeColumn = leftColumn
-					m.searchInput.Blur()
+					m.searchBar.SetActive(false)
 				case leftColumn:
 					m.activeColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
@@ -499,14 +491,14 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.activeColumn = previewColumn
 				case previewColumn:
 					m.activeColumn = searchColumn
-					m.searchInput.Focus()
+					m.searchBar.SetActive(true)
 				}
 			} else {
 				// When preview is hidden, cycle through search, left and right
 				switch m.activeColumn {
 				case searchColumn:
 					m.activeColumn = leftColumn
-					m.searchInput.Blur()
+					m.searchBar.SetActive(false)
 				case leftColumn:
 					m.activeColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
@@ -514,7 +506,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.rightViewport.GotoTop()
 				case rightColumn:
 					m.activeColumn = searchColumn
-					m.searchInput.Focus()
+					m.searchBar.SetActive(true)
 				}
 			}
 			// Update preview when switching to non-preview column
@@ -619,7 +611,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "/":
 			// Jump to search
 			m.activeColumn = searchColumn
-			m.searchInput.Focus()
+			m.searchBar.SetActive(true)
 			return m, nil
 
 		case "ctrl+s":
@@ -1243,26 +1235,10 @@ func (m *PipelineBuilderModel) View() string {
 	var s strings.Builder
 	
 	// Add search bar at the top
-	searchBarStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(func() string {
-			if m.activeColumn == searchColumn {
-				return "170"
-			}
-			return "240"
-		}())).
-		Width(m.width - 4).
-		Padding(0, 1)
-	
-	// Create search icon with larger font
-	searchIconStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Bold(true)
-	
-	searchIcon := searchIconStyle.Render("⌕ ")
-	searchContent := lipgloss.JoinHorizontal(lipgloss.Center, searchIcon, m.searchInput.View())
-	searchBar := searchBarStyle.Render(searchContent)
-	s.WriteString(lipgloss.NewStyle().Padding(0, 1).Render(searchBar))
+	// Update search bar active state and render it
+	m.searchBar.SetActive(m.activeColumn == searchColumn)
+	m.searchBar.SetWidth(m.width)
+	s.WriteString(m.searchBar.View())
 	s.WriteString("\n")
 	
 	// Add padding around the content
@@ -1415,8 +1391,8 @@ func (m *PipelineBuilderModel) View() string {
 func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
-	// Update search input width to match container
-	m.searchInput.Width = width - 10 // Account for borders, padding, and icon
+	// Update search bar width
+	m.searchBar.SetWidth(width)
 	m.updateViewportSizes()
 }
 
