@@ -1497,22 +1497,37 @@ func (m *MainListModel) View() string {
 	}
 	
 	// Help text in bordered pane
-	help := []string{
-		"/ search",
-		"tab switch pane",
-		"↑/↓ nav",
-		"enter view",
-		"e edit",
-		"E edit external",
-		"t tag edit",
-		"n new",
-		"a archive",
-		"d delete",
-		"S set",
-		"s settings",
-		"p preview",
-		"r refresh",
-		"ctrl+c quit",
+	var help []string
+	if m.activePane == searchPane {
+		// Show search syntax help when search is active
+		help = []string{
+			"esc exit search",
+			"enter search",
+			"tag:<name>",
+			"type:<type>",
+			"pipeline:<name>",
+			"<keyword>",
+			"combine with spaces",
+		}
+	} else {
+		// Show normal navigation help
+		help = []string{
+			"/ search",
+			"tab switch pane",
+			"↑/↓ nav",
+			"enter view",
+			"e edit",
+			"E edit external",
+			"t tag edit",
+			"n new",
+			"a archive",
+			"d delete",
+			"S set",
+			"s settings",
+			"p preview",
+			"r refresh",
+			"ctrl+c quit",
+		}
 	}
 	
 	helpBorderStyle := lipgloss.NewStyle().
