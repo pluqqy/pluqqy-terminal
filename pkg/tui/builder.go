@@ -830,11 +830,18 @@ func (m *PipelineBuilderModel) View() string {
 	// - 3 for search bar
 	// - 5 for help pane (border + 2 lines of content)
 	// - 2 for status message
-	// - 4 for spacing between elements
-	contentHeight := m.height - 14
-
+	// - 2 for spacing (1 after search, 1 before help)
+	// Total: 12 lines
+	baseReservedHeight := 12
+	
+	// When preview is shown, we need additional space:
+	// - 2 for newlines around preview
+	var contentHeight int
 	if m.showPreview {
-		contentHeight = contentHeight / 2
+		availableForContent := m.height - baseReservedHeight - 2 // -2 for preview spacing
+		contentHeight = availableForContent / 2 // Split between columns and preview
+	} else {
+		contentHeight = m.height - baseReservedHeight
 	}
 	
 	// Ensure minimum height for content
