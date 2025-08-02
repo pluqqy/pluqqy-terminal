@@ -849,10 +849,23 @@ func (m *PipelineBuilderModel) View() string {
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	// Render heading and colons separately with different styles
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240")) // Subtle gray
-	leftContent.WriteString(headerPadding.Render(typeHeaderStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	// Dynamic header and colon styles based on active pane
+	leftHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if m.activeColumn == leftColumn {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	leftColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if m.activeColumn == leftColumn {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
+	leftContent.WriteString(headerPadding.Render(leftHeaderStyle.Render(heading) + " " + leftColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	leftContent.WriteString("\n\n")
 
 	// Table header styles
@@ -1019,9 +1032,25 @@ func (m *PipelineBuilderModel) View() string {
 		rightRemainingWidth = 0
 	}
 	
+	// Dynamic header and colon styles based on active pane
+	rightHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if m.activeColumn == rightColumn {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	rightColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if m.activeColumn == rightColumn {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
 	// Render heading without tags
 	rightContent.WriteString(headerPadding.Render(
-		typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+		rightHeaderStyle.Render(rightHeading) + " " + rightColonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
 	rightContent.WriteString("\n")
 	
 	// Always render tag row (even if empty) for consistent layout
@@ -1315,12 +1344,26 @@ func (m *PipelineBuilderModel) View() string {
 		}
 		
 		// Build the complete header line
+		// Dynamic header and colon styles based on active pane
+		previewHeaderStyle := lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color(func() string {
+				if m.activeColumn == previewColumn {
+					return "170" // Purple when active
+				}
+				return "214" // Orange when inactive
+			}()))
 		previewColonStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("240")) // Subtle gray
+			Foreground(lipgloss.Color(func() string {
+				if m.activeColumn == previewColumn {
+					return "170" // Purple when active
+				}
+				return "240" // Gray when inactive
+			}()))
 		previewHeaderPadding := lipgloss.NewStyle().
 			PaddingLeft(1).
 			PaddingRight(1)
-		previewContent.WriteString(previewHeaderPadding.Render(typeHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo))
+		previewContent.WriteString(previewHeaderPadding.Render(previewHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo))
 		previewContent.WriteString("\n\n")
 		// Add padding to preview viewport content
 		previewViewportPadding := lipgloss.NewStyle().
@@ -1976,7 +2019,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	promptStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
@@ -2005,7 +2048,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		remainingWidth = 0
 	}
 	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -2283,7 +2326,7 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	selectedStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("28")).
@@ -2400,7 +2443,7 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	promptStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
@@ -2429,7 +2472,7 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 		remainingWidth = 0
 	}
 	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -3078,7 +3121,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	titleStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 
 	// Calculate dimensions  
 	contentWidth := m.width - 4 // Match help pane width
@@ -3098,7 +3141,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		remainingWidth = 0
 	}
 	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+		Foreground(lipgloss.Color("170")) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -3344,7 +3387,7 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) tagEditView() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("170")) // Purple for active single pane
 	inputStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Padding(0, 1).Width(40)
 	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
@@ -3369,7 +3412,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
 	remainingWidth := paneWidth - len(heading) - 7
 	if remainingWidth < 0 { remainingWidth = 0 }
-	colonStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
+	colonStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 	
