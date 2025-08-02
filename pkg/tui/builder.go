@@ -2839,7 +2839,7 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 		
-	case "left", "h":
+	case "left":
 		if m.tagCloudActive {
 			// Navigate in tag cloud
 			if m.tagCloudCursor > 0 {
@@ -2853,7 +2853,24 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 		
-	case "right", "l":
+	case "h":
+		// Only handle as navigation if not typing
+		if m.tagInput == "" {
+			if m.tagCloudActive {
+				// Navigate in tag cloud
+				if m.tagCloudCursor > 0 {
+					m.tagCloudCursor--
+				}
+			} else {
+				// Move cursor left in current tags
+				if m.tagCursor > 0 {
+					m.tagCursor--
+				}
+			}
+			return m, nil
+		}
+		
+	case "right":
 		if m.tagCloudActive {
 			// Navigate in tag cloud
 			availableForSelection := m.getAvailableTagsForCloud()
@@ -2867,6 +2884,24 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			}
 		}
 		return m, nil
+		
+	case "l":
+		// Only handle as navigation if not typing
+		if m.tagInput == "" {
+			if m.tagCloudActive {
+				// Navigate in tag cloud
+				availableForSelection := m.getAvailableTagsForCloud()
+				if m.tagCloudCursor < len(availableForSelection)-1 {
+					m.tagCloudCursor++
+				}
+			} else {
+				// Move cursor right in current tags
+				if m.tagCursor < len(m.currentTags)-1 {
+					m.tagCursor++
+				}
+			}
+			return m, nil
+		}
 		
 	case "backspace":
 		if !m.tagCloudActive {
