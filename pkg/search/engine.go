@@ -207,24 +207,63 @@ func (e *Engine) evaluateCondition(condition Condition) []int {
 	
 	switch condition.Field {
 	case FieldTag:
-		tag := models.NormalizeTagName(condition.Value.(string))
-		if indices, exists := e.index.tagIndex[tag]; exists {
-			matches = indices
+		searchTag := models.NormalizeTagName(condition.Value.(string))
+		// Support partial tag matching
+		for tag, indices := range e.index.tagIndex {
+			if strings.HasPrefix(tag, searchTag) {
+				matches = append(matches, indices...)
+			}
 		}
+		// Remove duplicates
+		matches = deduplicateIndices(matches)
 		
 	case FieldTypeField:
-		typeStr := condition.Value.(string)
-		// Handle component type aliases
+		typeStr := strings.ToLower(condition.Value.(string))
+		
+		// First try exact match with aliases
+		exactType := typeStr
 		switch typeStr {
-		case "prompt":
-			typeStr = "component"
-		case "context":
-			typeStr = "component"
-		case "rules":
-			typeStr = "component"
+		case "prompt", "prompts":
+			exactType = "component"
+		case "context", "contexts":
+			exactType = "component"
+		case "rules", "rule":
+			exactType = "component"
 		}
-		if indices, exists := e.index.typeIndex[typeStr]; exists {
+		
+		// If exact match exists, use it
+		if indices, exists := e.index.typeIndex[exactType]; exists {
 			matches = indices
+		} else {
+			// Otherwise, support partial matching
+			for itemType, indices := range e.index.typeIndex {
+				if strings.HasPrefix(itemType, typeStr) {
+					matches = append(matches, indices...)
+				}
+			}
+			// Also check aliases for partial matching
+			aliases := map[string]string{
+				"prompt": "component",
+				"prompts": "component",
+				"context": "component",
+				"contexts": "component",
+				"rules": "component",
+				"rule": "component",
+				"pipeline": "pipeline",
+				"pipelines": "pipeline",
+				"pipe": "pipeline",
+				"comp": "component",
+				"components": "component",
+			}
+			for alias, actualType := range aliases {
+				if strings.HasPrefix(alias, typeStr) {
+					if indices, exists := e.index.typeIndex[actualType]; exists {
+						matches = append(matches, indices...)
+					}
+				}
+			}
+			// Remove duplicates
+			matches = deduplicateIndices(matches)
 		}
 		
 	case FieldName:
@@ -401,6 +440,20 @@ func intersectSlices(a, b []int) []int {
 	for _, v := range b {
 		if set[v] {
 			result = append(result, v)
+		}
+	}
+	
+	return result
+}
+
+func deduplicateIndices(indices []int) []int {
+	seen := make(map[int]bool)
+	var result []int
+	
+	for _, idx := range indices {
+		if !seen[idx] {
+			seen[idx] = true
+			result = append(result, idx)
 		}
 	}
 	
