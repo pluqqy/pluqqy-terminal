@@ -2801,9 +2801,22 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 }
 
 func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.confirmingTagDelete {
+		switch msg.String() {
+		case "y", "Y":
+			m.confirmingTagDelete = false
+			return m, m.deleteTagFromRegistry()
+		case "n", "N", "esc":
+			m.confirmingTagDelete = false
+			m.deletingTag = ""
+			m.deletingTagUsage = nil
+			return m, nil
+		}
+		return m, nil
+	}
+	
 	switch msg.String() {
 	case "esc":
-		// Cancel tag editing
 		m.editingTags = false
 		m.tagInput = ""
 		m.currentTags = nil
@@ -2813,12 +2826,10 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		return m, nil
 		
 	case "ctrl+s":
-		// Save tags
 		return m, m.saveTags()
 		
 	case "enter":
 		if m.tagCloudActive {
-			// Add tag from cloud
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
 				tag := availableForSelection[m.tagCloudCursor]
@@ -2827,52 +2838,63 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 				}
 			}
 		} else {
-			// Add tag from input
 			if m.tagInput != "" {
-				// Normalize the tag
 				normalized := models.NormalizeTagName(m.tagInput)
 				if normalized != "" && !m.hasTag(normalized) {
 					m.currentTags = append(m.currentTags, normalized)
 				}
 				m.tagInput = ""
-				m.tagCursor = 0
+				m.tagCursor = len(m.currentTags)
 			}
 		}
 		return m, nil
 		
 	case "tab":
-		// Toggle tag cloud
 		m.tagCloudActive = !m.tagCloudActive
 		if m.tagCloudActive {
 			m.tagCloudCursor = 0
 		}
 		return m, nil
 		
-	case "backspace":
-		if !m.tagCloudActive && m.tagInput == "" && len(m.currentTags) > 0 {
-			// Remove last tag
-			m.currentTags = m.currentTags[:len(m.currentTags)-1]
-		} else if !m.tagCloudActive && len(m.tagInput) > 0 {
-			// Remove character from input
-			m.tagInput = m.tagInput[:len(m.tagInput)-1]
+	case "left", "h":
+		if !m.tagCloudActive && m.tagInput == "" && m.tagCursor > 0 {
 			m.tagCursor--
 		}
 		return m, nil
 		
-	case "delete":
+	case "right", "l":
+		if !m.tagCloudActive && m.tagInput == "" && m.tagCursor < len(m.currentTags) {
+			m.tagCursor++
+		}
+		return m, nil
+		
+	case "backspace":
+		if !m.tagCloudActive {
+			if m.tagInput != "" {
+				if len(m.tagInput) > 0 {
+					m.tagInput = m.tagInput[:len(m.tagInput)-1]
+				}
+			} else if m.tagCursor > 0 && m.tagCursor <= len(m.currentTags) {
+				m.currentTags = append(m.currentTags[:m.tagCursor-1], m.currentTags[m.tagCursor:]...)
+				m.tagCursor--
+			}
+		}
+		return m, nil
+		
+	case "D":
 		if m.tagCloudActive {
-			// Delete selected tag from current tags
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
-				tagToRemove := availableForSelection[m.tagCloudCursor]
-				newTags := []string{}
-				for _, tag := range m.currentTags {
-					if tag != tagToRemove {
-						newTags = append(newTags, tag)
-					}
-				}
-				m.currentTags = newTags
+				m.deletingTag = availableForSelection[m.tagCloudCursor]
+				usage := m.getTagUsage(m.deletingTag)
+				m.deletingTagUsage = usage
+				m.confirmingTagDelete = true
 			}
+		} else if m.tagInput == "" && m.tagCursor > 0 && m.tagCursor <= len(m.currentTags) {
+			m.deletingTag = m.currentTags[m.tagCursor-1]
+			usage := m.getTagUsage(m.deletingTag)
+			m.deletingTagUsage = usage
+			m.confirmingTagDelete = true
 		}
 		return m, nil
 		
@@ -2895,9 +2917,8 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		
 	default:
 		if !m.tagCloudActive && msg.Type == tea.KeyRunes {
-			// Add character to input
 			m.tagInput += string(msg.Runes)
-			m.tagCursor = len(m.tagInput)
+			m.showTagSuggestions = m.tagInput != ""
 		}
 	}
 	
@@ -2905,7 +2926,6 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 }
 
 func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
-	// Filter out tags already in currentTags
 	available := []string{}
 	for _, tag := range m.availableTags {
 		if !m.hasTag(tag) {
@@ -2913,6 +2933,53 @@ func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
 		}
 	}
 	return available
+}
+
+func (m *PipelineBuilderModel) getTagUsage(tag string) []string {
+	var usage []string
+	allComponents := m.getAllAvailableComponents()
+	for _, comp := range allComponents {
+		for _, t := range comp.tags {
+			if strings.EqualFold(t, tag) {
+				usage = append(usage, fmt.Sprintf("%s: %s", comp.compType, comp.name))
+				break
+			}
+		}
+	}
+	return usage
+}
+
+func (m *PipelineBuilderModel) deleteTagFromRegistry() tea.Cmd {
+	return func() tea.Msg {
+		registry, err := tags.NewRegistry()
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to load tag registry: %v", err))
+		}
+		
+		if err := registry.RemoveTag(m.deletingTag); err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to delete tag: %v", err))
+		}
+		
+		if err := registry.Save(); err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to save tag registry: %v", err))
+		}
+		
+		m.loadAvailableTags()
+		
+		newAvailable := []string{}
+		for _, tag := range m.currentTags {
+			if tag != m.deletingTag {
+				newAvailable = append(newAvailable, tag)
+			}
+		}
+		m.currentTags = newAvailable
+		
+		if m.tagCursor > len(m.currentTags) {
+			m.tagCursor = len(m.currentTags)
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Deleted tag: %s", m.deletingTag))
+	}
 }
 
 func (m *PipelineBuilderModel) componentEditView() string {
@@ -3157,157 +3224,219 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) tagEditView() string {
-	// Styles
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
-	inputStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("255"))
-	tagStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")).
-		Bold(true)
-	helpStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
+	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
+	inputStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Padding(0, 1).Width(40)
+	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
 	
-	// Calculate dimensions
-	contentWidth := m.width - 4
-	contentHeight := m.height - 10 // Reserve space for help pane
+	paneWidth := (m.width - 6) / 2
+	paneHeight := m.height - 10
+	headerPadding := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
-	// Build main content
 	var mainContent strings.Builder
 	
-	// Header
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
+	if m.confirmingTagDelete {
+		confirmStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("196")).Bold(true)
+		warningStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214"))
+		
+		mainContent.WriteString(headerPadding.Render(confirmStyle.Render("⚠️  Delete Tag from Registry?")))
+		mainContent.WriteString("\n\n")
+		mainContent.WriteString(headerPadding.Render(fmt.Sprintf("Tag: %s", titleStyle.Render(m.deletingTag))))
+		mainContent.WriteString("\n\n")
+		
+		if m.deletingTagUsage != nil && len(m.deletingTagUsage) > 0 {
+			mainContent.WriteString(headerPadding.Render(warningStyle.Render("This tag is currently in use by:")))
+			mainContent.WriteString("\n")
+			for _, usage := range m.deletingTagUsage {
+				mainContent.WriteString(headerPadding.Render(fmt.Sprintf("  • %s", usage)))
+				mainContent.WriteString("\n")
+			}
+			mainContent.WriteString("\n")
+			mainContent.WriteString(headerPadding.Render(warningStyle.Render("The tag will be removed from the registry but will remain on items that use it.")))
+		} else {
+			mainContent.WriteString(headerPadding.Render("This tag is not currently in use."))
+		}
+		mainContent.WriteString("\n\n")
+		mainContent.WriteString(headerPadding.Render("Delete this tag? (y/n)"))
+		
+		confirmBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("196"))
+		mainPane := confirmBorderStyle.Width(m.width - 4).Height(paneHeight).Render(mainContent.String())
+		
+		help := []string{"y confirm delete", "n/esc cancel"}
+		helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width - 4).Padding(0, 1)
+		helpContent := formatHelpText(help)
+		
+		var s strings.Builder
+		contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
+		s.WriteString(contentStyle.Render(mainPane))
+		s.WriteString("\n")
+		s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+		return s.String()
+	}
 	
-	// Get component name
 	components := m.getAllAvailableComponents()
 	itemName := ""
 	if m.leftCursor >= 0 && m.leftCursor < len(components) {
 		itemName = components[m.leftCursor].name
 	}
 	
-	heading := fmt.Sprintf("EDIT TAGS: %s", itemName)
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
+	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
+	remainingWidth := paneWidth - len(heading) - 7
+	if remainingWidth < 0 { remainingWidth = 0 }
+	colonStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("240"))
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 	
-	// Current tags
-	mainContent.WriteString(headerPadding.Render("Current tags:"))
-	mainContent.WriteString("\n")
-	if len(m.currentTags) > 0 {
-		tagChips := renderTagChips(m.currentTags, 999) // Show all tags
-		mainContent.WriteString(headerPadding.Render("  " + tagChips))
+	mainContent.WriteString(headerPadding.Render("Current tags:\n"))
+	if len(m.currentTags) == 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		mainContent.WriteString(headerPadding.Render(dimStyle.Render("(no tags)")))
 	} else {
-		mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(no tags)")))
+		var tagDisplay strings.Builder
+		for i, tag := range m.currentTags {
+			registry, _ := tags.NewRegistry()
+			color := models.GetTagColor(tag, "")
+			if registry != nil {
+				if t, exists := registry.GetTag(tag); exists && t.Color != "" {
+					color = t.Color
+				}
+			}
+			
+			style := lipgloss.NewStyle().Background(lipgloss.Color(color)).Foreground(lipgloss.Color("255")).Padding(0, 1)
+			
+			if i == m.tagCursor && m.tagInput == "" {
+				indicatorStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
+				tagDisplay.WriteString(indicatorStyle.Render("▶ "))
+				tagDisplay.WriteString(style.Render(tag))
+				tagDisplay.WriteString(indicatorStyle.Render(" ◀"))
+			} else {
+				if i > 0 { tagDisplay.WriteString("  ") }
+				tagDisplay.WriteString(style.Render(tag))
+			}
+		}
+		mainContent.WriteString(headerPadding.Render(tagDisplay.String()))
 	}
 	mainContent.WriteString("\n\n")
 	
-	// Input field
-	if !m.tagCloudActive {
-		mainContent.WriteString(headerPadding.Render("Add tag:"))
-		mainContent.WriteString("\n")
-		input := m.tagInput
-		if m.tagCursor < len(m.tagInput) {
-			input = m.tagInput[:m.tagCursor] + "│" + m.tagInput[m.tagCursor:]
-		} else {
-			input = m.tagInput + "│"
-		}
-		mainContent.WriteString(headerPadding.Render("  " + inputStyle.Render(input)))
+	mainContent.WriteString(headerPadding.Render("Add new tag:\n"))
+	input := m.tagInput
+	if m.tagCursor == len(m.currentTags) {
+		input = m.tagInput + "│"
+	}
+	mainContent.WriteString(headerPadding.Render(inputStyle.Render(input)))
+	
+	if m.showTagSuggestions && len(m.availableTags) > 0 {
 		mainContent.WriteString("\n\n")
+		mainContent.WriteString(headerPadding.Render("Suggestions:\n"))
+		
+		var suggestions []string
+		for _, tag := range m.availableTags {
+			if m.tagInput != "" && strings.HasPrefix(strings.ToLower(tag), strings.ToLower(m.tagInput)) && !m.hasTag(tag) {
+				suggestions = append(suggestions, tag)
+			}
+		}
+		
+		if len(suggestions) > 0 {
+			maxSuggestions := 5
+			if len(suggestions) < maxSuggestions {
+				maxSuggestions = len(suggestions)
+			}
+			
+			for i := 0; i < maxSuggestions; i++ {
+				if i == 0 {
+					mainContent.WriteString(headerPadding.Render(selectedSuggestionStyle.Render(suggestions[i])))
+				} else {
+					mainContent.WriteString(headerPadding.Render(suggestionStyle.Render(suggestions[i])))
+				}
+				mainContent.WriteString("\n")
+			}
+		}
 	}
 	
-	// Tag cloud
-	mainContent.WriteString(headerPadding.Render("Available tags " + helpStyle.Render("(tab to toggle, enter to add, delete to remove):")))
-	mainContent.WriteString("\n")
+	var leftPane strings.Builder
+	leftPane.WriteString(mainContent.String())
+	
+	var rightContent strings.Builder
+	rightContent.WriteString(headerPadding.Render(titleStyle.Render("AVAILABLE TAGS") + " " + colonStyle.Render(strings.Repeat(":", paneWidth-20))))
+	rightContent.WriteString("\n\n")
 	
 	if m.tagCloudActive {
-		availableForSelection := m.getAvailableTagsForCloud()
-		if len(availableForSelection) > 0 {
-			// Display tags in a grid
-			tagsPerRow := 5
-			for i := 0; i < len(availableForSelection); i += tagsPerRow {
-				rowContent := "  "
-				for j := 0; j < tagsPerRow && i+j < len(availableForSelection); j++ {
-					tag := availableForSelection[i+j]
-					
-					// Check if this tag is selected
-					isSelected := i+j == m.tagCloudCursor
-					
-					// Render tag
-					var tagDisplay string
-					if isSelected {
-						selectedStyle := lipgloss.NewStyle().
-							Background(lipgloss.Color("170")).
-							Foreground(lipgloss.Color("235")).
-							Bold(true).
-							Padding(0, 1)
-						tagDisplay = selectedStyle.Render(tag)
-					} else {
-						// Check if tag is already in currentTags
-						hasTag := m.hasTag(tag)
-						if hasTag {
-							dimStyle := lipgloss.NewStyle().
-								Foreground(lipgloss.Color("242"))
-							tagDisplay = dimStyle.Render(tag)
-						} else {
-							tagDisplay = tagStyle.Render(tag)
+		tagGroups := make(map[string][]string)
+		for _, tag := range m.availableTags {
+			if !m.hasTag(tag) {
+				registry, _ := tags.NewRegistry()
+				category := "other"
+				if registry != nil {
+					if t, exists := registry.GetTag(tag); exists && t.Parent != "" {
+						category = t.Parent
+					}
+				}
+				tagGroups[category] = append(tagGroups[category], tag)
+			}
+		}
+		
+		displayOrder := []string{"general", "technical", "domain", "status", "other"}
+		tagIndex := 0
+		
+		for _, category := range displayOrder {
+			if categoryTags, exists := tagGroups[category]; exists && len(categoryTags) > 0 {
+				categoryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
+				rightContent.WriteString(headerPadding.Render(categoryStyle.Render(strings.ToUpper(category))))
+				rightContent.WriteString("\n")
+				
+				for _, tag := range categoryTags {
+					registry, _ := tags.NewRegistry()
+					color := models.GetTagColor(tag, "")
+					if registry != nil {
+						if t, exists := registry.GetTag(tag); exists && t.Color != "" {
+							color = t.Color
 						}
 					}
 					
-					rowContent += fmt.Sprintf("%-20s", tagDisplay)
+					tagChipStyle := lipgloss.NewStyle().Background(lipgloss.Color(color)).Foreground(lipgloss.Color("255")).Padding(0, 1)
+					
+					if tagIndex == m.tagCloudCursor {
+						selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
+						rightContent.WriteString(headerPadding.Render(selectedStyle.Render("▶ ")))
+						rightContent.WriteString(tagChipStyle.Render(tag))
+						rightContent.WriteString(selectedStyle.Render(" ◀"))
+					} else {
+						rightContent.WriteString(headerPadding.Render("  " + tagChipStyle.Render(tag)))
+					}
+					rightContent.WriteString("\n")
+					tagIndex++
 				}
-				mainContent.WriteString(headerPadding.Render(rowContent))
-				mainContent.WriteString("\n")
+				rightContent.WriteString("\n")
 			}
-		} else {
-			mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(no available tags)")))
 		}
 	} else {
-		mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(press tab to show tag cloud)")))
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		rightContent.WriteString(headerPadding.Render(dimStyle.Render("Press TAB to browse available tags")))
 	}
 	
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
+	var rightPane strings.Builder
+	rightPane.WriteString(rightContent.String())
 	
-	// Help section
-	help := []string{
-		"ctrl+s save",
-		"esc cancel",
-		"tab toggle cloud",
-		"enter add tag",
-		"backspace remove",
+	leftBorder := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Width(paneWidth).Height(paneHeight)
+	rightBorder := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(paneWidth).Height(paneHeight)
+	
+	if m.tagCloudActive {
+		leftBorder = leftBorder.BorderForeground(lipgloss.Color("240"))
+		rightBorder = rightBorder.BorderForeground(lipgloss.Color("170"))
 	}
 	
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
+	leftPaneView := leftBorder.Render(leftPane.String())
+	rightPaneView := rightBorder.Render(rightPane.String())
 	
+	mainView := lipgloss.JoinHorizontal(lipgloss.Top, leftPaneView, " ", rightPaneView)
+	
+	help := []string{"enter add/select", "←/→ nav tags", "↑/↓ suggestions/cloud", "tab switch pane", "backspace remove", "D delete from registry", "ctrl+s save", "esc cancel"}
+	helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width - 4).Padding(0, 1)
 	helpContent := formatHelpText(help)
 	
-	// Combine all elements
 	var s strings.Builder
-	
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-	
-	s.WriteString(contentStyle.Render(mainPane))
+	contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
+	s.WriteString(contentStyle.Render(mainView))
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 	
