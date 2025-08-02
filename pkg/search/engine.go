@@ -156,8 +156,10 @@ func (e *Engine) addToIndex(item SearchItem) {
 	e.index.typeIndex[string(item.Type)] = append(e.index.typeIndex[string(item.Type)], idx)
 	
 	// Update content token index (simple word tokenization)
-	if item.Content != "" {
-		tokens := tokenizeContent(strings.ToLower(item.Content))
+	// Include both content and name in the token index
+	combinedText := item.Content + " " + item.Name
+	if combinedText != "" {
+		tokens := tokenizeContent(strings.ToLower(combinedText))
 		for _, token := range tokens {
 			e.index.contentTokens[token] = append(e.index.contentTokens[token], idx)
 		}
@@ -295,9 +297,10 @@ func (e *Engine) evaluateCondition(condition Condition) []int {
 		if indices, exists := e.index.contentTokens[searchTerm]; exists {
 			matches = indices
 		} else {
-			// Fallback to substring search
+			// Fallback to substring search in both content and name
 			for i, item := range e.index.items {
-				if strings.Contains(strings.ToLower(item.Content), searchTerm) {
+				if strings.Contains(strings.ToLower(item.Content), searchTerm) ||
+				   strings.Contains(strings.ToLower(item.Name), searchTerm) {
 					matches = append(matches, i)
 				}
 			}
