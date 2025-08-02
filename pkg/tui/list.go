@@ -180,6 +180,11 @@ func (m *MainListModel) loadPipelines() {
 	if m.searchEngine != nil {
 		m.searchEngine.BuildIndex()
 	}
+	
+	// Update filtered list if no active search
+	if m.searchQuery == "" {
+		m.filteredPipelines = m.pipelines
+	}
 }
 
 func (m *MainListModel) loadComponents() {
@@ -302,6 +307,11 @@ func (m *MainListModel) loadComponents() {
 	// Rebuild search index when components are reloaded
 	if m.searchEngine != nil {
 		m.searchEngine.BuildIndex()
+	}
+	
+	// Update filtered list if no active search
+	if m.searchQuery == "" {
+		m.filteredComponents = m.getAllComponents()
 	}
 }
 
