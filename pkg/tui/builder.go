@@ -825,13 +825,15 @@ func (m *PipelineBuilderModel) View() string {
 		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths (adjusted for left column width)
-	nameWidth := 25
-	tokenWidth := 10  // For "~Tokens" plus padding
+	nameWidth := 22
+	tagsWidth := 18
+	tokenWidth := 8  // For "~Tokens" plus padding
 	usageWidth := 10
 	
 	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
+		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
@@ -901,10 +903,35 @@ func (m *PipelineBuilderModel) View() string {
 		// Format token count - right-aligned with consistent width
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
 		
-		// Build the row with extra padding between token and usage
-		row := fmt.Sprintf("%-*s %*s  %-*s",
-			nameWidth, nameStr,
-			tokenWidth-1, tokenStr,  // -1 to account for the space before it
+		// Format tags
+		tagsStr := renderTagChips(comp.tags, 2) // Show max 2 tags inline
+		tagsRenderedWidth := lipgloss.Width(tagsStr)
+		if tagsRenderedWidth > tagsWidth {
+			// For styled text, we need to render plain tags when truncating
+			plainTags := strings.Join(comp.tags, " ")
+			if len(plainTags) > tagsWidth-4 {
+				plainTags = plainTags[:tagsWidth-4] + "..."
+			}
+			tagsStr = plainTags
+		}
+		
+		// Build the row components separately
+		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
+		
+		// For tags, we need to pad based on rendered width
+		tagsPadding := tagsWidth - lipgloss.Width(tagsStr)
+		if tagsPadding < 0 {
+			tagsPadding = 0
+		}
+		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
+		
+		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
+		
+		// Join all parts
+		row := fmt.Sprintf("%s %s %s  %-*s",
+			namePart,
+			tagsPart,
+			tokenPart,
 			usageWidth, usageStr)
 		
 		// Apply cursor if needed
@@ -969,12 +996,30 @@ func (m *PipelineBuilderModel) View() string {
 	var rightContent strings.Builder
 	// Create heading with colons spanning the width
 	rightHeading := "PIPELINE COMPONENTS"
-	rightRemainingWidth := columnWidth - len(rightHeading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
+	
+	// Calculate space for heading and tags
+	headingAndTagsLine := rightHeading
+	if m.pipeline != nil && len(m.pipeline.Tags) > 0 {
+		// Add tags after heading
+		tagsStr := renderTagChips(m.pipeline.Tags, 3) // Show max 3 tags
+		headingAndTagsLine = rightHeading + "  " + tagsStr
+	}
+	
+	// Calculate remaining width for colons
+	rightRemainingWidth := columnWidth - lipgloss.Width(headingAndTagsLine) - 5 // -5 for space and padding
 	if rightRemainingWidth < 0 {
 		rightRemainingWidth = 0
 	}
-	// Render heading and colons separately with different styles
-	rightContent.WriteString(headerPadding.Render(typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+	
+	// Render heading with tags and colons
+	if m.pipeline != nil && len(m.pipeline.Tags) > 0 {
+		tagsStr := renderTagChips(m.pipeline.Tags, 3)
+		rightContent.WriteString(headerPadding.Render(
+			typeHeaderStyle.Render(rightHeading) + "  " + tagsStr + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+	} else {
+		rightContent.WriteString(headerPadding.Render(
+			typeHeaderStyle.Render(rightHeading) + " " + colonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+	}
 	rightContent.WriteString("\n\n")
 	
 	// Build scrollable content for right viewport
