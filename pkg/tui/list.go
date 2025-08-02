@@ -2368,14 +2368,14 @@ func (m *MainListModel) tagEditView() string {
 				indicatorStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("170")). // Bright green for indicators
 					Bold(true)
-				tagDisplay.WriteString(indicatorStyle.Render("▶"))
+				tagDisplay.WriteString(indicatorStyle.Render("▶ "))
 				tagDisplay.WriteString(style.Render(tag))
-				tagDisplay.WriteString(indicatorStyle.Render("◀"))
+				tagDisplay.WriteString(indicatorStyle.Render(" ◀"))
 			} else {
 				// Add invisible spacers to maintain consistent width
-				tagDisplay.WriteString(" ")
+				tagDisplay.WriteString("  ")
 				tagDisplay.WriteString(style.Render(tag))
-				tagDisplay.WriteString(" ")
+				tagDisplay.WriteString("  ")
 			}
 			
 			// Add space between tags
@@ -2510,9 +2510,9 @@ func (m *MainListModel) tagEditView() string {
 				indicatorStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("170")).
 					Bold(true)
-				tagDisplay = indicatorStyle.Render("▶") + tagStyle.Render(tag) + indicatorStyle.Render("◀")
+				tagDisplay = indicatorStyle.Render("▶ ") + tagStyle.Render(tag) + indicatorStyle.Render(" ◀")
 			} else {
-				tagDisplay = " " + tagStyle.Render(tag) + " "
+				tagDisplay = "  " + tagStyle.Render(tag) + "  "
 			}
 			
 			tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
