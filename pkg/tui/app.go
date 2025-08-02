@@ -263,8 +263,12 @@ func (a *App) View() string {
 			title = "Welcome to ✦ Pluqqy ✦"
 		}
 	case pipelineBuilderView:
-		if a.builder != nil && a.builder.pipeline != nil {
-			title = "Pipeline: " + a.builder.pipeline.Name
+		if a.builder != nil {
+			if a.builder.editingTags {
+				title = "Tag Editor"
+			} else if a.builder.pipeline != nil {
+				title = "Pipeline: " + a.builder.pipeline.Name
+			}
 		}
 	case pipelineViewerView:
 		if a.viewer != nil && a.viewer.pipeline != nil {

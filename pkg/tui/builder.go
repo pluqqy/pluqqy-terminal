@@ -2857,14 +2857,31 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		return m, nil
 		
 	case "left", "h":
-		if !m.tagCloudActive && m.tagInput == "" && m.tagCursor > 0 {
-			m.tagCursor--
+		if m.tagCloudActive {
+			// Navigate in tag cloud
+			if m.tagCloudCursor > 0 {
+				m.tagCloudCursor--
+			}
+		} else {
+			// Move cursor left in current tags
+			if m.tagInput == "" && m.tagCursor > 0 {
+				m.tagCursor--
+			}
 		}
 		return m, nil
 		
 	case "right", "l":
-		if !m.tagCloudActive && m.tagInput == "" && m.tagCursor < len(m.currentTags) {
-			m.tagCursor++
+		if m.tagCloudActive {
+			// Navigate in tag cloud
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor < len(availableForSelection)-1 {
+				m.tagCloudCursor++
+			}
+		} else {
+			// Move cursor right in current tags
+			if m.tagInput == "" && m.tagCursor < len(m.currentTags)-1 {
+				m.tagCursor++
+			}
 		}
 		return m, nil
 		
@@ -2883,6 +2900,7 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		
 	case "ctrl+d":
 		if m.tagCloudActive {
+			// In tag cloud: delete from registry (project-wide)
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
 				m.deletingTag = availableForSelection[m.tagCloudCursor]
@@ -2891,10 +2909,13 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 				m.confirmingTagDelete = true
 			}
 		} else if m.tagInput == "" && m.tagCursor < len(m.currentTags) {
-			m.deletingTag = m.currentTags[m.tagCursor]
-			usage := m.getTagUsage(m.deletingTag)
-			m.deletingTagUsage = usage
-			m.confirmingTagDelete = true
+			// In current tags: just remove from component
+			if m.tagCursor < len(m.currentTags) {
+				m.currentTags = append(m.currentTags[:m.tagCursor], m.currentTags[m.tagCursor+1:]...)
+				if m.tagCursor >= len(m.currentTags) && m.tagCursor > 0 {
+					m.tagCursor--
+				}
+			}
 		}
 		return m, nil
 		
@@ -3224,17 +3245,6 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) tagEditView() string {
-	// Main view title
-	mainTitleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214")).
-		Padding(1, 0)
-	
-	// Build the main title bar
-	var titleBar strings.Builder
-	titleBar.WriteString(mainTitleStyle.Render("TAG EDITOR"))
-	titleBar.WriteString("\n\n")
-	
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	inputStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Padding(0, 1).Width(40)
 	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
@@ -3242,7 +3252,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	
 	// Calculate dimensions for side-by-side layout
 	paneWidth := (m.width - 6) / 2 // Same calculation as main list view
-	paneHeight := m.height - 14 // Adjust for title bar and help
+	paneHeight := m.height - 10 // Leave room for help pane
 	headerPadding := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
 	var mainContent strings.Builder
@@ -3544,10 +3554,6 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	var s strings.Builder
 	contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
-	// Add the title bar first with padding
-	s.WriteString(contentStyle.Render(titleBar.String()))
-	
-	// Then the main content
 	s.WriteString(contentStyle.Render(mainView))
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
