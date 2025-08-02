@@ -2616,9 +2616,23 @@ func (m *MainListModel) tagEditView() string {
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	// Dynamic styles based on which pane is active
+	mainHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if !m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	mainColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if !m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
+	mainContent.WriteString(headerPadding.Render(mainHeaderStyle.Render(heading) + " " + mainColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 	
 	// Current tags
@@ -2755,7 +2769,23 @@ func (m *MainListModel) tagEditView() string {
 	if tagCloudRemainingWidth < 0 {
 		tagCloudRemainingWidth = 0
 	}
-	tagCloudContent.WriteString(headerPadding.Render(titleStyle.Render(tagCloudTitle) + " " + colonStyle.Render(strings.Repeat(":", tagCloudRemainingWidth))))
+	// Dynamic styles based on which pane is active
+	tagCloudHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	tagCloudColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
+	tagCloudContent.WriteString(headerPadding.Render(tagCloudHeaderStyle.Render(tagCloudTitle) + " " + tagCloudColonStyle.Render(strings.Repeat(":", tagCloudRemainingWidth))))
 	tagCloudContent.WriteString("\n\n")
 	
 	// Display available tags

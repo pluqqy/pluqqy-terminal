@@ -3387,7 +3387,6 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) tagEditView() string {
-	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("170")) // Purple for active single pane
 	inputStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Padding(0, 1).Width(40)
 	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
@@ -3412,8 +3411,23 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
 	remainingWidth := paneWidth - len(heading) - 7
 	if remainingWidth < 0 { remainingWidth = 0 }
-	colonStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")) // Purple for active single pane
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	// Dynamic styles based on which pane is active
+	mainHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if !m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	mainColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if !m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
+	mainContent.WriteString(headerPadding.Render(mainHeaderStyle.Render(heading) + " " + mainColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 	
 	mainContent.WriteString(headerPadding.Render("Current tags:\n"))
@@ -3529,7 +3543,23 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	if availableTagsRemainingWidth < 0 {
 		availableTagsRemainingWidth = 0
 	}
-	rightContent.WriteString(headerPadding.Render(titleStyle.Render(availableTagsTitle) + " " + colonStyle.Render(strings.Repeat(":", availableTagsRemainingWidth))))
+	// Dynamic styles based on which pane is active
+	tagCloudHeaderStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color(func() string {
+			if m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "214" // Orange when inactive
+		}()))
+	tagCloudColonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(func() string {
+			if m.tagCloudActive {
+				return "170" // Purple when active
+			}
+			return "240" // Gray when inactive
+		}()))
+	rightContent.WriteString(headerPadding.Render(tagCloudHeaderStyle.Render(availableTagsTitle) + " " + tagCloudColonStyle.Render(strings.Repeat(":", availableTagsRemainingWidth))))
 	rightContent.WriteString("\n\n")
 	
 	// Always display available tags
