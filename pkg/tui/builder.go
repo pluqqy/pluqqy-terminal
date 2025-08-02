@@ -3224,13 +3224,24 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) tagEditView() string {
+	// Main view title
+	mainTitleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")).
+		Padding(1, 0)
+	
+	// Build the main title bar
+	var titleBar strings.Builder
+	titleBar.WriteString(mainTitleStyle.Render("TAG EDITOR"))
+	titleBar.WriteString("\n\n")
+	
 	titleStyle := lipgloss.NewStyle().Bold(true).Foreground(lipgloss.Color("214"))
 	inputStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("170")).Padding(0, 1).Width(40)
 	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
 	
 	paneWidth := (m.width - 6) / 2
-	paneHeight := m.height - 10
+	paneHeight := m.height - 14 // Adjust for title bar
 	headerPadding := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
 	var mainContent strings.Builder
@@ -3318,15 +3329,39 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	}
 	mainContent.WriteString("\n\n")
 	
-	mainContent.WriteString(headerPadding.Render("Add new tag:\n"))
-	input := m.tagInput
+	mainContent.WriteString(headerPadding.Render("Add new tag:"))
+	mainContent.WriteString("\n")
+	
+	// Create input display with cursor
+	cursorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("170")).
+		Bold(true)
+	
+	inputDisplay := m.tagInput
 	if !m.tagCloudActive && m.tagInput != "" {
-		input = m.tagInput + "│"
-	} else if !m.tagCloudActive && m.tagInput == "" {
-		// Show cursor when input is empty and left pane is active
-		input = "│"
+		// Add cursor to existing input when active
+		inputDisplay = m.tagInput + cursorStyle.Render("│")
 	}
-	mainContent.WriteString(headerPadding.Render(inputStyle.Render(input)))
+	
+	// Show placeholder if empty
+	if m.tagInput == "" {
+		placeholderStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241")).
+			Italic(true)
+		if !m.tagCloudActive {
+			inputDisplay = placeholderStyle.Render("Type to add a new tag...") + cursorStyle.Render("│")
+		} else {
+			inputDisplay = placeholderStyle.Render("Type to add a new tag...")
+		}
+	}
+	
+	// Highlight input border when active
+	activeInputStyle := inputStyle
+	if !m.tagCloudActive {
+		activeInputStyle = inputStyle.BorderForeground(lipgloss.Color("170"))
+	}
+	
+	mainContent.WriteString(headerPadding.Render(activeInputStyle.Render(inputDisplay)))
 	
 	if m.showTagSuggestions && len(m.availableTags) > 0 {
 		mainContent.WriteString("\n\n")
@@ -3417,8 +3452,10 @@ func (m *PipelineBuilderModel) tagEditView() string {
 				currentRowWidth = 0
 			}
 			
+			if rowTags > 0 && i > 0 {
+				tagRows.WriteString("  ")
+			}
 			tagRows.WriteString(tagDisplay)
-			tagRows.WriteString("  ")
 			currentRowWidth += tagWidth + 2
 			rowTags++
 		}
@@ -3448,6 +3485,11 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	
 	var s strings.Builder
 	contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
+	
+	// Add the title bar first
+	s.WriteString(contentStyle.Render(titleBar.String()))
+	
+	// Then the main content
 	s.WriteString(contentStyle.Render(mainView))
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
