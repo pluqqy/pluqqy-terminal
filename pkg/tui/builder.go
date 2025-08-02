@@ -475,11 +475,12 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "tab":
-			// Switch between columns
+			// Switch between content columns only (no search)
 			if m.showPreview {
-				// When preview is shown, cycle through all panes
+				// When preview is shown, cycle through content panes
 				switch m.activeColumn {
 				case searchColumn:
+					// If in search, exit to left column
 					m.activeColumn = leftColumn
 					m.searchBar.SetActive(false)
 				case leftColumn:
@@ -490,13 +491,13 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case rightColumn:
 					m.activeColumn = previewColumn
 				case previewColumn:
-					m.activeColumn = searchColumn
-					m.searchBar.SetActive(true)
+					m.activeColumn = leftColumn
 				}
 			} else {
-				// When preview is hidden, cycle through search, left and right
+				// When preview is hidden, cycle between left and right
 				switch m.activeColumn {
 				case searchColumn:
+					// If in search, exit to left column
 					m.activeColumn = leftColumn
 					m.searchBar.SetActive(false)
 				case leftColumn:
@@ -505,8 +506,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.rightCursor = 0
 					m.rightViewport.GotoTop()
 				case rightColumn:
-					m.activeColumn = searchColumn
-					m.searchBar.SetActive(true)
+					m.activeColumn = leftColumn
 				}
 			}
 			// Update preview when switching to non-preview column

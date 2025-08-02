@@ -567,11 +567,12 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		
 		case "tab":
-			// Switch between panes including search
+			// Switch between content panes only (no search)
 			if m.showPreview {
-				// When preview is shown, cycle through all panes
+				// When preview is shown, cycle through content panes
 				switch m.activePane {
 				case searchPane:
+					// If in search, exit to components
 					m.activePane = componentsPane
 					m.searchBar.SetActive(false)
 				case componentsPane:
@@ -579,20 +580,19 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case pipelinesPane:
 					m.activePane = previewPane
 				case previewPane:
-					m.activePane = searchPane
-					m.searchBar.SetActive(true)
+					m.activePane = componentsPane
 				}
 			} else {
-				// When preview is hidden, cycle through search, components, and pipelines
+				// When preview is hidden, cycle between components and pipelines
 				switch m.activePane {
 				case searchPane:
+					// If in search, exit to components
 					m.activePane = componentsPane
 					m.searchBar.SetActive(false)
 				case componentsPane:
 					m.activePane = pipelinesPane
 				case pipelinesPane:
-					m.activePane = searchPane
-					m.searchBar.SetActive(true)
+					m.activePane = componentsPane
 				}
 			}
 			// Update preview when switching to non-preview pane
