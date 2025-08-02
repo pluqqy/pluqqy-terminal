@@ -2232,7 +2232,7 @@ func (m *MainListModel) tagEditView() string {
 		Foreground(lipgloss.Color("170"))
 		
 	// Calculate dimensions for side-by-side layout
-	totalWidth := m.width - 4
+	totalWidth := m.width - 6 // -6 to account for contentStyle padding (2) and proper alignment with help pane
 	paneWidth := (totalWidth - 2) / 2 // -2 for gap between panes
 	paneHeight := m.height - 10 // Leave room for help pane
 	
