@@ -22,6 +22,7 @@ const (
 // SearchItem represents a searchable item
 type SearchItem struct {
 	Type       ItemType
+	SubType    string   // For components: "prompts", "contexts", "rules"
 	Path       string
 	Name       string
 	Tags       []string
@@ -94,6 +95,7 @@ func (e *Engine) BuildIndex() error {
 			
 			item := SearchItem{
 				Type:     ItemTypeComponent,
+				SubType:  compType,
 				Path:     compPath,
 				Name:     strings.TrimSuffix(compFile, ".md"),
 				Tags:     comp.Tags,
@@ -229,46 +231,50 @@ func (e *Engine) evaluateCondition(condition Condition) []int {
 	case FieldTypeField:
 		typeStr := strings.ToLower(condition.Value.(string))
 		
-		// First try exact match with aliases
-		exactType := typeStr
-		switch typeStr {
-		case "prompt", "prompts":
-			exactType = "component"
-		case "context", "contexts":
-			exactType = "component"
-		case "rules", "rule":
-			exactType = "component"
+		// Check if it's a component subtype search
+		componentSubtypes := map[string]string{
+			"prompt": "prompts",
+			"prompts": "prompts",
+			"context": "contexts",
+			"contexts": "contexts",
+			"rule": "rules",
+			"rules": "rules",
 		}
 		
-		// If exact match exists, use it
-		if indices, exists := e.index.typeIndex[exactType]; exists {
-			matches = indices
-		} else {
-			// Otherwise, support partial matching
-			for itemType, indices := range e.index.typeIndex {
-				if strings.HasPrefix(itemType, typeStr) {
-					matches = append(matches, indices...)
+		if subtype, isComponentSubtype := componentSubtypes[typeStr]; isComponentSubtype {
+			// Search for specific component subtype
+			for i, item := range e.index.items {
+				if item.Type == ItemTypeComponent && item.SubType == subtype {
+					matches = append(matches, i)
 				}
 			}
-			// Also check aliases for partial matching
-			aliases := map[string]string{
-				"prompt": "component",
-				"prompts": "component",
-				"context": "component",
-				"contexts": "component",
-				"rules": "component",
-				"rule": "component",
-				"pipeline": "pipeline",
-				"pipelines": "pipeline",
-				"pipe": "pipeline",
-				"comp": "component",
-				"components": "component",
+		} else if typeStr == "pipeline" || typeStr == "pipelines" || strings.HasPrefix("pipeline", typeStr) {
+			// Search for pipelines
+			if indices, exists := e.index.typeIndex[string(ItemTypePipeline)]; exists {
+				matches = indices
 			}
-			for alias, actualType := range aliases {
-				if strings.HasPrefix(alias, typeStr) {
-					if indices, exists := e.index.typeIndex[actualType]; exists {
-						matches = append(matches, indices...)
+		} else if typeStr == "component" || typeStr == "components" || strings.HasPrefix("component", typeStr) {
+			// Search for all components
+			if indices, exists := e.index.typeIndex[string(ItemTypeComponent)]; exists {
+				matches = indices
+			}
+		} else {
+			// Partial matching for component subtypes
+			for i, item := range e.index.items {
+				if item.Type == ItemTypeComponent {
+					// Check if any component subtype starts with the search term
+					for alias, subtype := range componentSubtypes {
+						if strings.HasPrefix(alias, typeStr) && item.SubType == subtype {
+							matches = append(matches, i)
+							break
+						}
 					}
+				}
+			}
+			// Also check for partial pipeline matches
+			if strings.HasPrefix("pipeline", typeStr) {
+				if indices, exists := e.index.typeIndex[string(ItemTypePipeline)]; exists {
+					matches = append(matches, indices...)
 				}
 			}
 			// Remove duplicates
