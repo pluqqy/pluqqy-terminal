@@ -1298,21 +1298,36 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// Help text in bordered pane
-	help := []string{
-		"/ search",
-		"tab switch pane",
-		"↑/↓ nav",
-		"enter add/remove",
-		"n new",
-		"e edit",
-		"E edit external",
-		"del remove",
-		"K/J reorder",
-		"p preview",
-		"ctrl+s save",
-		"S save+set",
-		"esc back",
-		"ctrl+c quit",
+	var help []string
+	if m.activeColumn == searchColumn {
+		// Show search syntax help when search is active
+		help = []string{
+			"esc exit search",
+			"enter search",
+			"tag:<name>",
+			"type:<type>",
+			"pipeline:<name>",
+			"<keyword>",
+			"combine with spaces",
+		}
+	} else {
+		// Show normal navigation help
+		help = []string{
+			"/ search",
+			"tab switch pane",
+			"↑/↓ nav",
+			"enter add/remove",
+			"n new",
+			"e edit",
+			"E edit external",
+			"del remove",
+			"K/J reorder",
+			"p preview",
+			"ctrl+s save",
+			"S save+set",
+			"esc back",
+			"ctrl+c quit",
+		}
 	}
 	
 	helpBorderStyle := lipgloss.NewStyle().
