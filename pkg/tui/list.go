@@ -1122,8 +1122,8 @@ func (m *MainListModel) View() string {
 		}
 		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
 		
-		tokenPart := fmt.Sprintf("%-*s", tokenWidth, tokenStr)
-		usagePart := fmt.Sprintf("%-*s", usageWidth, usageStr)
+		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
+		usagePart := fmt.Sprintf("%*s", usageWidth, usageStr)
 		
 		// Join all parts - extra space between tags and tokens
 		row := namePart + " " + tagsPart + "  " + tokenPart + " " + usagePart
