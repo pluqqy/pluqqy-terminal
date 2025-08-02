@@ -825,16 +825,14 @@ func (m *PipelineBuilderModel) View() string {
 		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths (adjusted for left column width)
-	nameWidth := 20
-	tokenWidth := 8  // For "~Tokens" plus padding
-	modifiedWidth := 12
-	usageWidth := 8
+	nameWidth := 25
+	tokenWidth := 10  // For "~Tokens" plus padding
+	usageWidth := 10
 	
 	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s %-*s", 
 		nameWidth, "Name",
 		tokenWidth, "~Tokens",
-		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
 	leftContent.WriteString("\n\n")
@@ -885,17 +883,6 @@ func (m *PipelineBuilderModel) View() string {
 			nameStr = nameStr + " ✓"
 		}
 		
-		// Format modified time
-		modifiedStr := ""
-		if !comp.lastModified.IsZero() {
-			if time.Since(comp.lastModified) < 24*time.Hour {
-				modifiedStr = comp.lastModified.Format("15:04")
-			} else if time.Since(comp.lastModified) < 7*24*time.Hour {
-				modifiedStr = comp.lastModified.Format("Mon 15:04")
-			} else {
-				modifiedStr = comp.lastModified.Format("Jan 02")
-			}
-		}
 		
 		// Format usage count with visual indicator
 		usageStr := fmt.Sprintf("%d", comp.usageCount)
@@ -914,11 +901,10 @@ func (m *PipelineBuilderModel) View() string {
 		// Format token count - right-aligned with consistent width
 		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
 		
-		// Build the row with extra padding between token and modified
-		row := fmt.Sprintf("%-*s %*s  %-*s %-*s",
+		// Build the row with extra padding between token and usage
+		row := fmt.Sprintf("%-*s %*s  %-*s",
 			nameWidth, nameStr,
 			tokenWidth-1, tokenStr,  // -1 to account for the space before it
-			modifiedWidth, modifiedStr,
 			usageWidth, usageStr)
 		
 		// Apply cursor if needed

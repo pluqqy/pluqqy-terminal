@@ -6,7 +6,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/textinput"
@@ -1027,18 +1026,16 @@ func (m *MainListModel) View() string {
 		Foreground(lipgloss.Color("241"))
 	
 	// Table column widths (adjusted for column width)
-	nameWidth := 18
-	tagsWidth := 15
-	tokenWidth := 7  // For "~Tokens" plus padding
-	modifiedWidth := 10
-	usageWidth := 8
+	nameWidth := 22
+	tagsWidth := 18
+	tokenWidth := 8  // For "~Tokens" plus padding
+	usageWidth := 10
 	
 	// Render table header with 2-space shift
-	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s %-*s", 
+	header := fmt.Sprintf("  %-*s %-*s %-*s %-*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
 		tokenWidth, "~Tokens",
-		modifiedWidth, "Modified",
 		usageWidth, "Usage")
 	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
 	leftContent.WriteString("\n\n")
@@ -1104,17 +1101,6 @@ func (m *MainListModel) View() string {
 			nameStr = nameStr[:nameWidth-6] + "..."
 		}
 		
-		// Format modified time
-		modifiedStr := ""
-		if !comp.lastModified.IsZero() {
-			if time.Since(comp.lastModified) < 24*time.Hour {
-				modifiedStr = comp.lastModified.Format("15:04")
-			} else if time.Since(comp.lastModified) < 7*24*time.Hour {
-				modifiedStr = comp.lastModified.Format("Mon 15:04")
-			} else {
-				modifiedStr = comp.lastModified.Format("Jan 02")
-			}
-		}
 		
 		// Format usage count with visual indicator
 		usageStr := fmt.Sprintf("%d", comp.usageCount)
@@ -1157,11 +1143,10 @@ func (m *MainListModel) View() string {
 		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
 		
 		tokenPart := fmt.Sprintf("%-*s", tokenWidth, tokenStr)
-		modifiedPart := fmt.Sprintf("%-*s", modifiedWidth, modifiedStr)
 		usagePart := fmt.Sprintf("%-*s", usageWidth, usageStr)
 		
 		// Join all parts
-		row := namePart + " " + tagsPart + " " + tokenPart + "  " + modifiedPart + " " + usagePart
+		row := namePart + " " + tagsPart + " " + tokenPart + "  " + usagePart
 		
 		// Apply cursor if needed
 		if m.activePane == componentsPane && i == m.componentCursor {
