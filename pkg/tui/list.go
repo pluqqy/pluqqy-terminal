@@ -2232,8 +2232,7 @@ func (m *MainListModel) tagEditView() string {
 		Foreground(lipgloss.Color("170"))
 		
 	// Calculate dimensions for side-by-side layout
-	totalWidth := m.width - 6 // -6 to account for contentStyle padding (2) and proper alignment with help pane
-	paneWidth := (totalWidth - 2) / 2 // -2 for gap between panes
+	paneWidth := (m.width - 6) / 2 // Same calculation as main list view columns
 	paneHeight := m.height - 10 // Leave room for help pane
 	
 	// Header padding
@@ -2287,7 +2286,7 @@ func (m *MainListModel) tagEditView() string {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("196")) // Red border for deletion
 		mainPane := confirmBorderStyle.
-			Width(totalWidth).
+			Width(m.width - 4). // Use full width minus padding, like help pane
 			Height(paneHeight).
 			Render(mainContent.String())
 			
@@ -2578,7 +2577,7 @@ func (m *MainListModel) tagEditView() string {
 	sideBySide := lipgloss.JoinHorizontal(
 		lipgloss.Top,
 		mainPane,
-		"  ", // Gap between panes
+		" ", // Single space gap, same as main list view
 		tagCloudPane,
 	)
 
