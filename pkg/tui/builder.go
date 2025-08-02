@@ -16,6 +16,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/tags"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
@@ -70,6 +71,20 @@ type PipelineBuilderModel struct {
 	editingComponentPath  string
 	editingComponentName  string
 	editSaveMessage       string
+	
+	// Tag editing state
+	editingTags           bool
+	editingTagsPath       string
+	currentTags           []string
+	tagInput              string
+	tagCursor             int
+	availableTags         []string
+	showTagSuggestions    bool
+	tagCloudActive        bool
+	tagCloudCursor        int
+	confirmingTagDelete   bool
+	deletingTag           string
+	deletingTagUsage      []string
 	editSaveTimer         *time.Timer
 	editViewport          viewport.Model
 	
@@ -408,6 +423,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleComponentEditing(msg)
 		}
 		
+		// Handle tag editing mode
+		if m.editingTags {
+			return m.handleTagEditing(msg)
+		}
+		
 		// Handle name editing mode
 		if m.editingName {
 			switch msg.String() {
@@ -589,6 +609,15 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.showPreview {
 				m.updatePreview()
 			}
+		case "t":
+			// Edit tags for component
+			if m.activeColumn == leftColumn {
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					m.startTagEditing(comp.path, comp.tags)
+				}
+			}
 		case "/":
 			// Jump to search
 			m.activeColumn = searchColumn
@@ -758,6 +787,11 @@ func (m *PipelineBuilderModel) View() string {
 	// If editing component, show edit view
 	if m.editingComponent {
 		return m.componentEditView()
+	}
+	
+	// If editing tags, show tag edit view
+	if m.editingTags {
+		return m.tagEditView()
 	}
 	
 	// If editing name, show name input screen
@@ -1320,6 +1354,7 @@ func (m *PipelineBuilderModel) View() string {
 			"n new",
 			"e edit",
 			"E edit external",
+			"t tag edit",
 			"del remove",
 			"K/J reorder",
 			"p preview",
@@ -2765,6 +2800,121 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 	return m, nil
 }
 
+func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		// Cancel tag editing
+		m.editingTags = false
+		m.tagInput = ""
+		m.currentTags = nil
+		m.showTagSuggestions = false
+		m.tagCloudActive = false
+		m.tagCloudCursor = 0
+		return m, nil
+		
+	case "ctrl+s":
+		// Save tags
+		return m, m.saveTags()
+		
+	case "enter":
+		if m.tagCloudActive {
+			// Add tag from cloud
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
+				tag := availableForSelection[m.tagCloudCursor]
+				if !m.hasTag(tag) {
+					m.currentTags = append(m.currentTags, tag)
+				}
+			}
+		} else {
+			// Add tag from input
+			if m.tagInput != "" {
+				// Normalize the tag
+				normalized := models.NormalizeTagName(m.tagInput)
+				if normalized != "" && !m.hasTag(normalized) {
+					m.currentTags = append(m.currentTags, normalized)
+				}
+				m.tagInput = ""
+				m.tagCursor = 0
+			}
+		}
+		return m, nil
+		
+	case "tab":
+		// Toggle tag cloud
+		m.tagCloudActive = !m.tagCloudActive
+		if m.tagCloudActive {
+			m.tagCloudCursor = 0
+		}
+		return m, nil
+		
+	case "backspace":
+		if !m.tagCloudActive && m.tagInput == "" && len(m.currentTags) > 0 {
+			// Remove last tag
+			m.currentTags = m.currentTags[:len(m.currentTags)-1]
+		} else if !m.tagCloudActive && len(m.tagInput) > 0 {
+			// Remove character from input
+			m.tagInput = m.tagInput[:len(m.tagInput)-1]
+			m.tagCursor--
+		}
+		return m, nil
+		
+	case "delete":
+		if m.tagCloudActive {
+			// Delete selected tag from current tags
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
+				tagToRemove := availableForSelection[m.tagCloudCursor]
+				newTags := []string{}
+				for _, tag := range m.currentTags {
+					if tag != tagToRemove {
+						newTags = append(newTags, tag)
+					}
+				}
+				m.currentTags = newTags
+			}
+		}
+		return m, nil
+		
+	case "up", "k":
+		if m.tagCloudActive {
+			if m.tagCloudCursor > 0 {
+				m.tagCloudCursor--
+			}
+		}
+		return m, nil
+		
+	case "down", "j":
+		if m.tagCloudActive {
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor < len(availableForSelection)-1 {
+				m.tagCloudCursor++
+			}
+		}
+		return m, nil
+		
+	default:
+		if !m.tagCloudActive && msg.Type == tea.KeyRunes {
+			// Add character to input
+			m.tagInput += string(msg.Runes)
+			m.tagCursor = len(m.tagInput)
+		}
+	}
+	
+	return m, nil
+}
+
+func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
+	// Filter out tags already in currentTags
+	available := []string{}
+	for _, tag := range m.availableTags {
+		if !m.hasTag(tag) {
+			available = append(available, tag)
+		}
+	}
+	return available
+}
+
 func (m *PipelineBuilderModel) componentEditView() string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
@@ -2919,4 +3069,247 @@ func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
 			return clearEditSaveMsg{}
 		}
 	}
+}
+
+func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string) {
+	m.editingTags = true
+	m.editingTagsPath = path
+	m.currentTags = make([]string, len(currentTags))
+	copy(m.currentTags, currentTags)
+	m.tagInput = ""
+	m.tagCursor = 0
+	m.showTagSuggestions = false
+	m.tagCloudActive = false
+	m.tagCloudCursor = 0
+	
+	// Load available tags
+	m.loadAvailableTags()
+}
+
+func (m *PipelineBuilderModel) loadAvailableTags() {
+	// Get all tags from registry
+	registry, err := tags.NewRegistry()
+	if err != nil {
+		m.availableTags = []string{}
+		return
+	}
+	
+	allTags := registry.ListTags()
+	m.availableTags = make([]string, 0, len(allTags))
+	for _, tag := range allTags {
+		m.availableTags = append(m.availableTags, tag.Name)
+	}
+	
+	// Also add tags that exist in components but not in registry
+	seenTags := make(map[string]bool)
+	for _, tag := range m.availableTags {
+		seenTags[tag] = true
+	}
+	
+	// Add tags from all components
+	allComponents := m.getAllAvailableComponents()
+	for _, comp := range allComponents {
+		for _, tag := range comp.tags {
+			normalized := models.NormalizeTagName(tag)
+			if !seenTags[normalized] {
+				m.availableTags = append(m.availableTags, normalized)
+				seenTags[normalized] = true
+			}
+		}
+	}
+}
+
+func (m *PipelineBuilderModel) hasTag(tag string) bool {
+	for _, t := range m.currentTags {
+		if strings.EqualFold(t, tag) {
+			return true
+		}
+	}
+	return false
+}
+
+func (m *PipelineBuilderModel) saveTags() tea.Cmd {
+	return func() tea.Msg {
+		// Update component tags
+		err := files.UpdateComponentTags(m.editingTagsPath, m.currentTags)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to save tags: %v", err))
+		}
+		
+		// Exit tag editing mode
+		m.editingTags = false
+		m.tagInput = ""
+		m.currentTags = nil
+		m.showTagSuggestions = false
+		m.tagCloudActive = false
+		m.tagCloudCursor = 0
+		
+		// Reload components to reflect the changes
+		m.loadAvailableComponents()
+		
+		// Update filtered components if search is active
+		if m.searchQuery != "" {
+			m.performSearch()
+		}
+		
+		return StatusMsg("✓ Tags saved")
+	}
+}
+
+func (m *PipelineBuilderModel) tagEditView() string {
+	// Styles
+	titleStyle := lipgloss.NewStyle().
+		Bold(true).
+		Foreground(lipgloss.Color("214")) // Orange like other headers
+	inputStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("255"))
+	tagStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("170")).
+		Bold(true)
+	helpStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241"))
+	borderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("170"))
+	
+	// Calculate dimensions
+	contentWidth := m.width - 4
+	contentHeight := m.height - 10 // Reserve space for help pane
+	
+	// Build main content
+	var mainContent strings.Builder
+	
+	// Header
+	headerPadding := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	// Get component name
+	components := m.getAllAvailableComponents()
+	itemName := ""
+	if m.leftCursor >= 0 && m.leftCursor < len(components) {
+		itemName = components[m.leftCursor].name
+	}
+	
+	heading := fmt.Sprintf("EDIT TAGS: %s", itemName)
+	remainingWidth := contentWidth - len(heading) - 5
+	if remainingWidth < 0 {
+		remainingWidth = 0
+	}
+	colonStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240"))
+	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
+	mainContent.WriteString("\n\n")
+	
+	// Current tags
+	mainContent.WriteString(headerPadding.Render("Current tags:"))
+	mainContent.WriteString("\n")
+	if len(m.currentTags) > 0 {
+		tagChips := renderTagChips(m.currentTags, 999) // Show all tags
+		mainContent.WriteString(headerPadding.Render("  " + tagChips))
+	} else {
+		mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(no tags)")))
+	}
+	mainContent.WriteString("\n\n")
+	
+	// Input field
+	if !m.tagCloudActive {
+		mainContent.WriteString(headerPadding.Render("Add tag:"))
+		mainContent.WriteString("\n")
+		input := m.tagInput
+		if m.tagCursor < len(m.tagInput) {
+			input = m.tagInput[:m.tagCursor] + "│" + m.tagInput[m.tagCursor:]
+		} else {
+			input = m.tagInput + "│"
+		}
+		mainContent.WriteString(headerPadding.Render("  " + inputStyle.Render(input)))
+		mainContent.WriteString("\n\n")
+	}
+	
+	// Tag cloud
+	mainContent.WriteString(headerPadding.Render("Available tags " + helpStyle.Render("(tab to toggle, enter to add, delete to remove):")))
+	mainContent.WriteString("\n")
+	
+	if m.tagCloudActive {
+		availableForSelection := m.getAvailableTagsForCloud()
+		if len(availableForSelection) > 0 {
+			// Display tags in a grid
+			tagsPerRow := 5
+			for i := 0; i < len(availableForSelection); i += tagsPerRow {
+				rowContent := "  "
+				for j := 0; j < tagsPerRow && i+j < len(availableForSelection); j++ {
+					tag := availableForSelection[i+j]
+					
+					// Check if this tag is selected
+					isSelected := i+j == m.tagCloudCursor
+					
+					// Render tag
+					var tagDisplay string
+					if isSelected {
+						selectedStyle := lipgloss.NewStyle().
+							Background(lipgloss.Color("170")).
+							Foreground(lipgloss.Color("235")).
+							Bold(true).
+							Padding(0, 1)
+						tagDisplay = selectedStyle.Render(tag)
+					} else {
+						// Check if tag is already in currentTags
+						hasTag := m.hasTag(tag)
+						if hasTag {
+							dimStyle := lipgloss.NewStyle().
+								Foreground(lipgloss.Color("242"))
+							tagDisplay = dimStyle.Render(tag)
+						} else {
+							tagDisplay = tagStyle.Render(tag)
+						}
+					}
+					
+					rowContent += fmt.Sprintf("%-20s", tagDisplay)
+				}
+				mainContent.WriteString(headerPadding.Render(rowContent))
+				mainContent.WriteString("\n")
+			}
+		} else {
+			mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(no available tags)")))
+		}
+	} else {
+		mainContent.WriteString(headerPadding.Render("  " + helpStyle.Render("(press tab to show tag cloud)")))
+	}
+	
+	// Apply border to main content
+	mainPane := borderStyle.
+		Width(contentWidth).
+		Height(contentHeight).
+		Render(mainContent.String())
+	
+	// Help section
+	help := []string{
+		"ctrl+s save",
+		"esc cancel",
+		"tab toggle cloud",
+		"enter add tag",
+		"backspace remove",
+	}
+	
+	helpBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("240")).
+		Width(m.width - 4).
+		Padding(0, 1)
+	
+	helpContent := formatHelpText(help)
+	
+	// Combine all elements
+	var s strings.Builder
+	
+	// Add padding around content
+	contentStyle := lipgloss.NewStyle().
+		PaddingLeft(1).
+		PaddingRight(1)
+	
+	s.WriteString(contentStyle.Render(mainPane))
+	s.WriteString("\n")
+	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+	
+	return s.String()
 }
