@@ -3240,8 +3240,9 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	suggestionStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
 	
-	paneWidth := (m.width - 6) / 2
-	paneHeight := m.height - 14 // Adjust for title bar
+	// Calculate dimensions for side-by-side layout
+	paneWidth := (m.width - 6) / 2 // Same calculation as main list view
+	paneHeight := m.height - 14 // Adjust for title bar and help
 	headerPadding := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
 	var mainContent strings.Builder
@@ -3543,7 +3544,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	var s strings.Builder
 	contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 	
-	// Add the title bar first
+	// Add the title bar first with padding
 	s.WriteString(contentStyle.Render(titleBar.String()))
 	
 	// Then the main content
