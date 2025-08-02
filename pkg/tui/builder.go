@@ -3467,10 +3467,11 @@ func (m *PipelineBuilderModel) tagEditView() string {
 					Bold(true)
 				tagDisplay = indicatorStyle.Render("▶ ") + tagStyle.Render(tag) + indicatorStyle.Render(" ◀")
 			} else {
-				tagDisplay = tagStyle.Render(tag)
+				// Add invisible spacers to maintain consistent width
+				tagDisplay = "  " + tagStyle.Render(tag) + "  "
 			}
 			
-			tagWidth := lipgloss.Width(tagDisplay)
+			tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
 			
 			// Check if we need to start a new row
 			if rowTags > 0 && currentRowWidth+tagWidth+2 > maxRowWidth {
@@ -3479,7 +3480,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 				currentRowWidth = 0
 			}
 			
-			if rowTags > 0 && i > 0 {
+			if rowTags > 0 {
 				tagRows.WriteString("  ")
 			}
 			tagRows.WriteString(tagDisplay)
