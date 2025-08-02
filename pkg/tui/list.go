@@ -2522,7 +2522,7 @@ func (m *MainListModel) tagEditView() string {
 			
 			// Check if we need a new row
 			if rowTags > 0 && currentRowWidth + tagWidth > maxRowWidth {
-				tagRows.WriteString("\n")
+				tagRows.WriteString("\n\n") // Double newline for vertical spacing
 				rowTags = 0
 				currentRowWidth = 0
 			}

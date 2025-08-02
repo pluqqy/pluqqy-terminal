@@ -254,6 +254,8 @@ func (a *App) View() string {
 				}
 			} else if a.mainList.editingComponent && a.mainList.editingComponentName != "" {
 				title = "Component: " + a.mainList.editingComponentName
+			} else if a.mainList.editingTags {
+				title = "Tag Editor"
 			} else {
 				title = "Welcome to ✦ Pluqqy ✦"
 			}
