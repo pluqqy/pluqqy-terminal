@@ -462,6 +462,7 @@ func (m *SettingsEditorModel) View() string {
 		Width(m.width - 4). // Account for margins
 		Padding(0, 1)
 		
+	// Group help items logically
 	help := []string{
 		"↑/↓ navigate",
 		"J/K move section",
@@ -473,6 +474,12 @@ func (m *SettingsEditorModel) View() string {
 	}
 	
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 	

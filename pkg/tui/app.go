@@ -352,6 +352,44 @@ func formatHelpText(items []string) string {
 	return strings.Join(formatted, separator)
 }
 
+// formatHelpTextRows formats help items in multiple rows with right alignment
+func formatHelpTextRows(rows [][]string, width int) string {
+	shortcutStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("248")) // Brighter grey for shortcuts
+	descStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("241")) // Darker grey for descriptions
+	separator := descStyle.Render(" • ")
+	
+	var lines []string
+	for _, row := range rows {
+		formatted := make([]string, len(row))
+		for i, item := range row {
+			// Find the first space to separate shortcut from description
+			firstSpace := strings.Index(item, " ")
+			if firstSpace > 0 && firstSpace < len(item)-1 {
+				shortcut := item[:firstSpace]
+				desc := item[firstSpace+1:]
+				formatted[i] = shortcutStyle.Render(shortcut) + " " + descStyle.Render(desc)
+			} else {
+				formatted[i] = descStyle.Render(item)
+			}
+		}
+		
+		rowText := strings.Join(formatted, separator)
+		// Right-align the row
+		rowWidth := lipgloss.Width(rowText)
+		if rowWidth < width {
+			padding := width - rowWidth - 2 // -2 for border padding
+			if padding > 0 {
+				rowText = strings.Repeat(" ", padding) + rowText
+			}
+		}
+		lines = append(lines, rowText)
+	}
+	
+	return strings.Join(lines, "\n")
+}
+
 // formatConfirmOptions formats Yes/No options with appropriate styling
 // For destructive actions, Yes gets red background, No gets green
 func formatConfirmOptions(destructive bool) string {

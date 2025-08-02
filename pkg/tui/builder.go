@@ -1338,46 +1338,30 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// Help text in bordered pane
-	var help []string
-	if m.activeColumn == searchColumn {
-		// Show search syntax help when search is active
-		help = []string{
-			"esc exit search",
-			"enter search",
-			"tag:<name>",
-			"type:<type>",
-			"pipeline:<name>",
-			"<keyword>",
-			"combine with spaces",
-		}
-	} else {
-		// Show normal navigation help
-		help = []string{
-			"/ search",
-			"tab switch pane",
-			"↑/↓ nav",
-			"enter add/remove",
-			"n new",
-			"e edit",
-			"E edit external",
-			"t tag",
-			"del remove",
-			"K/J reorder",
-			"p preview",
-			"ctrl+s save",
-			"S save+set",
-			"esc back",
-			"ctrl+c quit",
-		}
-	}
-	
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
 		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
 		Padding(0, 1)  // Internal padding for help text
-		
-	helpContent := formatHelpText(help)
+	
+	var helpContent string
+	if m.activeColumn == searchColumn {
+		// Show search syntax help when search is active
+		helpRows := [][]string{
+			{"esc exit search", "enter search", "tag:<name>", "type:<type>"},
+			{"pipeline:<name>", "<keyword>", "combine with spaces"},
+		}
+		helpContent = formatHelpTextRows(helpRows, m.width - 8)
+	} else {
+		// Show normal navigation help - grouped by function
+		helpRows := [][]string{
+			// Row 1: Navigation & selection
+			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
+			// Row 2: CRUD operations & system
+			{"n new", "e edit", "E external", "t tag", "del remove", "ctrl+s save", "S save+set", "esc back", "ctrl+c quit"},
+		}
+		helpContent = formatHelpTextRows(helpRows, m.width - 8)
+	}
 	
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
@@ -2083,6 +2067,12 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2380,6 +2370,12 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2505,6 +2501,12 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2590,6 +2592,12 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -3139,6 +3147,12 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -3601,6 +3615,12 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	}
 	helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width - 4).Padding(0, 1)
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 	
 	var s strings.Builder
 	contentStyle := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)

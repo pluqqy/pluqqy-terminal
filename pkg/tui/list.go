@@ -763,12 +763,6 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		
-		case "r":
-			// Refresh pipeline list
-			m.loadPipelines()
-			return m, func() tea.Msg {
-				return StatusMsg("Pipeline list refreshed")
-			}
 		
 		case "S":
 			if m.activePane == pipelinesPane {
@@ -1450,46 +1444,30 @@ func (m *MainListModel) View() string {
 	}
 	
 	// Help text in bordered pane
-	var help []string
-	if m.activePane == searchPane {
-		// Show search syntax help when search is active
-		help = []string{
-			"esc exit search",
-			"enter search",
-			"tag:<name>",
-			"type:<type>",
-			"pipeline:<name>",
-			"<keyword>",
-			"combine with spaces",
-		}
-	} else {
-		// Show normal navigation help
-		help = []string{
-			"/ search",
-			"tab switch pane",
-			"↑/↓ nav",
-			"enter view",
-			"e edit",
-			"E edit external",
-			"t tag",
-			"n new",
-			"a archive",
-			"d delete",
-			"S set",
-			"s settings",
-			"p preview",
-			"r refresh",
-			"ctrl+c quit",
-		}
-	}
-	
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
 		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
 		Padding(0, 1)  // Internal padding for help text
-		
-	helpContent := formatHelpText(help)
+	
+	var helpContent string
+	if m.activePane == searchPane {
+		// Show search syntax help when search is active
+		helpRows := [][]string{
+			{"esc exit search", "enter search", "tag:<name>", "type:<type>"},
+			{"pipeline:<name>", "<keyword>", "combine with spaces"},
+		}
+		helpContent = formatHelpTextRows(helpRows, m.width - 8) // -8 for borders and padding
+	} else {
+		// Show normal navigation help - grouped by function
+		helpRows := [][]string{
+			// Row 1: Navigation & viewing
+			{"/ search", "tab switch pane", "↑/↓ nav", "enter view", "p preview"},
+			// Row 2: CRUD operations & system
+			{"n new", "e edit", "E external", "t tag", "d delete", "a archive", "S set", "s settings", "ctrl+c quit"},
+		}
+		helpContent = formatHelpTextRows(helpRows, m.width - 8) // -8 for borders and padding
+	}
 	
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
@@ -2220,6 +2198,12 @@ func (m *MainListModel) componentTypeSelectionView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2345,6 +2329,12 @@ func (m *MainListModel) componentNameInputView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2430,6 +2420,12 @@ func (m *MainListModel) componentContentEditView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
@@ -2815,6 +2811,12 @@ func (m *MainListModel) tagEditView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine panes side by side
 	sideBySide := lipgloss.JoinHorizontal(
@@ -3002,6 +3004,12 @@ func (m *MainListModel) componentEditView() string {
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
+	// Right-align help text
+	alignedHelp := lipgloss.NewStyle().
+		Width(m.width - 8).
+		Align(lipgloss.Right).
+		Render(helpContent)
+	helpContent = alignedHelp
 
 	// Combine all elements
 	var s strings.Builder
