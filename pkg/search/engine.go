@@ -172,15 +172,24 @@ func (e *Engine) Search(queryStr string) ([]SearchResult, error) {
 	e.index.mu.RLock()
 	defer e.index.mu.RUnlock()
 	
-	// Get matching items for each condition
-	var conditionMatches [][]int
-	for _, condition := range query.Conditions {
-		matches := e.evaluateCondition(condition)
-		conditionMatches = append(conditionMatches, matches)
+	// If no conditions (e.g., just "tag:" or empty query), return all items
+	var finalMatches []int
+	if len(query.Conditions) == 0 {
+		// Return all items
+		for i := range e.index.items {
+			finalMatches = append(finalMatches, i)
+		}
+	} else {
+		// Get matching items for each condition
+		var conditionMatches [][]int
+		for _, condition := range query.Conditions {
+			matches := e.evaluateCondition(condition)
+			conditionMatches = append(conditionMatches, matches)
+		}
+		
+		// Combine results based on logical operators
+		finalMatches = e.combineMatches(conditionMatches, query.Logic)
 	}
-	
-	// Combine results based on logical operators
-	finalMatches := e.combineMatches(conditionMatches, query.Logic)
 	
 	// Convert to search results with scoring
 	results := make([]SearchResult, 0, len(finalMatches))

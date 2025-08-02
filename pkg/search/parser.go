@@ -76,7 +76,7 @@ type Parser struct {
 // NewParser creates a new search query parser
 func NewParser() *Parser {
 	return &Parser{
-		fieldPattern:    regexp.MustCompile(`^(\w+):(.+)$`),
+		fieldPattern:    regexp.MustCompile(`^(\w+):(.*)$`),
 		quotedPattern:   regexp.MustCompile(`^"([^"]*)"$`),
 		modifiedPattern: regexp.MustCompile(`^([<>])(\d+)([dwmy])$`),
 	}
@@ -169,8 +169,11 @@ func (p *Parser) parseTokens(tokens []string, query *Query) error {
 			if err != nil {
 				return err
 			}
-			cond.Negate = true
-			query.Conditions = append(query.Conditions, *cond)
+			// Only append if we got a valid condition
+			if cond != nil {
+				cond.Negate = true
+				query.Conditions = append(query.Conditions, *cond)
+			}
 			i += consumed
 			continue
 		}
@@ -181,7 +184,10 @@ func (p *Parser) parseTokens(tokens []string, query *Query) error {
 			if err != nil {
 				return err
 			}
-			query.Conditions = append(query.Conditions, *cond)
+			// Only append if we got a valid condition (not nil for incomplete queries)
+			if cond != nil {
+				query.Conditions = append(query.Conditions, *cond)
+			}
 			i += consumed
 		} else {
 			// Treat as content search
@@ -225,6 +231,20 @@ func (p *Parser) parseCondition(tokens []string) (*Condition, int, error) {
 	value := matches[2]
 	
 	cond := &Condition{}
+	
+	// Handle empty value (incomplete query like "tag:")
+	if value == "" {
+		// Return a special condition that matches everything for that field
+		// This way, typing "tag:" shows all items instead of no results
+		switch field {
+		case "tag", "type", "name", "content", "modified":
+			// Valid field but no value yet - skip creating a condition
+			// This effectively shows all results
+			return nil, 1, nil
+		default:
+			return nil, 0, fmt.Errorf("unknown field: %s", field)
+		}
+	}
 	
 	// Parse field type
 	switch field {
