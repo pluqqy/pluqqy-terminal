@@ -152,9 +152,21 @@ func renderTagChipsWithWidth(tagNames []string, maxWidth int, maxTags int) strin
 		return result
 	}
 	
+	// Reserve space for the "+N" indicator if we have more tags than maxTags
+	reserveForMore := 0
+	if len(tagNames) > maxTags {
+		// Calculate space needed for "+N" indicator
+		moreText := fmt.Sprintf("+%d", len(tagNames)-maxTags)
+		moreStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("241"))
+		moreIndicator := moreStyle.Render(moreText)
+		reserveForMore = lipgloss.Width(moreIndicator) + 1 // +1 for space before indicator
+	}
+	
 	var chips []string
 	currentWidth := 0
 	tagsShown := 0
+	availableWidth := maxWidth - reserveForMore
 	
 	for i, tagName := range tagNames {
 		if tagsShown >= maxTags {
@@ -167,45 +179,56 @@ func renderTagChipsWithWidth(tagNames []string, maxWidth int, maxTags int) strin
 			color = tag.Color
 		}
 		
-		// Truncate individual tag if needed
-		displayName := tagName
-		// Account for padding (2 chars) in chip
-		maxTagWidth := maxWidth - currentWidth - 2
-		if i > 0 {
-			maxTagWidth -= 1 // Space between chips
-		}
-		
-		// If this is the last tag we can show, leave room for "..."
-		if i == maxTags-1 && len(tagNames) > maxTags {
-			maxTagWidth -= 4 // Space + "..."
-		}
-		
-		if len(displayName) > maxTagWidth-2 && maxTagWidth > 5 {
-			displayName = displayName[:maxTagWidth-5] + "..."
-		}
-		
 		// Create compact chip style
 		chipStyle := lipgloss.NewStyle().
 			Background(lipgloss.Color(color)).
 			Foreground(lipgloss.Color("255")).
 			Padding(0, 1)
 		
-		chip := chipStyle.Render(displayName)
-		chipWidth := lipgloss.Width(chip)
-		
-		// Check if adding this chip exceeds width
-		newWidth := currentWidth + chipWidth
+		// Truncate individual tag if needed
+		displayName := tagName
+		maxTagWidth := availableWidth - currentWidth
 		if i > 0 {
-			newWidth += 1 // Space between chips
+			maxTagWidth -= 1 // Space between chips
 		}
 		
-		if newWidth > maxWidth && i > 0 {
-			// Can't fit this chip
+		// Ensure minimum tag width
+		if maxTagWidth < 6 { // Minimum to show "a..." with padding
 			break
 		}
 		
+		// Check if we need to truncate
+		testChip := chipStyle.Render(displayName)
+		testWidth := lipgloss.Width(testChip)
+		
+		if currentWidth + testWidth + (func() int { if i > 0 { return 1 } else { return 0 }}()) > availableWidth {
+			// Need to truncate or skip
+			if maxTagWidth > 8 { // Room for at least "ab..." with padding
+				// Truncate the tag
+				for len(displayName) > 1 {
+					displayName = displayName[:len(displayName)-1]
+					testChip = chipStyle.Render(displayName + "...")
+					testWidth = lipgloss.Width(testChip)
+					if currentWidth + testWidth + (func() int { if i > 0 { return 1 } else { return 0 }}()) <= availableWidth {
+						displayName = displayName + "..."
+						break
+					}
+				}
+			} else {
+				// No room, stop here
+				break
+			}
+		}
+		
+		chip := chipStyle.Render(displayName)
+		chipWidth := lipgloss.Width(chip)
+		
+		// Add the chip
 		chips = append(chips, chip)
-		currentWidth = newWidth
+		currentWidth += chipWidth
+		if i > 0 {
+			currentWidth += 1 // Space between chips
+		}
 		tagsShown++
 	}
 	
