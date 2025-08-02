@@ -2551,7 +2551,7 @@ func (m *MainListModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ navigate",
-			"ctrl+d delete from registry",
+			"ctrl+d delete tag",
 			"ctrl+s save",
 			"esc cancel",
 		}
@@ -2560,7 +2560,7 @@ func (m *MainListModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ select tag",
-			"ctrl+d remove tag",
+			"ctrl+d delete tag",
 			"ctrl+s save",
 			"esc cancel",
 		}
