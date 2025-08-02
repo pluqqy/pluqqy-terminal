@@ -117,12 +117,19 @@ func (e *Engine) BuildIndex() error {
 			continue // Skip pipelines that can't be read
 		}
 		
+		// Create searchable content from pipeline name and tags
+		// This allows pipelines to be found by content searches
+		searchableContent := pipeline.Name
+		if len(pipeline.Tags) > 0 {
+			searchableContent += " " + strings.Join(pipeline.Tags, " ")
+		}
+		
 		item := SearchItem{
 			Type:     ItemTypePipeline,
 			Path:     pipelineFile,
 			Name:     pipeline.Name,
 			Tags:     pipeline.Tags,
-			Content:  "", // Pipelines don't have content
+			Content:  searchableContent,
 			Modified: time.Now(), // TODO: Get actual modified time
 		}
 		
@@ -205,7 +212,7 @@ func (e *Engine) evaluateCondition(condition Condition) []int {
 			matches = indices
 		}
 		
-	case FieldType:
+	case FieldTypeField:
 		typeStr := condition.Value.(string)
 		// Handle component type aliases
 		switch typeStr {
@@ -369,6 +376,8 @@ func (e *Engine) generateHighlights(item SearchItem, query *Query) map[string][]
 func tokenizeContent(content string) []string {
 	// Simple word tokenization
 	var tokens []string
+	// Replace hyphens with spaces to split hyphenated words
+	content = strings.ReplaceAll(content, "-", " ")
 	words := strings.Fields(content)
 	
 	for _, word := range words {

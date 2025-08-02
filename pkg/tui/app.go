@@ -32,8 +32,8 @@ type App struct {
 
 func NewApp() *App {
 	return &App{
-		state:    mainListView,
-		mainList: NewMainListModel(),
+		state:       mainListView,
+		mainList:    NewMainListModel(),
 	}
 }
 

@@ -9,12 +9,14 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/tags"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
@@ -22,7 +24,8 @@ import (
 type pane int
 
 const (
-	pipelinesPane pane = iota
+	searchPane pane = iota
+	pipelinesPane
 	componentsPane
 	previewPane
 )
@@ -107,18 +110,38 @@ type MainListModel struct {
 	confirmingTagDelete   bool
 	deletingTag           string
 	deletingTagUsage      *tags.UsageStats
+	
+	// Search engine
+	searchEngine          *search.Engine
+	
+	// Search state
+	searchInput           textinput.Model
+	searchQuery           string
+	filteredPipelines     []pipelineItem
+	filteredComponents    []componentItem
 }
 
 func NewMainListModel() *MainListModel {
+	ti := textinput.New()
+	ti.Placeholder = "Search..."
+	ti.Prompt = ""
+	ti.CharLimit = 200
+	ti.Width = 40
+	
 	m := &MainListModel{
 		activePane:         componentsPane,
 		showPreview:        false, // Start with preview hidden, user can toggle with 'p'
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
+		searchInput:        ti,
 	}
 	m.loadPipelines()
 	m.loadComponents()
+	m.initializeSearchEngine()
+	// Initialize filtered lists with all items
+	m.filteredPipelines = m.pipelines
+	m.filteredComponents = m.getAllComponents()
 	return m
 }
 
@@ -147,11 +170,16 @@ func (m *MainListModel) loadPipelines() {
 		}
 		
 		m.pipelines = append(m.pipelines, pipelineItem{
-			name:       pipelineFile,
+			name:       pipeline.Name, // Use the actual pipeline name from YAML
 			path:       pipelineFile,
 			tags:       pipeline.Tags,
 			tokenCount: tokenCount,
 		})
+	}
+	
+	// Rebuild search index when pipelines are reloaded
+	if m.searchEngine != nil {
+		m.searchEngine.BuildIndex()
 	}
 }
 
@@ -271,6 +299,96 @@ func (m *MainListModel) loadComponents() {
 			tags:         tags,
 		})
 	}
+	
+	// Rebuild search index when components are reloaded
+	if m.searchEngine != nil {
+		m.searchEngine.BuildIndex()
+	}
+}
+
+func (m *MainListModel) initializeSearchEngine() {
+	// Create search engine and build index
+	engine := search.NewEngine()
+	if err := engine.BuildIndex(); err != nil {
+		// Log error but don't fail - search will be unavailable
+		return
+	}
+	m.searchEngine = engine
+}
+
+func (m *MainListModel) performSearch() {
+	if m.searchQuery == "" {
+		// No search query, show all items
+		m.filteredPipelines = m.pipelines
+		m.filteredComponents = m.getAllComponents()
+		return
+	}
+	
+	// Use search engine to find matching items
+	if m.searchEngine != nil {
+		results, err := m.searchEngine.Search(m.searchQuery)
+		if err != nil {
+			// On error, show all items
+			m.filteredPipelines = m.pipelines
+			m.filteredComponents = m.getAllComponents()
+			return
+		}
+		
+		// Build filtered lists from search results
+		m.filteredPipelines = []pipelineItem{}
+		m.filteredComponents = []componentItem{}
+		
+		for _, result := range results {
+			if result.Item.Type == search.ItemTypePipeline {
+				// Find matching pipeline - check if already added to avoid duplicates
+				alreadyAdded := false
+				for _, existing := range m.filteredPipelines {
+					if existing.name == result.Item.Name {
+						alreadyAdded = true
+						break
+					}
+				}
+				
+				if !alreadyAdded {
+					// Match by pipeline name (without .yaml extension)
+					searchName := strings.TrimSuffix(result.Item.Name, ".yaml")
+					for _, p := range m.pipelines {
+						if p.name == searchName || p.name == result.Item.Name {
+							m.filteredPipelines = append(m.filteredPipelines, p)
+							break
+						}
+					}
+				}
+			} else {
+				// Find matching component - check if already added to avoid duplicates
+				alreadyAdded := false
+				for _, existing := range m.filteredComponents {
+					if existing.path == result.Item.Path {
+						alreadyAdded = true
+						break
+					}
+				}
+				
+				if !alreadyAdded {
+					allComps := m.getAllComponents()
+					for _, c := range allComps {
+						if c.path == result.Item.Path {
+							m.filteredComponents = append(m.filteredComponents, c)
+							break
+						}
+					}
+				}
+			}
+		}
+		
+		// Reset cursors if they're out of bounds
+		if m.pipelineCursor >= len(m.filteredPipelines) {
+			m.pipelineCursor = 0
+		}
+		if m.componentCursor >= len(m.filteredComponents) {
+			m.componentCursor = 0
+		}
+	}
 }
 
 func (m *MainListModel) startTagEditing(path string, currentTags []string, itemType string) {
@@ -371,6 +489,11 @@ func (m *MainListModel) getAllComponents() []componentItem {
 	return all
 }
 
+// getCurrentComponents returns either filtered components (if searching) or all components
+func (m *MainListModel) getCurrentComponents() []componentItem {
+	return m.filteredComponents
+}
+
 func (m *MainListModel) Init() tea.Cmd {
 	return nil
 }
@@ -378,6 +501,34 @@ func (m *MainListModel) Init() tea.Cmd {
 func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle search input when search pane is active
+		if m.activePane == searchPane && !m.editingTags && !m.creatingComponent && !m.editingComponent {
+			var cmd tea.Cmd
+			m.searchInput, cmd = m.searchInput.Update(msg)
+			
+			// Check if search query changed
+			if m.searchQuery != m.searchInput.Value() {
+				m.searchQuery = m.searchInput.Value()
+				m.performSearch()
+			}
+			
+			// Handle special keys for search
+			switch msg.String() {
+			case "esc":
+				// Clear search and return to components pane
+				m.searchInput.SetValue("")
+				m.searchQuery = ""
+				m.performSearch()
+				m.activePane = componentsPane
+				m.searchInput.Blur()
+				return m, nil
+			case "tab":
+				// Let tab handling below take care of navigation
+			default:
+				return m, cmd
+			}
+		}
+		
 		// Handle exit confirmation dialog
 		if m.showExitConfirmation {
 			switch msg.String() {
@@ -426,11 +577,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmingDelete = false
 				if m.deletingFromPane == pipelinesPane {
 					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelineName := m.pipelines[m.pipelineCursor].name
-						return m, m.deletePipeline(pipelineName)
+						pipelinePath := m.pipelines[m.pipelineCursor].path
+						return m, m.deletePipeline(pipelinePath)
 					}
 				} else if m.deletingFromPane == componentsPane {
-					components := m.getAllComponents()
+					components := m.getCurrentComponents()
 					if m.componentCursor >= 0 && m.componentCursor < len(components) {
 						comp := components[m.componentCursor]
 						return m, m.deleteComponent(comp)
@@ -452,11 +603,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.confirmingArchive = false
 				if m.archivingFromPane == pipelinesPane {
 					if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-						pipelineName := m.pipelines[m.pipelineCursor].name
-						return m, m.archivePipeline(pipelineName)
+						pipelinePath := m.pipelines[m.pipelineCursor].path
+						return m, m.archivePipeline(pipelinePath)
 					}
 				} else if m.archivingFromPane == componentsPane {
-					components := m.getAllComponents()
+					components := m.getCurrentComponents()
 					if m.componentCursor >= 0 && m.componentCursor < len(components) {
 						comp := components[m.componentCursor]
 						return m, m.archiveComponent(comp)
@@ -476,27 +627,36 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		
 		case "tab":
-			// Switch between panes
+			// Switch between panes including search
 			if m.showPreview {
-				// When preview is shown, cycle through all three panes
+				// When preview is shown, cycle through all panes
 				switch m.activePane {
+				case searchPane:
+					m.activePane = componentsPane
+					m.searchInput.Blur()
 				case componentsPane:
 					m.activePane = pipelinesPane
 				case pipelinesPane:
 					m.activePane = previewPane
 				case previewPane:
-					m.activePane = componentsPane
+					m.activePane = searchPane
+					m.searchInput.Focus()
 				}
 			} else {
-				// When preview is hidden, only toggle between pipelines and components
-				if m.activePane == componentsPane {
-					m.activePane = pipelinesPane
-				} else {
+				// When preview is hidden, cycle through search, components, and pipelines
+				switch m.activePane {
+				case searchPane:
 					m.activePane = componentsPane
+					m.searchInput.Blur()
+				case componentsPane:
+					m.activePane = pipelinesPane
+				case pipelinesPane:
+					m.activePane = searchPane
+					m.searchInput.Focus()
 				}
 			}
 			// Update preview when switching to non-preview pane
-			if m.activePane != previewPane {
+			if m.activePane != previewPane && m.activePane != searchPane {
 				m.updatePreview()
 			}
 		
@@ -523,7 +683,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.updatePreview()
 				}
 			} else if m.activePane == componentsPane {
-				components := m.getAllComponents()
+				components := m.getCurrentComponents()
 				if m.componentCursor < len(components)-1 {
 					m.componentCursor++
 					m.updatePreview()
@@ -550,6 +710,12 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updatePreview()
 			}
 		
+		case "/":
+			// Jump to search
+			m.activePane = searchPane
+			m.searchInput.Focus()
+			return m, nil
+		
 		case "enter":
 			if m.activePane == pipelinesPane {
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
@@ -557,7 +723,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineViewerView,
-							pipeline: m.pipelines[m.pipelineCursor].name,
+							pipeline: m.pipelines[m.pipelineCursor].path, // Use path (filename) not name
 						}
 					}
 				}
@@ -572,13 +738,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineBuilderView,
-							pipeline: m.pipelines[m.pipelineCursor].name,
+							pipeline: m.pipelines[m.pipelineCursor].path, // Use path (filename) not name
 						}
 					}
 				}
 			} else if m.activePane == componentsPane {
 				// Edit component in TUI editor
-				components := m.getAllComponents()
+				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
 					// Read the component content
@@ -605,7 +771,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "E":
 			// Edit component in external editor
 			if m.activePane == componentsPane {
-				components := m.getAllComponents()
+				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
 					return m, m.openInEditor(comp.path)
@@ -616,14 +782,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "t":
 			// Edit tags
 			if m.activePane == componentsPane {
-				components := m.getAllComponents()
+				// Use filtered components if search is active
+				components := m.filteredComponents
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
 					m.startTagEditing(comp.path, comp.tags, "component")
 				}
 			} else if m.activePane == pipelinesPane {
-				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					pipeline := m.pipelines[m.pipelineCursor]
+				// Use filtered pipelines if search is active
+				pipelines := m.filteredPipelines
+				if m.pipelineCursor >= 0 && m.pipelineCursor < len(pipelines) {
+					pipeline := pipelines[m.pipelineCursor]
 					m.startTagEditing(pipeline.path, pipeline.tags, "pipeline")
 				}
 			}
@@ -658,7 +827,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == pipelinesPane {
 				// Set selected pipeline (generate PLUQQY.md)
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					return m, m.setPipeline(m.pipelines[m.pipelineCursor].name)
+					return m, m.setPipeline(m.pipelines[m.pipelineCursor].path)
 				}
 			}
 		
@@ -672,7 +841,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.activePane == componentsPane {
 				// Delete component with confirmation
-				components := m.getAllComponents()
+				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
 					m.confirmingDelete = true
@@ -699,7 +868,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			} else if m.activePane == componentsPane {
 				// Archive component with confirmation
-				components := m.getAllComponents()
+				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
 					m.confirmingArchive = true
@@ -798,7 +967,8 @@ func (m *MainListModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for title, search bar, help pane, status message, and spacing
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -808,6 +978,28 @@ func (m *MainListModel) View() string {
 	if contentHeight < 10 {
 		contentHeight = 10
 	}
+
+	// Build search bar
+	var searchBar strings.Builder
+	searchStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(func() string {
+			if m.activePane == searchPane {
+				return "170"
+			}
+			return "240"
+		}())).
+		Width(m.width - 4).
+		Padding(0, 1)
+	
+	// Create search icon with larger font
+	searchIconStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Bold(true)
+	
+	searchIcon := searchIconStyle.Render("⌕ ")
+	searchContent := lipgloss.JoinHorizontal(lipgloss.Center, searchIcon, m.searchInput.View())
+	searchBar.WriteString(searchStyle.Render(searchContent))
 
 	// Build left column (components)
 	var leftContent strings.Builder
@@ -854,9 +1046,8 @@ func (m *MainListModel) View() string {
 	// Build scrollable content for components viewport
 	var componentsScrollContent strings.Builder
 	
-	allComponents := m.getAllComponents()
-	
-	if len(allComponents) == 0 {
+	// Use filtered components instead of all components
+	if len(m.filteredComponents) == 0 {
 		if m.activePane == componentsPane {
 			// Active pane - show prominent message
 			emptyStyle := lipgloss.NewStyle().
@@ -872,7 +1063,7 @@ func (m *MainListModel) View() string {
 	} else {
 		currentType := ""
 	
-		for i, comp := range allComponents {
+		for i, comp := range m.filteredComponents {
 		if comp.compType != currentType {
 			if currentType != "" {
 				componentsScrollContent.WriteString("\n")
@@ -972,7 +1163,7 @@ func (m *MainListModel) View() string {
 			componentsScrollContent.WriteString(normalStyle.Render(row))
 		}
 		
-			if i < len(allComponents)-1 {
+			if i < len(m.filteredComponents)-1 {
 				componentsScrollContent.WriteString("\n")
 			}
 		}
@@ -984,13 +1175,13 @@ func (m *MainListModel) View() string {
 	m.componentsViewport.SetContent(wrappedComponentsContent)
 	
 	// Update viewport to follow cursor
-	if m.activePane == componentsPane && len(allComponents) > 0 {
+	if m.activePane == componentsPane && len(m.filteredComponents) > 0 {
 		// Calculate the line position of the cursor
 		currentLine := 0
-		for i := 0; i < m.componentCursor && i < len(allComponents); i++ {
+		for i := 0; i < m.componentCursor && i < len(m.filteredComponents); i++ {
 			currentLine++ // Component line
 			// Check if it's the first item of a new type to add header line
-			if i == 0 || allComponents[i].compType != allComponents[i-1].compType {
+			if i == 0 || m.filteredComponents[i].compType != m.filteredComponents[i-1].compType {
 				currentLine++ // Type header line
 				if i > 0 {
 					currentLine++ // Empty line between sections
@@ -1045,7 +1236,7 @@ func (m *MainListModel) View() string {
 	// Build scrollable content for pipelines viewport
 	var pipelinesScrollContent strings.Builder
 	
-	if len(m.pipelines) == 0 {
+	if len(m.filteredPipelines) == 0 {
 		if m.activePane == pipelinesPane {
 			// Active pane - show prominent message
 			emptyStyle := lipgloss.NewStyle().
@@ -1059,7 +1250,7 @@ func (m *MainListModel) View() string {
 			pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines found."))
 		}
 	} else {
-		for i, pipeline := range m.pipelines {
+		for i, pipeline := range m.filteredPipelines {
 			// Format the pipeline name
 			nameStr := pipeline.name
 			if len(nameStr) > pipelineNameWidth-3 {
@@ -1170,6 +1361,11 @@ func (m *MainListModel) View() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
+	// Add search bar first
+	s.WriteString(contentStyle.Render(searchBar.String()))
+	s.WriteString("\n")
+	
+	// Then add the columns
 	s.WriteString(contentStyle.Render(columns))
 
 	// Add preview if enabled
@@ -1291,6 +1487,7 @@ func (m *MainListModel) View() string {
 	
 	// Help text in bordered pane
 	help := []string{
+		"/ search",
 		"tab switch pane",
 		"↑/↓ nav",
 		"enter view",
@@ -1324,13 +1521,16 @@ func (m *MainListModel) View() string {
 func (m *MainListModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	// Update search input width to match container
+	m.searchInput.Width = width - 10 // Account for borders, padding, and icon
 	m.updateViewportSizes()
 }
 
 func (m *MainListModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for title, help pane, status message, and spacing
+	searchBarHeight := 3              // Height for search bar
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for title, search bar, help pane, status message, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1377,10 +1577,10 @@ func (m *MainListModel) updatePreview() {
 		}
 		
 		if m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-			pipelineName := m.pipelines[m.pipelineCursor].name
+			pipelinePath := m.pipelines[m.pipelineCursor].path
 			
 			// Load pipeline
-			pipeline, err := files.ReadPipeline(pipelineName)
+			pipeline, err := files.ReadPipeline(pipelinePath)
 			if err != nil {
 				m.previewContent = fmt.Sprintf("Error loading pipeline: %v", err)
 				return
@@ -1397,7 +1597,7 @@ func (m *MainListModel) updatePreview() {
 		}
 	} else if m.activePane == componentsPane {
 		// Show component preview
-		components := m.getAllComponents()
+		components := m.getCurrentComponents()
 		if len(components) == 0 {
 			m.previewContent = "No components to preview."
 			return
@@ -1809,6 +2009,9 @@ func (m *MainListModel) saveTags() tea.Cmd {
 		// Reload data to reflect changes
 		m.loadComponents()
 		m.loadPipelines()
+		
+		// Re-run search to update filtered lists
+		m.performSearch()
 		
 		// Exit tag editing mode
 		m.editingTags = false
@@ -2319,7 +2522,7 @@ func (m *MainListModel) tagEditView() string {
 	// Get item name
 	itemName := ""
 	if m.editingTagsType == "component" {
-		components := m.getAllComponents()
+		components := m.getCurrentComponents()
 		if m.componentCursor >= 0 && m.componentCursor < len(components) {
 			itemName = components[m.componentCursor].name
 		}
@@ -2928,6 +3131,9 @@ func (m *MainListModel) saveEditedComponent() tea.Cmd {
 		
 		// Reload components
 		m.loadComponents()
+		
+		// Re-run search to update filtered lists
+		m.performSearch()
 		
 		return StatusMsg(fmt.Sprintf("✓ Saved: %s", m.editingComponentName))
 	}

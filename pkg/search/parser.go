@@ -30,7 +30,7 @@ type FieldType string
 
 const (
 	FieldTag      FieldType = "tag"
-	FieldType     FieldType = "type"
+	FieldTypeField FieldType = "type"
 	FieldName     FieldType = "name"
 	FieldContent  FieldType = "content"
 	FieldModified FieldType = "modified"
@@ -233,7 +233,7 @@ func (p *Parser) parseCondition(tokens []string) (*Condition, int, error) {
 		cond.Operator = OperatorEquals
 		cond.Value = p.unquote(value)
 	case "type":
-		cond.Field = FieldType
+		cond.Field = FieldTypeField
 		cond.Operator = OperatorEquals
 		cond.Value = p.unquote(value)
 	case "name":

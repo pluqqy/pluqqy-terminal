@@ -9,19 +9,22 @@ import (
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/textinput"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
 type column int
 
 const (
-	leftColumn column = iota
+	searchColumn column = iota
+	leftColumn
 	rightColumn
 	previewColumn
 )
@@ -82,6 +85,13 @@ type PipelineBuilderModel struct {
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
 	originalContent       string                // Original content for component editing
 	
+	// Search state
+	searchInput           textinput.Model
+	searchQuery           string
+	searchEngine          *search.Engine
+	filteredPrompts       []componentItem
+	filteredContexts      []componentItem
+	filteredRules         []componentItem
 }
 
 type componentItem struct {
@@ -98,6 +108,13 @@ type clearEditSaveMsg struct{}
 type clearPipelineSaveMsg struct{}
 
 func NewPipelineBuilderModel() *PipelineBuilderModel {
+	// Initialize search input
+	ti := textinput.New()
+	ti.Placeholder = "Search..."
+	ti.Prompt = ""
+	ti.CharLimit = 100
+	ti.Width = 40
+	
 	m := &PipelineBuilderModel{
 		activeColumn: leftColumn,
 		showPreview:  true, // Show preview by default in builder for immediate feedback
@@ -110,8 +127,11 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		previewViewport: viewport.New(80, 20), // Default size, will be resized
 		leftViewport:    viewport.New(40, 20), // Default size, will be resized
 		rightViewport:   viewport.New(40, 20), // Default size, will be resized
+		searchInput:     ti,
 	}
 	
+	// Initialize search engine
+	m.searchEngine = search.NewEngine()
 	
 	m.loadAvailableComponents()
 	return m
@@ -233,10 +253,83 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 			tags:         tags,
 		})
 	}
+	
+	// Initialize filtered lists with all components
+	m.filteredPrompts = m.prompts
+	m.filteredContexts = m.contexts
+	m.filteredRules = m.rules
+	
+	// Rebuild search engine index
+	if m.searchEngine != nil {
+		m.searchEngine.BuildIndex()
+	}
 }
 
 func (m *PipelineBuilderModel) Init() tea.Cmd {
 	return nil
+}
+
+func (m *PipelineBuilderModel) performSearch() {
+	if m.searchQuery == "" {
+		// No search query, show all items
+		m.filteredPrompts = m.prompts
+		m.filteredContexts = m.contexts
+		m.filteredRules = m.rules
+		return
+	}
+	
+	// Clear filtered lists
+	m.filteredPrompts = nil
+	m.filteredContexts = nil
+	m.filteredRules = nil
+	
+	// Use search engine to find matching items
+	if m.searchEngine != nil {
+		results, err := m.searchEngine.Search(m.searchQuery)
+		if err != nil {
+			// On error, show all items
+			m.filteredPrompts = m.prompts
+			m.filteredContexts = m.contexts
+			m.filteredRules = m.rules
+			return
+		}
+		
+		// Create maps for quick lookup
+		resultMap := make(map[string]bool)
+		for _, result := range results {
+			resultMap[result.Item.Path] = true
+		}
+		
+		// Filter each component list
+		for _, comp := range m.prompts {
+			if resultMap[comp.path] {
+				m.filteredPrompts = append(m.filteredPrompts, comp)
+			}
+		}
+		for _, comp := range m.contexts {
+			if resultMap[comp.path] {
+				m.filteredContexts = append(m.filteredContexts, comp)
+			}
+		}
+		for _, comp := range m.rules {
+			if resultMap[comp.path] {
+				m.filteredRules = append(m.filteredRules, comp)
+			}
+		}
+	} else {
+		// No search engine, show all items
+		m.filteredPrompts = m.prompts
+		m.filteredContexts = m.contexts
+		m.filteredRules = m.rules
+	}
+	
+	// Reset cursor if it's out of bounds
+	if m.activeColumn == leftColumn {
+		totalItems := len(m.filteredPrompts) + len(m.filteredContexts) + len(m.filteredRules)
+		if m.leftCursor >= totalItems {
+			m.leftCursor = 0
+		}
+	}
 }
 
 func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -343,6 +436,36 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+		
+		// Handle search input when search column is active
+		if m.activeColumn == searchColumn && !m.editingName && !m.creatingComponent && !m.editingComponent {
+			// Handle special keys in search first
+			switch msg.String() {
+			case "esc":
+				// Clear search and switch to left column
+				m.searchInput.SetValue("")
+				m.searchQuery = ""
+				m.performSearch()
+				m.activeColumn = leftColumn
+				m.searchInput.Blur()
+				return m, nil
+			case "tab":
+				// Let tab be handled by the main navigation logic
+				// Don't process it here
+			default:
+				// For all other keys, update the search input
+				var cmd tea.Cmd
+				m.searchInput, cmd = m.searchInput.Update(msg)
+				
+				// Check if search query changed
+				if m.searchQuery != m.searchInput.Value() {
+					m.searchQuery = m.searchInput.Value()
+					m.performSearch()
+				}
+				
+				return m, cmd
+			}
+		}
 
 		// If preview is showing and active, handle viewport navigation
 
@@ -388,21 +511,30 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "tab":
 			// Switch between columns
 			if m.showPreview {
-				// When preview is shown, cycle through all three panes
+				// When preview is shown, cycle through all panes
 				switch m.activeColumn {
+				case searchColumn:
+					m.activeColumn = leftColumn
+					m.searchInput.Blur()
 				case leftColumn:
 					m.activeColumn = rightColumn
 				case rightColumn:
 					m.activeColumn = previewColumn
 				case previewColumn:
-					m.activeColumn = leftColumn
+					m.activeColumn = searchColumn
+					m.searchInput.Focus()
 				}
 			} else {
-				// When preview is hidden, only toggle between left and right
-				if m.activeColumn == leftColumn {
-					m.activeColumn = rightColumn
-				} else {
+				// When preview is hidden, cycle through search, left and right
+				switch m.activeColumn {
+				case searchColumn:
 					m.activeColumn = leftColumn
+					m.searchInput.Blur()
+				case leftColumn:
+					m.activeColumn = rightColumn
+				case rightColumn:
+					m.activeColumn = searchColumn
+					m.searchInput.Focus()
 				}
 			}
 			// Update preview when switching to non-preview column
@@ -457,6 +589,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.showPreview {
 				m.updatePreview()
 			}
+		case "/":
+			// Jump to search
+			m.activeColumn = searchColumn
+			m.searchInput.Focus()
+			return m, nil
 
 		case "ctrl+s":
 			// Save pipeline
@@ -1025,6 +1162,29 @@ func (m *PipelineBuilderModel) View() string {
 	// Build final view
 	var s strings.Builder
 	
+	// Add search bar at the top
+	searchBarStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color(func() string {
+			if m.activeColumn == searchColumn {
+				return "170"
+			}
+			return "240"
+		}())).
+		Width(m.width - 4).
+		Padding(0, 1)
+	
+	// Create search icon with larger font
+	searchIconStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("245")).
+		Bold(true)
+	
+	searchIcon := searchIconStyle.Render("⌕ ")
+	searchContent := lipgloss.JoinHorizontal(lipgloss.Center, searchIcon, m.searchInput.View())
+	searchBar := searchBarStyle.Render(searchContent)
+	s.WriteString(lipgloss.NewStyle().Padding(0, 1).Render(searchBar))
+	s.WriteString("\n")
+	
 	// Add padding around the content
 	contentStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
@@ -1128,6 +1288,7 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Help text in bordered pane
 	help := []string{
+		"/ search",
 		"tab switch pane",
 		"↑/↓ nav",
 		"enter add/remove",
@@ -1183,6 +1344,8 @@ func (m *PipelineBuilderModel) View() string {
 func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height
+	// Update search input width to match container
+	m.searchInput.Width = width - 10 // Account for borders, padding, and icon
 	m.updateViewportSizes()
 }
 
@@ -1210,7 +1373,7 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	contentHeight := m.height - 14    // Reserve space for help pane, status message, and spacing (matching main list view)
+	contentHeight := m.height - 16    // Reserve space for search bar, help pane, status message, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1294,11 +1457,11 @@ func (m *PipelineBuilderModel) getAllAvailableComponents() []componentItem {
 		settings = models.DefaultSettings()
 	}
 	
-	// Group components by type
+	// Group components by type - use filtered lists when searching
 	typeGroups := make(map[string][]componentItem)
-	typeGroups[models.ComponentTypeContext] = m.contexts
-	typeGroups[models.ComponentTypePrompt] = m.prompts
-	typeGroups[models.ComponentTypeRules] = m.rules
+	typeGroups[models.ComponentTypeContext] = m.filteredContexts
+	typeGroups[models.ComponentTypePrompt] = m.filteredPrompts
+	typeGroups[models.ComponentTypeRules] = m.filteredRules
 	
 	// Build ordered list based on sections
 	var all []componentItem
