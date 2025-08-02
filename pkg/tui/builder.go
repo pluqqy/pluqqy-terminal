@@ -823,8 +823,14 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status message, and spacing
+	
+	// Let's be more explicit about what we're reserving:
+	// - Search bar: 3 lines (1 border top + 1 content + 1 border bottom)
+	// - Help pane: 3 lines (1 border top + 1 content + 1 border bottom) 
+	// - Status area: 3 lines (1 newline + 1 content with marginTop + 1 marginTop)
+	// - Spacing: multiple newlines throughout
+	// Main List View uses: m.height - 17
+	contentHeight := m.height - 17
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1383,14 +1389,12 @@ func (m *PipelineBuilderModel) View() string {
 		Foreground(lipgloss.Color("82")). // Green for success
 		Width(m.width).
 		Align(lipgloss.Center).
-		Padding(0, 1).
-		MarginTop(1)
+		Padding(0, 1)
 	
 	// Empty status style for maintaining layout
 	emptyStatusStyle := lipgloss.NewStyle().
 		Width(m.width).
-		Height(1).
-		MarginTop(1)
+		Height(1)
 	
 	s.WriteString("\n")
 	if m.pipelineSaveMessage != "" {
