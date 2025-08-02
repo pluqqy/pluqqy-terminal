@@ -505,8 +505,9 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.searchInput.Blur()
 				case leftColumn:
 					m.activeColumn = rightColumn
-					// Reset right cursor when entering right column
+					// Reset right cursor and viewport when entering right column
 					m.rightCursor = 0
+					m.rightViewport.GotoTop()
 				case rightColumn:
 					m.activeColumn = previewColumn
 				case previewColumn:
@@ -521,8 +522,9 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.searchInput.Blur()
 				case leftColumn:
 					m.activeColumn = rightColumn
-					// Reset right cursor when entering right column
+					// Reset right cursor and viewport when entering right column
 					m.rightCursor = 0
+					m.rightViewport.GotoTop()
 				case rightColumn:
 					m.activeColumn = searchColumn
 					m.searchInput.Focus()
