@@ -1400,16 +1400,18 @@ func (m *MainListModel) View() string {
 		var previewContent strings.Builder
 		// Create heading with colons and token info
 		var previewHeading string
-		if m.activePane == pipelinesPane {
-			pipelineName := "PLUQQY.md"
-			if len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-				pipelineName = m.pipelines[m.pipelineCursor].name
-			}
+		
+		// Determine what we're previewing based on cursor position
+		// This maintains the preview type even when preview pane is active
+		if len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
+			// We have a valid pipeline selected
+			pipelineName := m.pipelines[m.pipelineCursor].name
 			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
-		} else if m.activePane == componentsPane {
+		} else if len(m.filteredComponents) > 0 && m.componentCursor >= 0 && m.componentCursor < len(m.filteredComponents) {
+			// We have a valid component selected
 			previewHeading = "COMPONENT PREVIEW"
 		} else {
-			// Default to pipeline preview when preview pane is active
+			// No valid selection - use generic preview
 			previewHeading = "PREVIEW"
 		}
 		tokenInfo := tokenBadge
