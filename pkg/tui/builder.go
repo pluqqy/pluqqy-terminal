@@ -3320,8 +3320,11 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	
 	mainContent.WriteString(headerPadding.Render("Add new tag:\n"))
 	input := m.tagInput
-	if m.tagCursor == len(m.currentTags) {
+	if !m.tagCloudActive && m.tagInput != "" {
 		input = m.tagInput + "│"
+	} else if !m.tagCloudActive && m.tagInput == "" {
+		// Show cursor when input is empty and left pane is active
+		input = "│"
 	}
 	mainContent.WriteString(headerPadding.Render(inputStyle.Render(input)))
 	
@@ -3360,58 +3363,67 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	rightContent.WriteString(headerPadding.Render(titleStyle.Render("AVAILABLE TAGS") + " " + colonStyle.Render(strings.Repeat(":", paneWidth-20))))
 	rightContent.WriteString("\n\n")
 	
-	if m.tagCloudActive {
-		tagGroups := make(map[string][]string)
+	// Always display available tags
+	if len(m.availableTags) == 0 {
+		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		rightContent.WriteString(headerPadding.Render(dimStyle.Render("(no available tags)")))
+	} else {
+		// Group tags in rows for better display
+		var tagRows strings.Builder
+		rowTags := 0
+		currentRowWidth := 0
+		maxRowWidth := paneWidth - 6 // Account for padding
+		
+		// Get available tags that haven't been added yet
+		var availableForCloud []string
 		for _, tag := range m.availableTags {
 			if !m.hasTag(tag) {
-				registry, _ := tags.NewRegistry()
-				category := "other"
-				if registry != nil {
-					if t, exists := registry.GetTag(tag); exists && t.Parent != "" {
-						category = t.Parent
-					}
-				}
-				tagGroups[category] = append(tagGroups[category], tag)
+				availableForCloud = append(availableForCloud, tag)
 			}
 		}
 		
-		displayOrder := []string{"general", "technical", "domain", "status", "other"}
-		tagIndex := 0
-		
-		for _, category := range displayOrder {
-			if categoryTags, exists := tagGroups[category]; exists && len(categoryTags) > 0 {
-				categoryStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("214")).Bold(true)
-				rightContent.WriteString(headerPadding.Render(categoryStyle.Render(strings.ToUpper(category))))
-				rightContent.WriteString("\n")
-				
-				for _, tag := range categoryTags {
-					registry, _ := tags.NewRegistry()
-					color := models.GetTagColor(tag, "")
-					if registry != nil {
-						if t, exists := registry.GetTag(tag); exists && t.Color != "" {
-							color = t.Color
-						}
-					}
-					
-					tagChipStyle := lipgloss.NewStyle().Background(lipgloss.Color(color)).Foreground(lipgloss.Color("255")).Padding(0, 1)
-					
-					if tagIndex == m.tagCloudCursor {
-						selectedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("170")).Bold(true)
-						rightContent.WriteString(headerPadding.Render(selectedStyle.Render("▶ ")))
-						rightContent.WriteString(tagChipStyle.Render(tag))
-						rightContent.WriteString(selectedStyle.Render(" ◀"))
-					} else {
-						rightContent.WriteString(headerPadding.Render("  " + tagChipStyle.Render(tag)))
-					}
-					rightContent.WriteString("\n")
-					tagIndex++
+		for i, tag := range availableForCloud {
+			// Get tag color
+			registry, _ := tags.NewRegistry()
+			color := models.GetTagColor(tag, "")
+			if registry != nil {
+				if t, exists := registry.GetTag(tag); exists && t.Color != "" {
+					color = t.Color
 				}
-				rightContent.WriteString("\n")
 			}
+			
+			tagStyle := lipgloss.NewStyle().
+				Background(lipgloss.Color(color)).
+				Foreground(lipgloss.Color("255")).
+				Padding(0, 1)
+			
+			// Calculate tag display width
+			var tagDisplay string
+			if m.tagCloudActive && i == m.tagCloudCursor {
+				indicatorStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("170")).
+					Bold(true)
+				tagDisplay = indicatorStyle.Render("▶ ") + tagStyle.Render(tag) + indicatorStyle.Render(" ◀")
+			} else {
+				tagDisplay = tagStyle.Render(tag)
+			}
+			
+			tagWidth := lipgloss.Width(tagDisplay)
+			
+			// Check if we need to start a new row
+			if rowTags > 0 && currentRowWidth+tagWidth+2 > maxRowWidth {
+				tagRows.WriteString("\n")
+				rowTags = 0
+				currentRowWidth = 0
+			}
+			
+			tagRows.WriteString(tagDisplay)
+			tagRows.WriteString("  ")
+			currentRowWidth += tagWidth + 2
+			rowTags++
 		}
-	} else {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
-		rightContent.WriteString(headerPadding.Render(dimStyle.Render("Press TAB to browse available tags")))
+		
+		rightContent.WriteString(headerPadding.Render(tagRows.String()))
 	}
 	
 	var rightPane strings.Builder
