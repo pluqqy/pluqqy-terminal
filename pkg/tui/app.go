@@ -253,7 +253,7 @@ func (a *App) View() string {
 				}
 			} else if a.mainList.editingComponent && a.mainList.editingComponentName != "" {
 				title = "Component: " + a.mainList.editingComponentName
-			} else if a.mainList.editingTags {
+			} else if a.mainList.tagEditor.Active {
 				title = "Tag Editor"
 			} else {
 				title = "✦ Pluqqy ✦ Dashboard ✦"
@@ -422,6 +422,10 @@ func formatConfirmOptions(destructive bool) string {
 type StatusMsg string
 
 type clearStatusMsg struct{}
+
+type ReloadMsg struct {
+	Message string
+}
 
 type SwitchViewMsg struct {
 	view     sessionState
