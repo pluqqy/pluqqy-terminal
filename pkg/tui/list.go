@@ -35,6 +35,7 @@ type MainListModel struct {
 	
 	// UI state
 	activePane         pane
+	lastDataPane       pane // Track last data pane (pipelines or components) for preview
 	pipelinesViewport  viewport.Model
 	componentsViewport viewport.Model
 	showPreview        bool
@@ -55,13 +56,8 @@ type MainListModel struct {
 	// Component creation
 	componentCreator *ComponentCreator
 	
-	// Component editing state
-	editingComponent      bool
-	editingComponentPath  string
-	editingComponentName  string
-	editingComponentContent string
-	originalContent       string
-	editViewport          viewport.Model
+	// Component editing
+	componentEditor  *ComponentEditor
 	
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
@@ -83,6 +79,7 @@ type MainListModel struct {
 func NewMainListModel() *MainListModel {
 	m := &MainListModel{
 		activePane:         componentsPane,
+		lastDataPane:       componentsPane, // Initialize to components
 		showPreview:        false, // Start with preview hidden, user can toggle with 'p'
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
@@ -92,6 +89,7 @@ func NewMainListModel() *MainListModel {
 		archiveConfirm:     NewConfirmation(),
 		exitConfirm:        NewConfirmation(),
 		componentCreator:   NewComponentCreator(),
+		componentEditor:    NewComponentEditor(),
 		tagEditor:          NewTagEditor(),
 	}
 	m.loadPipelines()
@@ -372,7 +370,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// Handle search input when search pane is active
-		if m.activePane == searchPane && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.editingComponent {
+		if m.activePane == searchPane && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() {
 			var cmd tea.Cmd
 			m.searchBar, cmd = m.searchBar.Update(msg)
 			
@@ -410,8 +408,21 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle component editing mode
-		if m.editingComponent {
-			return m.handleComponentEditing(msg)
+		if m.componentEditor.IsActive() {
+			// Handle exit confirmation first
+			if m.componentEditor.ExitConfirmActive {
+				_, cmd := m.componentEditor.HandleInput(msg, m.width, m.height)
+				return m, cmd
+			}
+			
+			_, cmd := m.componentEditor.HandleInput(msg, m.width, m.height)
+			// Check if editor is still active after handling input
+			if !m.componentEditor.IsActive() {
+				// Reload components after editing
+				m.loadComponents()
+				m.performSearch()
+			}
+			return m, cmd
 		}
 		
 		// Handle tag editing mode
@@ -469,6 +480,10 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				case pipelinesPane:
 					m.activePane = componentsPane
 				}
+			}
+			// Track last data pane when switching
+			if m.activePane == pipelinesPane || m.activePane == componentsPane {
+				m.lastDataPane = m.activePane
 			}
 			// Update preview when switching to non-preview pane
 			if m.activePane != previewPane && m.activePane != searchPane {
@@ -569,15 +584,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 					// Enter editing mode
-					m.editingComponent = true
-					m.editingComponentPath = comp.path
-					m.editingComponentName = comp.name
-					m.editingComponentContent = content.Content
-					m.originalContent = content.Content // Store original for change detection
-					
-					// Initialize edit viewport
-					m.editViewport = viewport.New(m.width-8, m.height-10)
-					m.editViewport.SetContent(content.Content)
+					m.componentEditor.StartEditing(comp.path, comp.name, content.Content)
 					
 					return m, nil
 				}
@@ -780,8 +787,22 @@ func (m *MainListModel) View() string {
 	}
 	
 	// If editing component, show edit view
-	if m.editingComponent {
-		return m.componentEditView()
+	if m.componentEditor.IsActive() {
+		// Update viewport dimensions
+		m.componentEditor.UpdateViewport(m.width, m.height)
+		
+		// Handle exit confirmation dialog
+		if m.componentEditor.ExitConfirmActive {
+			return m.componentEditor.ExitConfirm.View()
+		}
+		
+		// Create the component editing view renderer
+		renderer := NewComponentEditingViewRenderer(m.width, m.height)
+		return renderer.RenderEditView(
+			m.componentEditor.ComponentName, 
+			m.componentEditor.Content,
+			m.componentEditor.GetViewport(),
+		)
 	}
 	
 	// If editing tags, show tag edit view
@@ -1204,17 +1225,14 @@ func (m *MainListModel) View() string {
 		// Create heading with colons and token info
 		var previewHeading string
 		
-		// Determine what we're previewing based on cursor position
-		// This maintains the preview type even when preview pane is active
-		if len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-			// We have a valid pipeline selected
+		// Determine what we're previewing based on lastDataPane
+		if m.lastDataPane == pipelinesPane && len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
 			pipelineName := m.pipelines[m.pipelineCursor].name
 			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
-		} else if len(m.filteredComponents) > 0 && m.componentCursor >= 0 && m.componentCursor < len(m.filteredComponents) {
-			// We have a valid component selected
-			previewHeading = "COMPONENT PREVIEW"
+		} else if m.lastDataPane == componentsPane && len(m.filteredComponents) > 0 && m.componentCursor >= 0 && m.componentCursor < len(m.filteredComponents) {
+			comp := m.filteredComponents[m.componentCursor]
+			previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", comp.name)
 		} else {
-			// No valid selection - use generic preview
 			previewHeading = "PREVIEW"
 		}
 		tokenInfo := tokenBadge
@@ -1376,10 +1394,17 @@ func (m *MainListModel) updatePreview() {
 	// Use PreviewRenderer for generating preview content
 	renderer := &PreviewRenderer{ShowPreview: m.showPreview}
 	
-	if m.activePane == pipelinesPane {
+	// Determine which pane to preview from
+	previewPane := m.activePane
+	if m.activePane == previewPane {
+		// If we're on the preview pane, use the last data pane
+		previewPane = m.lastDataPane
+	}
+	
+	if previewPane == pipelinesPane {
 		// Show pipeline preview
 		if len(m.pipelines) == 0 {
-			m.previewContent = renderer.RenderEmptyPreview(m.activePane, false, false)
+			m.previewContent = renderer.RenderEmptyPreview(pipelinesPane, false, false)
 			return
 		}
 		
@@ -1387,11 +1412,11 @@ func (m *MainListModel) updatePreview() {
 			pipelinePath := m.pipelines[m.pipelineCursor].path
 			m.previewContent = renderer.RenderPipelinePreview(pipelinePath)
 		}
-	} else if m.activePane == componentsPane {
+	} else if previewPane == componentsPane {
 		// Show component preview
 		components := m.getCurrentComponents()
 		if len(components) == 0 {
-			m.previewContent = renderer.RenderEmptyPreview(m.activePane, false, false)
+			m.previewContent = renderer.RenderEmptyPreview(componentsPane, false, false)
 			return
 		}
 		
@@ -1572,86 +1597,6 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 	return m, nil
 }
 
-
-
-func (m *MainListModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	var cmd tea.Cmd
-	
-	// Handle viewport scrolling
-	switch msg.String() {
-	case "up", "k", "pgup":
-		m.editViewport, cmd = m.editViewport.Update(msg)
-		return m, cmd
-	case "down", "j", "pgdown":
-		m.editViewport, cmd = m.editViewport.Update(msg)
-		return m, cmd
-	case "ctrl+s":
-		// Save component and exit
-		return m, m.saveEditedComponent()
-	case "E":
-		// Save current content and open in external editor
-		// First save any unsaved changes
-		if m.editingComponentContent != m.originalContent {
-			err := files.WriteComponent(m.editingComponentPath, m.editingComponentContent)
-			if err != nil {
-				return m, func() tea.Msg {
-					return StatusMsg(fmt.Sprintf("× Failed to save before external edit: %v", err))
-				}
-			}
-		}
-		// Open in external editor
-		return m, m.openInEditor(m.editingComponentPath)
-	case "esc":
-		// Check if content has changed
-		if m.editingComponentContent != m.originalContent {
-			// Show confirmation dialog
-			m.exitConfirmationType = "component-edit"
-			m.exitConfirm.ShowDialog(
-				"⚠️  Unsaved Changes",
-				"You have unsaved changes to this component.",
-				"Exit without saving?",
-				true, // destructive
-				m.width - 4,
-				10,
-				func() tea.Cmd {
-					// Exit without saving
-					m.editingComponent = false
-					m.editingComponentContent = ""
-					m.editingComponentPath = ""
-					m.editingComponentName = ""
-					m.originalContent = ""
-					return nil
-				},
-				nil, // onCancel
-			)
-			return m, nil
-		}
-		// No changes, exit immediately
-		m.editingComponent = false
-		m.editingComponentContent = ""
-		m.editingComponentPath = ""
-		m.editingComponentName = ""
-		m.originalContent = ""
-		return m, nil
-	case "enter":
-		m.editingComponentContent += "\n"
-	case "backspace":
-		if len(m.editingComponentContent) > 0 {
-			m.editingComponentContent = m.editingComponentContent[:len(m.editingComponentContent)-1]
-		}
-	case "tab":
-		m.editingComponentContent += "    "
-	case " ":
-		m.editingComponentContent += " "
-	default:
-		if msg.Type == tea.KeyRunes {
-			m.editingComponentContent += string(msg.Runes)
-		}
-	}
-	
-	return m, nil
-}
-
 func (m *MainListModel) componentCreationView() string {
 	renderer := NewComponentCreationViewRenderer(m.width, m.height)
 	
@@ -1672,106 +1617,6 @@ func (m *MainListModel) componentCreationView() string {
 
 
 
-
-
-
-func (m *MainListModel) componentEditView() string {
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
-
-	// Calculate dimensions  
-	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 7 // Reserve space for help pane (3) + spacing (3) + status bar (1)
-
-	// Build main content
-	var mainContent strings.Builder
-
-	// Header with colons (pane heading style)
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-	
-	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
-
-	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(m.editingComponentName))
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	mainContent.WriteString("\n\n")
-
-	// Update viewport dimensions if needed
-	viewportWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
-	viewportHeight := contentHeight - 5 // Account for header and spacing
-	if m.editViewport.Width != viewportWidth || m.editViewport.Height != viewportHeight {
-		m.editViewport.Width = viewportWidth
-		m.editViewport.Height = viewportHeight
-	}
-	
-	// Editor content with cursor
-	content := m.editingComponentContent + "│" // cursor
-	
-	// Preprocess content to handle carriage returns and ensure proper line breaks
-	processedContent := preprocessContent(content)
-	
-	// Wrap content to viewport width to prevent overflow
-	wrappedContent := wordwrap.String(processedContent, viewportWidth)
-	
-	// Update viewport content
-	m.editViewport.SetContent(wrappedContent)
-	
-	// Use viewport for scrollable content
-	mainContent.WriteString(headerPadding.Render(m.editViewport.View()))
-
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-
-	// Help section
-	help := []string{
-		"↑/↓ scroll",
-		"ctrl+s save",
-		"E edit external",
-		"esc cancel",
-	}
-
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
-
-	helpContent := formatHelpText(help)
-	// Right-align help text
-	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
-		Align(lipgloss.Right).
-		Render(helpContent)
-	helpContent = alignedHelp
-
-	// Combine all elements
-	var s strings.Builder
-
-	// Add top margin to ensure content is not cut off
-	s.WriteString("\n")
-
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	s.WriteString(contentStyle.Render(mainPane))
-	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-
-	return s.String()
-}
 
 // exitConfirmationView is replaced by the confirmation module
 /* func (m *MainListModel) exitConfirmationView() string {
@@ -1848,33 +1693,6 @@ func (m *MainListModel) componentEditView() string {
 		
 	return dialogStyle.Render(mainPane)
 } */
-
-
-func (m *MainListModel) saveEditedComponent() tea.Cmd {
-	return func() tea.Msg {
-		// Write component
-		err := files.WriteComponent(m.editingComponentPath, m.editingComponentContent)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
-		}
-		
-		// Clear editing state
-		m.editingComponent = false
-		m.editingComponentContent = ""
-		m.editingComponentPath = ""
-		m.editingComponentName = ""
-		m.originalContent = ""
-		
-		// Reload components
-		m.loadComponents()
-		
-		// Re-run search to update filtered lists
-		m.performSearch()
-		
-		return StatusMsg(fmt.Sprintf("✓ Saved: %s", m.editingComponentName))
-	}
-}
-
 func (m *MainListModel) openInEditor(path string) tea.Cmd {
 	return func() tea.Msg {
 		editor := os.Getenv("EDITOR")

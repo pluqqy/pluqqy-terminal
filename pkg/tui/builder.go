@@ -1286,7 +1286,14 @@ func (m *PipelineBuilderModel) View() string {
 		// Create heading with colons and token info
 		var previewHeading string
 		if m.activeColumn == leftColumn {
-			previewHeading = "COMPONENT PREVIEW"
+			// Get the selected component name
+			components := m.getAllAvailableComponents()
+			if m.leftCursor >= 0 && m.leftCursor < len(components) {
+				comp := components[m.leftCursor]
+				previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", comp.name)
+			} else {
+				previewHeading = "COMPONENT PREVIEW"
+			}
 		} else {
 			pipelineName := "PLUQQY.md"
 			if m.pipeline != nil && m.pipeline.Name != "" {

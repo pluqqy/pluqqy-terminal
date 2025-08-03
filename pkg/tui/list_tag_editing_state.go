@@ -123,8 +123,14 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			// Add tag from cloud
 			t.AddTagFromCloud()
 		} else if t.ShowSuggestions && t.TagInput != "" {
-			// Add selected suggestion
-			t.AddSelectedSuggestion()
+			// Try to add selected suggestion if there are any
+			suggestions := t.GetSuggestions()
+			if len(suggestions) > 0 && t.SuggestionCursor < len(suggestions) {
+				t.AddSelectedSuggestion()
+			} else {
+				// No suggestions or no valid selection, add raw input
+				t.AddTagFromInput()
+			}
 		} else {
 			// Add tag from input
 			t.AddTagFromInput()

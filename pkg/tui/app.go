@@ -251,8 +251,8 @@ func (a *App) View() string {
 				} else {
 					title = "Component: New"
 				}
-			} else if a.mainList.editingComponent && a.mainList.editingComponentName != "" {
-				title = "Component: " + a.mainList.editingComponentName
+			} else if a.mainList.componentEditor.IsActive() && a.mainList.componentEditor.ComponentName != "" {
+				title = "Component: " + a.mainList.componentEditor.ComponentName
 			} else if a.mainList.tagEditor.Active {
 				title = "Tag Editor"
 			} else {
