@@ -1,0 +1,98 @@
+package tui
+
+import (
+	"strings"
+	
+	"github.com/pluqqy/pluqqy-cli/pkg/search"
+)
+
+// SearchManager handles search initialization and operations
+type SearchManager struct {
+	engine *search.Engine
+	query  string
+}
+
+// NewSearchManager creates a new search manager
+func NewSearchManager() *SearchManager {
+	return &SearchManager{}
+}
+
+// InitializeEngine creates and initializes the search engine
+func (s *SearchManager) InitializeEngine() error {
+	engine := search.NewEngine()
+	if err := engine.BuildIndex(); err != nil {
+		return err
+	}
+	s.engine = engine
+	return nil
+}
+
+// GetEngine returns the search engine
+func (s *SearchManager) GetEngine() *search.Engine {
+	return s.engine
+}
+
+// SetQuery updates the search query
+func (s *SearchManager) SetQuery(query string) {
+	s.query = query
+}
+
+// GetQuery returns the current search query
+func (s *SearchManager) GetQuery() string {
+	return s.query
+}
+
+// Search performs a search with the current query
+func (s *SearchManager) Search() ([]search.SearchResult, error) {
+	if s.query == "" || s.engine == nil {
+		return nil, nil
+	}
+	return s.engine.Search(s.query)
+}
+
+// FilterSearchResults filters pipelines and components based on search results
+func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem, components []componentItem) ([]pipelineItem, []componentItem) {
+	if results == nil || len(results) == 0 {
+		// No search results, return empty lists
+		return []pipelineItem{}, []componentItem{}
+	}
+	
+	// Build filtered lists from search results
+	filteredPipelines := []pipelineItem{}
+	filteredComponents := []componentItem{}
+	
+	// Use maps to track what's already added
+	addedPipelines := make(map[string]bool)
+	addedComponents := make(map[string]bool)
+	
+	for _, result := range results {
+		if result.Item.Type == search.ItemTypePipeline {
+			// Match by pipeline name (without .yaml extension)
+			searchName := strings.TrimSuffix(result.Item.Name, ".yaml")
+			
+			// Check if already added
+			if !addedPipelines[searchName] {
+				for _, p := range pipelines {
+					if p.name == searchName || p.name == result.Item.Name {
+						filteredPipelines = append(filteredPipelines, p)
+						addedPipelines[searchName] = true
+						break
+					}
+				}
+			}
+		} else {
+			// Match components by path
+			if !addedComponents[result.Item.Path] {
+				for _, c := range components {
+					if c.path == result.Item.Path {
+						filteredComponents = append(filteredComponents, c)
+						addedComponents[result.Item.Path] = true
+						break
+					}
+				}
+			}
+		}
+	}
+	
+	return filteredPipelines, filteredComponents
+}

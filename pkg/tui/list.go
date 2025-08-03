@@ -293,13 +293,13 @@ func (m *MainListModel) loadComponents() {
 }
 
 func (m *MainListModel) initializeSearchEngine() {
-	// Create search engine and build index
-	engine := search.NewEngine()
-	if err := engine.BuildIndex(); err != nil {
+	// Use SearchManager for initialization
+	searchManager := NewSearchManager()
+	if err := searchManager.InitializeEngine(); err != nil {
 		// Log error but don't fail - search will be unavailable
 		return
 	}
-	m.searchEngine = engine
+	m.searchEngine = searchManager.GetEngine()
 }
 
 func (m *MainListModel) performSearch() {
@@ -320,52 +320,12 @@ func (m *MainListModel) performSearch() {
 			return
 		}
 		
-		// Build filtered lists from search results
-		m.filteredPipelines = []pipelineItem{}
-		m.filteredComponents = []componentItem{}
-		
-		for _, result := range results {
-			if result.Item.Type == search.ItemTypePipeline {
-				// Find matching pipeline - check if already added to avoid duplicates
-				alreadyAdded := false
-				for _, existing := range m.filteredPipelines {
-					if existing.name == result.Item.Name {
-						alreadyAdded = true
-						break
-					}
-				}
-				
-				if !alreadyAdded {
-					// Match by pipeline name (without .yaml extension)
-					searchName := strings.TrimSuffix(result.Item.Name, ".yaml")
-					for _, p := range m.pipelines {
-						if p.name == searchName || p.name == result.Item.Name {
-							m.filteredPipelines = append(m.filteredPipelines, p)
-							break
-						}
-					}
-				}
-			} else {
-				// Find matching component - check if already added to avoid duplicates
-				alreadyAdded := false
-				for _, existing := range m.filteredComponents {
-					if existing.path == result.Item.Path {
-						alreadyAdded = true
-						break
-					}
-				}
-				
-				if !alreadyAdded {
-					allComps := m.getAllComponents()
-					for _, c := range allComps {
-						if c.path == result.Item.Path {
-							m.filteredComponents = append(m.filteredComponents, c)
-							break
-						}
-					}
-				}
-			}
-		}
+		// Use the helper function to filter results
+		m.filteredPipelines, m.filteredComponents = FilterSearchResults(
+			results,
+			m.pipelines,
+			m.getAllComponents(),
+		)
 		
 		// Reset cursors if they're out of bounds
 		if m.pipelineCursor >= len(m.filteredPipelines) {
@@ -1457,64 +1417,31 @@ func (m *MainListModel) updatePreview() {
 		return
 	}
 	
+	// Use PreviewRenderer for generating preview content
+	renderer := &PreviewRenderer{ShowPreview: m.showPreview}
+	
 	if m.activePane == pipelinesPane {
 		// Show pipeline preview
 		if len(m.pipelines) == 0 {
-			m.previewContent = "No pipelines to preview."
+			m.previewContent = renderer.RenderEmptyPreview(m.activePane, false, false)
 			return
 		}
 		
 		if m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
 			pipelinePath := m.pipelines[m.pipelineCursor].path
-			
-			// Load pipeline
-			pipeline, err := files.ReadPipeline(pipelinePath)
-			if err != nil {
-				m.previewContent = fmt.Sprintf("Error loading pipeline: %v", err)
-				return
-			}
-			
-			// Generate preview
-			output, err := composer.ComposePipeline(pipeline)
-			if err != nil {
-				m.previewContent = fmt.Sprintf("Error generating preview: %v", err)
-				return
-			}
-			
-			m.previewContent = output
+			m.previewContent = renderer.RenderPipelinePreview(pipelinePath)
 		}
 	} else if m.activePane == componentsPane {
 		// Show component preview
 		components := m.getCurrentComponents()
 		if len(components) == 0 {
-			m.previewContent = "No components to preview."
+			m.previewContent = renderer.RenderEmptyPreview(m.activePane, false, false)
 			return
 		}
 		
 		if m.componentCursor >= 0 && m.componentCursor < len(components) {
 			comp := components[m.componentCursor]
-			
-			// Read component content
-			content, err := files.ReadComponent(comp.path)
-			if err != nil {
-				m.previewContent = fmt.Sprintf("Error loading component: %v", err)
-				return
-			}
-			
-			// Format component preview with metadata
-			var preview strings.Builder
-			preview.WriteString(fmt.Sprintf("# %s\n\n", comp.name))
-			preview.WriteString(fmt.Sprintf("**Type:** %s\n", strings.Title(comp.compType)))
-			preview.WriteString(fmt.Sprintf("**Path:** %s\n", comp.path))
-			preview.WriteString(fmt.Sprintf("**Usage Count:** %d\n", comp.usageCount))
-			preview.WriteString(fmt.Sprintf("**Token Count:** ~%d\n", comp.tokenCount))
-			if !comp.lastModified.IsZero() {
-				preview.WriteString(fmt.Sprintf("**Last Modified:** %s\n", comp.lastModified.Format("2006-01-02 15:04:05")))
-			}
-			preview.WriteString("\n---\n\n")
-			preview.WriteString(content.Content)
-			
-			m.previewContent = preview.String()
+			m.previewContent = renderer.RenderComponentPreview(comp)
 		}
 	}
 }
@@ -2626,111 +2553,18 @@ func (m *MainListModel) tagEditView() string {
 		Height(paneHeight).
 		Render(mainContent.String())
 
-	// Build tag cloud pane
-	var tagCloudContent strings.Builder
-	
-	// Tag cloud header
-	tagCloudTitle := "AVAILABLE TAGS"
-	tagCloudRemainingWidth := paneWidth - len(tagCloudTitle) - 7 // Adjust for smaller width
-	if tagCloudRemainingWidth < 0 {
-		tagCloudRemainingWidth = 0
-	}
-	// Dynamic styles based on which pane is active
-	tagCloudHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(func() string {
-			if m.tagCloudActive {
-				return "170" // Purple when active
-			}
-			return "214" // Orange when inactive
-		}()))
-	tagCloudColonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(func() string {
-			if m.tagCloudActive {
-				return "170" // Purple when active
-			}
-			return "240" // Gray when inactive
-		}()))
-	tagCloudContent.WriteString(headerPadding.Render(tagCloudHeaderStyle.Render(tagCloudTitle) + " " + tagCloudColonStyle.Render(strings.Repeat(":", tagCloudRemainingWidth))))
-	tagCloudContent.WriteString("\n\n")
-	
-	// Display available tags
-	if len(m.availableTags) == 0 {
-		dimStyle := DescriptionStyle
-		tagCloudContent.WriteString(headerPadding.Render(dimStyle.Render("(no available tags)")))
-	} else {
-		// Group tags in rows
-		var tagRows strings.Builder
-		rowTags := 0
-		currentRowWidth := 0
-		maxRowWidth := paneWidth - 6 // Account for padding
-		
-		availableForCloud := m.getAvailableTagsForCloud()
-		for i, tag := range availableForCloud {
-			// Get tag color
-			registry, _ := tags.NewRegistry()
-			color := models.GetTagColor(tag, "")
-			if registry != nil {
-				if t, exists := registry.GetTag(tag); exists && t.Color != "" {
-					color = t.Color
-				}
-			}
-			
-			tagStyle := lipgloss.NewStyle().
-				Background(lipgloss.Color(color)).
-				Foreground(lipgloss.Color("255")).
-				Padding(0, 1)
-			
-			// Calculate tag display width
-			var tagDisplay string
-			if m.tagCloudActive && i == m.tagCloudCursor {
-				indicatorStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color("170")).
-					Bold(true)
-				tagDisplay = indicatorStyle.Render("▶ ") + tagStyle.Render(tag) + indicatorStyle.Render(" ◀")
-			} else {
-				tagDisplay = "  " + tagStyle.Render(tag) + "  "
-			}
-			
-			tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
-			
-			// Check if we need a new row
-			if rowTags > 0 && currentRowWidth + tagWidth > maxRowWidth {
-				tagRows.WriteString("\n\n") // Double newline for vertical spacing
-				rowTags = 0
-				currentRowWidth = 0
-			}
-			
-			tagRows.WriteString(tagDisplay)
-			tagRows.WriteString("  ")
-			currentRowWidth += tagWidth + 2
-			rowTags++
-		}
-		
-		tagCloudContent.WriteString(headerPadding.Render(tagRows.String()))
-	}
-	
-	tagCloudBorder := inactiveBorderStyle
-	if m.tagCloudActive {
-		tagCloudBorder = activeBorderStyle
-	}
-	
-	tagCloudPane := tagCloudBorder.
-		Width(paneWidth).
-		Height(paneHeight).
-		Render(tagCloudContent.String())
+	// Build tag cloud pane using the renderer
+	tagCloudRenderer := NewTagCloudRenderer(paneWidth, paneHeight)
+	tagCloudRenderer.IsActive = m.tagCloudActive
+	tagCloudRenderer.CursorIndex = m.tagCloudCursor
+	tagCloudRenderer.AvailableTags = m.availableTags
+	tagCloudRenderer.CurrentTags = m.currentTags
+	tagCloudPane := tagCloudRenderer.Render()
 
 	// Help section
 	var help []string
 	if m.tagCloudActive {
-		help = []string{
-			"tab switch pane",
-			"enter add tag",
-			"←/→ navigate",
-			"ctrl+d delete tag",
-			"ctrl+s save",
-			"esc cancel",
-		}
+		help = tagCloudRenderer.GetHelpText()
 	} else {
 		help = []string{
 			"tab switch pane",
@@ -2817,13 +2651,12 @@ func (m *MainListModel) hasTag(tag string) bool {
 }
 
 func (m *MainListModel) getAvailableTagsForCloud() []string {
-	var available []string
-	for _, tag := range m.availableTags {
-		if !m.hasTag(tag) {
-			available = append(available, tag)
-		}
+	// Use the renderer's logic for consistency
+	renderer := &TagCloudRenderer{
+		AvailableTags: m.availableTags,
+		CurrentTags:   m.currentTags,
 	}
-	return available
+	return renderer.getAvailableForCloud()
 }
 
 func (m *MainListModel) deleteTagFromRegistry() tea.Cmd {
