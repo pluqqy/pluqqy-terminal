@@ -764,8 +764,18 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 }
 
 func (m *MainListModel) View() string {
+	// Create main view renderer
+	mainRenderer := NewMainViewRenderer(m.width, m.height)
+	mainRenderer.ShowPreview = m.showPreview
+	mainRenderer.ActivePane = m.activePane
+	mainRenderer.LastDataPane = m.lastDataPane
+	mainRenderer.SearchBar = m.searchBar
+	mainRenderer.PreviewViewport = m.previewViewport
+	mainRenderer.PreviewContent = m.previewContent
+	
+	// Handle error state
 	if m.err != nil {
-		return fmt.Sprintf("Error: Failed to load pipelines: %v\n\nPress 'q' to quit", m.err)
+		return mainRenderer.RenderErrorView(m.err)
 	}
 	
 	// If showing exit confirmation, display dialog
@@ -822,356 +832,34 @@ func (m *MainListModel) View() string {
 		return renderer.Render()
 	}
 
-	// Styles
-	activeStyle := ActiveBorderStyle
-	inactiveStyle := InactiveBorderStyle
-	normalStyle := NormalStyle
-	typeHeaderStyle := TypeHeaderStyle
-
-	// Calculate dimensions
-	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for header, search bar, help pane, and spacing
-
-	if m.showPreview {
-		contentHeight = contentHeight / 2
-	}
-	
-	// Ensure minimum height for content
-	if contentHeight < 10 {
-		contentHeight = 10
-	}
+	// Calculate content height
+	contentHeight := mainRenderer.CalculateContentHeight()
 
 	// Update search bar active state and render it
 	m.searchBar.SetActive(m.activePane == searchPane)
 	m.searchBar.SetWidth(m.width)
 
-	// Build left column (components)
-	var leftContent strings.Builder
-	// Create padding style for headers
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-	
-	// Create heading with colons spanning the width
-	heading := "COMPONENTS"
-	remainingWidth := columnWidth - len(heading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	// Dynamic header and colon styles based on active pane
-	leftHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(func() string {
-			if m.activePane == componentsPane {
-				return "170" // Purple when active
-			}
-			return "214" // Orange when inactive
-		}()))
-	leftColonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(func() string {
-			if m.activePane == componentsPane {
-				return "170" // Purple when active
-			}
-			return "240" // Gray when inactive
-		}()))
-	leftContent.WriteString(headerPadding.Render(leftHeaderStyle.Render(heading) + " " + leftColonStyle.Render(strings.Repeat(":", remainingWidth))))
-	leftContent.WriteString("\n\n")
+	// Create component view renderer
+	componentRenderer := NewComponentViewRenderer(m.width, contentHeight)
+	componentRenderer.ActivePane = m.activePane
+	componentRenderer.FilteredComponents = m.filteredComponents
+	componentRenderer.AllComponents = m.getAllComponents()
+	componentRenderer.ComponentCursor = m.componentCursor
+	componentRenderer.SearchQuery = m.searchQuery
+	componentRenderer.Viewport = m.componentsViewport
 
-	
-	// Table header styles
-	headerStyle := HeaderStyle
-	
-	// Table column widths (adjusted for viewport width)
-	// Use viewport width instead of column width to ensure content fits
-	viewportWidth := columnWidth - 4 // Same as m.componentsViewport.Width
-	nameWidth, tagsWidth, tokenWidth, usageWidth := formatColumnWidths(viewportWidth, true)
-	
-	// Render table header with consistent spacing
-	header := fmt.Sprintf("  %-*s %-*s  %*s %*s", 
-		nameWidth, "Name",
-		tagsWidth, "Tags",
-		tokenWidth, "~Tokens",
-		usageWidth, "Usage")
-	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
-	leftContent.WriteString("\n\n")
-	
-	// Build scrollable content for components viewport
-	var componentsScrollContent strings.Builder
-	
-	// Use filtered components instead of all components
-	if len(m.filteredComponents) == 0 {
-		if m.activePane == componentsPane {
-			// Active pane - show prominent message
-			emptyStyle := EmptyActiveStyle
-			
-			// Check if we have components but they're filtered out
-			allComponents := m.getAllComponents()
-			if len(allComponents) > 0 && m.searchQuery != "" {
-				componentsScrollContent.WriteString(emptyStyle.Render("No components match your search."))
-			} else {
-				componentsScrollContent.WriteString(emptyStyle.Render("No components found.\n\nPress 'n' to create one"))
-			}
-		} else {
-			// Inactive pane - show dimmed message
-			dimmedStyle := EmptyInactiveStyle
-			
-			// Check if we have components but they're filtered out
-			allComponents := m.getAllComponents()
-			if len(allComponents) > 0 && m.searchQuery != "" {
-				componentsScrollContent.WriteString(dimmedStyle.Render("No components match your search."))
-			} else {
-				componentsScrollContent.WriteString(dimmedStyle.Render("No components found."))
-			}
-		}
-	} else {
-		currentType := ""
-	
-		for i, comp := range m.filteredComponents {
-		if comp.compType != currentType {
-			if currentType != "" {
-				componentsScrollContent.WriteString("\n")
-			}
-			currentType = comp.compType
-			// Convert to uppercase plural form
-			var typeHeader string
-			switch currentType {
-			case models.ComponentTypeContext:
-				typeHeader = "CONTEXTS"
-			case models.ComponentTypePrompt:
-				typeHeader = "PROMPTS"
-			case models.ComponentTypeRules:
-				typeHeader = "RULES"
-			default:
-				typeHeader = strings.ToUpper(currentType)
-			}
-			componentsScrollContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
-		}
+	// Create pipeline view renderer
+	pipelineRenderer := NewPipelineViewRenderer(m.width, contentHeight)
+	pipelineRenderer.ActivePane = m.activePane
+	pipelineRenderer.Pipelines = m.pipelines
+	pipelineRenderer.FilteredPipelines = m.filteredPipelines
+	pipelineRenderer.PipelineCursor = m.pipelineCursor
+	pipelineRenderer.SearchQuery = m.searchQuery
+	pipelineRenderer.Viewport = m.pipelinesViewport
 
-		// Format the row data
-		nameStr := truncateName(comp.name, nameWidth)
-		
-		
-		// Format usage count
-		usageStr := fmt.Sprintf("%d", comp.usageCount)
-		
-		// Format token count - right-aligned with consistent width
-		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
-		
-		// Format tags
-		tagsStr := renderTagChipsWithWidth(comp.tags, tagsWidth, 2) // Show max 2 tags inline
-		
-		// Build the row components separately for proper styling
-		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
-		
-		// For tags, we need to pad based on rendered width
-		tagsPadding := tagsWidth - lipgloss.Width(tagsStr)
-		if tagsPadding < 0 {
-			tagsPadding = 0
-		}
-		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
-		
-		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
-		usagePart := fmt.Sprintf("%*s", usageWidth, usageStr)
-		
-		// Build row with styling
-		var row string
-		if m.activePane == componentsPane && i == m.componentCursor {
-			// Apply selection styling only to name column
-			row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
-		} else {
-			// Normal row styling
-			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
-		}
-		
-		componentsScrollContent.WriteString(row)
-		
-			if i < len(m.filteredComponents)-1 {
-				componentsScrollContent.WriteString("\n")
-			}
-		}
-	}
-	
-	// Update components viewport with content
-	m.componentsViewport.SetContent(componentsScrollContent.String())
-	
-	// Update viewport to follow cursor
-	if m.activePane == componentsPane && len(m.filteredComponents) > 0 {
-		// Calculate the line position of the cursor
-		currentLine := 0
-		for i := 0; i < m.componentCursor && i < len(m.filteredComponents); i++ {
-			currentLine++ // Component line
-			// Check if it's the first item of a new type to add header line
-			if i == 0 || m.filteredComponents[i].compType != m.filteredComponents[i-1].compType {
-				currentLine++ // Type header line
-				if i > 0 {
-					currentLine++ // Empty line between sections
-				}
-			}
-		}
-		
-		// Ensure the cursor line is visible
-		if currentLine < m.componentsViewport.YOffset {
-			m.componentsViewport.SetYOffset(currentLine)
-		} else if currentLine >= m.componentsViewport.YOffset+m.componentsViewport.Height {
-			m.componentsViewport.SetYOffset(currentLine - m.componentsViewport.Height + 1)
-		}
-	}
-	
-	// Add padding to viewport content
-	componentsViewportPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-	leftContent.WriteString(componentsViewportPadding.Render(m.componentsViewport.View()))
-
-	// Build right column (pipelines)
-	var rightContent strings.Builder
-	// Create heading with colons spanning the width
-	rightHeading := "PIPELINES"
-	rightRemainingWidth := columnWidth - len(rightHeading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
-	if rightRemainingWidth < 0 {
-		rightRemainingWidth = 0
-	}
-	// Dynamic header and colon styles based on active pane
-	rightHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(func() string {
-			if m.activePane == pipelinesPane {
-				return "170" // Purple when active
-			}
-			return "214" // Orange when inactive
-		}()))
-	rightColonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(func() string {
-			if m.activePane == pipelinesPane {
-				return "170" // Purple when active
-			}
-			return "240" // Gray when inactive
-		}()))
-	rightContent.WriteString(headerPadding.Render(rightHeaderStyle.Render(rightHeading) + " " + rightColonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
-	rightContent.WriteString("\n\n")
-	
-	// Table header for pipelines with token count
-	pipelineHeaderStyle := HeaderStyle
-	
-	// Table column widths for pipelines (adjusted for viewport width)
-	pipelineViewportWidth := columnWidth - 4 // Same as m.pipelinesViewport.Width
-	pipelineNameWidth, pipelineTagsWidth, pipelineTokenWidth, _ := formatColumnWidths(pipelineViewportWidth, false)
-	
-	// Render table header with consistent spacing to match rows
-	pipelineHeader := fmt.Sprintf("  %-*s %-*s %*s", 
-		pipelineNameWidth, "Name",
-		pipelineTagsWidth, "Tags",
-		pipelineTokenWidth, "~Tokens")
-	rightContent.WriteString(headerPadding.Render(pipelineHeaderStyle.Render(pipelineHeader)))
-	rightContent.WriteString("\n\n")
-
-	// Build scrollable content for pipelines viewport
-	var pipelinesScrollContent strings.Builder
-	
-	if len(m.filteredPipelines) == 0 {
-		if m.activePane == pipelinesPane {
-			// Active pane - show prominent message
-			emptyStyle := EmptyActiveStyle
-			
-			// Check if we have pipelines but they're filtered out
-			if len(m.pipelines) > 0 && m.searchQuery != "" {
-				pipelinesScrollContent.WriteString(emptyStyle.Render("No pipelines match your search."))
-			} else {
-				pipelinesScrollContent.WriteString(emptyStyle.Render("No pipelines found.\n\nPress 'n' to create one"))
-			}
-		} else {
-			// Inactive pane - show dimmed message
-			dimmedStyle := EmptyInactiveStyle
-			
-			// Check if we have pipelines but they're filtered out
-			if len(m.pipelines) > 0 && m.searchQuery != "" {
-				pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines match your search."))
-			} else {
-				pipelinesScrollContent.WriteString(dimmedStyle.Render("No pipelines found."))
-			}
-		}
-	} else {
-		for i, pipeline := range m.filteredPipelines {
-			// Format the pipeline name
-			nameStr := truncateName(pipeline.name, pipelineNameWidth)
-			
-			// Format tags
-			tagsStr := renderTagChipsWithWidth(pipeline.tags, pipelineTagsWidth, 2) // Show max 2 tags inline
-			
-			// Format token count - right-aligned
-			tokenStr := fmt.Sprintf("%d", pipeline.tokenCount)
-			
-			// Build the row components separately for proper styling
-			namePart := fmt.Sprintf("%-*s", pipelineNameWidth, nameStr)
-			
-			// For tags, we need to pad based on rendered width
-			tagsPadding := pipelineTagsWidth - lipgloss.Width(tagsStr)
-			if tagsPadding < 0 {
-				tagsPadding = 0
-			}
-			tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
-			
-			tokenPart := fmt.Sprintf("%*s", pipelineTokenWidth, tokenStr)
-			
-			// Build row with styling
-			var row string
-			if m.activePane == pipelinesPane && i == m.pipelineCursor {
-				// Apply selection styling only to name column
-				row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
-			} else {
-				// Normal row styling
-				row = "  " + normalStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
-			}
-			
-			pipelinesScrollContent.WriteString(row)
-			
-			if i < len(m.pipelines)-1 {
-				pipelinesScrollContent.WriteString("\n")
-			}
-		}
-	}
-	
-	// Update pipelines viewport with content
-	m.pipelinesViewport.SetContent(pipelinesScrollContent.String())
-	
-	// Update viewport to follow cursor
-	if m.activePane == pipelinesPane && len(m.pipelines) > 0 {
-		// For pipelines, each item is one line
-		currentLine := m.pipelineCursor
-		
-		// Ensure the cursor line is visible
-		if currentLine < m.pipelinesViewport.YOffset {
-			m.pipelinesViewport.SetYOffset(currentLine)
-		} else if currentLine >= m.pipelinesViewport.YOffset+m.pipelinesViewport.Height {
-			m.pipelinesViewport.SetYOffset(currentLine - m.pipelinesViewport.Height + 1)
-		}
-	}
-	
-	// Add padding to viewport content
-	pipelinesViewportPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-	rightContent.WriteString(pipelinesViewportPadding.Render(m.pipelinesViewport.View()))
-
-	// Apply borders
-	leftStyle := inactiveStyle
-	rightStyle := inactiveStyle
-	if m.activePane == componentsPane {
-		leftStyle = activeStyle
-	} else if m.activePane == pipelinesPane {
-		rightStyle = activeStyle
-	}
-
-	leftColumn := leftStyle.
-		Width(columnWidth).
-		Height(contentHeight).
-		Render(leftContent.String())
-
-	rightColumn := rightStyle.
-		Width(columnWidth).
-		Height(contentHeight).
-		Render(rightContent.String())
+	// Render columns
+	leftColumn := componentRenderer.Render()
+	rightColumn := pipelineRenderer.Render()
 
 	// Join columns
 	columns := lipgloss.JoinHorizontal(lipgloss.Top, leftColumn, " ", rightColumn)
@@ -1192,142 +880,20 @@ func (m *MainListModel) View() string {
 	s.WriteString(contentStyle.Render(columns))
 
 	// Add preview if enabled
-	if m.showPreview && m.previewContent != "" {
-		// Calculate token count
-		tokenCount := utils.EstimateTokens(m.previewContent)
-		
-		// Create token badge with appropriate color
-		tokenBadgeStyle := GetTokenBadgeStyle(tokenCount)
-		
-		tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
-		
-		// Apply active/inactive style to preview border
-		var previewBorderStyle lipgloss.Style
-		if m.activePane == previewPane {
-			previewBorderStyle = ActiveBorderStyle
-		} else {
-			previewBorderStyle = InactiveBorderStyle
-		}
-		previewBorderStyle = previewBorderStyle.Width(m.width - 4) // Account for padding (2) and border (2)
-
-		s.WriteString("\n")
-		
-		// Build preview content with header inside
-		var previewContent strings.Builder
-		// Create heading with colons and token info
-		var previewHeading string
-		
-		// Determine what we're previewing based on lastDataPane
-		if m.lastDataPane == pipelinesPane && len(m.pipelines) > 0 && m.pipelineCursor >= 0 && m.pipelineCursor < len(m.pipelines) {
-			pipelineName := m.pipelines[m.pipelineCursor].name
-			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
-		} else if m.lastDataPane == componentsPane && len(m.filteredComponents) > 0 && m.componentCursor >= 0 && m.componentCursor < len(m.filteredComponents) {
-			comp := m.filteredComponents[m.componentCursor]
-			previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", comp.name)
-		} else {
-			previewHeading = "PREVIEW"
-		}
-		tokenInfo := tokenBadge
-		
-		// Calculate the actual rendered width of token info
-		tokenInfoWidth := lipgloss.Width(tokenBadge)
-		
-		// Calculate total available width inside the border
-		totalWidth := m.width - 8 // accounting for border padding and header padding
-		
-		// Calculate space for colons between heading and token info
-		colonSpace := totalWidth - len(previewHeading) - tokenInfoWidth - 2 // -2 for spaces
-		if colonSpace < 3 {
-			colonSpace = 3
-		}
-		
-		// Build the complete header line
-		// Dynamic header and colon styles based on active pane
-		previewHeaderStyle := lipgloss.NewStyle().
-			Bold(true).
-			Foreground(lipgloss.Color(func() string {
-				if m.activePane == previewPane {
-					return "170" // Purple when active
-				}
-				return "214" // Orange when inactive
-			}()))
-		previewColonStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color(func() string {
-				if m.activePane == previewPane {
-					return "170" // Purple when active
-				}
-				return "240" // Gray when inactive
-			}()))
-		previewHeaderPadding := lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1)
-		previewContent.WriteString(previewHeaderPadding.Render(previewHeaderStyle.Render(previewHeading) + " " + previewColonStyle.Render(strings.Repeat(":", colonSpace)) + " " + tokenInfo))
-		previewContent.WriteString("\n\n")
-		// Add padding to preview viewport content
-		previewViewportPadding := lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1)
-		previewContent.WriteString(previewViewportPadding.Render(m.previewViewport.View()))
-		
-		// Render the border around the entire preview with same padding as top columns
-		s.WriteString("\n")
-		previewPaddingStyle := lipgloss.NewStyle().
-			PaddingLeft(1).
-			PaddingRight(1)
-		s.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
-		
+	previewPane := mainRenderer.RenderPreviewPane(m.pipelines, m.filteredComponents, m.pipelineCursor, m.componentCursor)
+	if previewPane != "" {
+		s.WriteString(previewPane)
 	}
 
-	// Show delete confirmation if active
-	if m.pipelineOperator.IsDeleteConfirmActive() {
-		confirmStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("196")).
-			Bold(true).
-			MarginTop(2).
-			MarginBottom(1)
-		s.WriteString("\n")
-		s.WriteString(confirmStyle.Render(m.pipelineOperator.ViewDeleteConfirm(m.width - 4)))
+	// Show confirmation dialogs
+	confirmDialogs := mainRenderer.RenderConfirmationDialogs(m.pipelineOperator)
+	if confirmDialogs != "" {
+		s.WriteString(confirmDialogs)
 	}
 	
-	// Show archive confirmation if active
-	if m.pipelineOperator.IsArchiveConfirmActive() {
-		confirmStyle := lipgloss.NewStyle().
-			Foreground(lipgloss.Color("214")). // Orange for archive
-			Bold(true).
-			MarginTop(2).
-			MarginBottom(1)
-		s.WriteString("\n")
-		s.WriteString(confirmStyle.Render(m.pipelineOperator.ViewArchiveConfirm(m.width - 4)))
-	}
-	
-	// Help text in bordered pane
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
-		Padding(0, 1)  // Internal padding for help text
-	
-	var helpContent string
-	if m.activePane == searchPane {
-		// Show search syntax help when search is active
-		helpRows := [][]string{
-			{"esc exit search", "enter search", "tag:<name>", "type:<type>"},
-			{"pipeline:<name>", "<keyword>", "combine with spaces"},
-		}
-		helpContent = formatHelpTextRows(helpRows, m.width - 8) // -8 for borders and padding
-	} else {
-		// Show normal navigation help - grouped by function
-		helpRows := [][]string{
-			// Row 1: Navigation & viewing
-			{"/ search", "tab switch pane", "↑/↓ nav", "enter view", "p preview"},
-			// Row 2: CRUD operations & system
-			{"n new", "e edit", "E external", "t tag", "d delete", "a archive", "S set", "s settings", "ctrl+c quit"},
-		}
-		helpContent = formatHelpTextRows(helpRows, m.width - 8) // -8 for borders and padding
-	}
-	
+	// Help text
 	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+	s.WriteString(mainRenderer.RenderHelpPane(m.activePane == searchPane))
 
 	return s.String()
 }
