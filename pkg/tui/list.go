@@ -19,22 +19,6 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
-type pane int
-
-const (
-	searchPane pane = iota
-	pipelinesPane
-	componentsPane
-	previewPane
-)
-
-type pipelineItem struct {
-	name       string
-	path       string
-	tags       []string
-	tokenCount int
-}
-
 type MainListModel struct {
 	// Pipelines data
 	pipelines          []pipelineItem
@@ -2959,13 +2943,6 @@ func (m *MainListModel) deleteTagFromRegistry() tea.Cmd {
 		
 		return StatusMsg(fmt.Sprintf("✓ Deleted tag '%s' from registry", deletedTag))
 	}
-}
-
-func pluralize(count int) string {
-	if count == 1 {
-		return ""
-	}
-	return "s"
 }
 
 func (m *MainListModel) componentEditView() string {
