@@ -2,8 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -47,10 +45,9 @@ type MainListModel struct {
 	// Error handling
 	err                error
 	
-	// Confirmations
-	deleteConfirm     *ConfirmationModel
+	// Pipeline operations
+	pipelineOperator  *PipelineOperator
 	deletingFromPane  pane // Track which pane initiated the delete
-	archiveConfirm    *ConfirmationModel
 	archivingFromPane pane // Track which pane initiated the archive
 	
 	// Component creation
@@ -85,8 +82,7 @@ func NewMainListModel() *MainListModel {
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
 		searchBar:          NewSearchBar(),
-		deleteConfirm:      NewConfirmation(),
-		archiveConfirm:     NewConfirmation(),
+		pipelineOperator:   NewPipelineOperator(),
 		exitConfirm:        NewConfirmation(),
 		componentCreator:   NewComponentCreator(),
 		componentEditor:    NewComponentEditor(),
@@ -438,13 +434,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle delete confirmation
-		if m.deleteConfirm.Active() {
-			return m, m.deleteConfirm.Update(msg)
+		if m.pipelineOperator.IsDeleteConfirmActive() {
+			return m, m.pipelineOperator.UpdateDeleteConfirm(msg)
 		}
 		
 		// Handle archive confirmation
-		if m.archiveConfirm.Active() {
-			return m, m.archiveConfirm.Update(msg)
+		if m.pipelineOperator.IsArchiveConfirmActive() {
+			return m, m.pipelineOperator.UpdateArchiveConfirm(msg)
 		}
 		
 		// Normal mode key handling
@@ -596,7 +592,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				components := m.getCurrentComponents()
 				if m.componentCursor >= 0 && m.componentCursor < len(components) {
 					comp := components[m.componentCursor]
-					return m, m.openInEditor(comp.path)
+					return m, m.pipelineOperator.OpenInEditor(comp.path, m.loadComponents)
 				}
 			}
 			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged
@@ -638,7 +634,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.activePane == pipelinesPane {
 				// Set selected pipeline (generate PLUQQY.md)
 				if len(m.pipelines) > 0 && m.pipelineCursor < len(m.pipelines) {
-					return m, m.setPipeline(m.pipelines[m.pipelineCursor].path)
+					return m, m.pipelineOperator.SetPipeline(m.pipelines[m.pipelineCursor].path)
 				}
 			}
 		
@@ -650,11 +646,10 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					pipelineName := m.pipelines[m.pipelineCursor].name
 					pipelinePath := m.pipelines[m.pipelineCursor].path
 					
-					m.deleteConfirm.ShowInline(
+					m.pipelineOperator.ShowDeleteConfirmation(
 						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
-						true, // destructive
 						func() tea.Cmd {
-							return m.deletePipeline(pipelinePath)
+							return m.pipelineOperator.DeletePipeline(pipelinePath, m.loadPipelines)
 						},
 						nil, // onCancel
 					)
@@ -666,11 +661,10 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					comp := components[m.componentCursor]
 					m.deletingFromPane = componentsPane
 					
-					m.deleteConfirm.ShowInline(
+					m.pipelineOperator.ShowDeleteConfirmation(
 						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
-						true, // destructive
 						func() tea.Cmd {
-							return m.deleteComponent(comp)
+							return m.pipelineOperator.DeleteComponent(comp, m.loadComponents)
 						},
 						nil, // onCancel
 					)
@@ -693,11 +687,10 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					pipelineName := m.pipelines[m.pipelineCursor].name
 					pipelinePath := m.pipelines[m.pipelineCursor].path
 					
-					m.archiveConfirm.ShowInline(
+					m.pipelineOperator.ShowArchiveConfirmation(
 						fmt.Sprintf("Archive pipeline '%s'?", pipelineName),
-						true, // destructive
 						func() tea.Cmd {
-							return m.archivePipeline(pipelinePath)
+							return m.pipelineOperator.ArchivePipeline(pipelinePath, m.loadPipelines)
 						},
 						nil, // onCancel
 					)
@@ -709,11 +702,10 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					comp := components[m.componentCursor]
 					m.archivingFromPane = componentsPane
 					
-					m.archiveConfirm.ShowInline(
+					m.pipelineOperator.ShowArchiveConfirmation(
 						fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
-						true, // destructive
 						func() tea.Cmd {
-							return m.archiveComponent(comp)
+							return m.pipelineOperator.ArchiveComponent(comp, m.loadComponents)
 						},
 						nil, // onCancel
 					)
@@ -1287,25 +1279,25 @@ func (m *MainListModel) View() string {
 	}
 
 	// Show delete confirmation if active
-	if m.deleteConfirm.Active() {
+	if m.pipelineOperator.IsDeleteConfirmActive() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true).
 			MarginTop(2).
 			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(confirmStyle.Render(m.deleteConfirm.ViewWithWidth(m.width - 4)))
+		s.WriteString(confirmStyle.Render(m.pipelineOperator.ViewDeleteConfirm(m.width - 4)))
 	}
 	
 	// Show archive confirmation if active
-	if m.archiveConfirm.Active() {
+	if m.pipelineOperator.IsArchiveConfirmActive() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214")). // Orange for archive
 			Bold(true).
 			MarginTop(2).
 			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4)))
+		s.WriteString(confirmStyle.Render(m.pipelineOperator.ViewArchiveConfirm(m.width - 4)))
 	}
 	
 	// Help text in bordered pane
@@ -1427,122 +1419,10 @@ func (m *MainListModel) updatePreview() {
 	}
 }
 
-func (m *MainListModel) setPipeline(pipelineName string) tea.Cmd {
-	return func() tea.Msg {
-		// Load pipeline
-		pipeline, err := files.ReadPipeline(pipelineName)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to load pipeline '%s': %v", pipelineName, err))
-		}
 
-		// Generate pipeline output
-		output, err := composer.ComposePipeline(pipeline)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to generate pipeline output for '%s': %v", pipeline.Name, err))
-		}
 
-		// Load settings for output path
-		settings, _ := files.ReadSettings()
-		if settings == nil {
-			settings = models.DefaultSettings()
-		}
-		
-		// Write to configured output file
-		outputPath := pipeline.OutputPath
-		if outputPath == "" {
-			outputPath = filepath.Join(settings.Output.ExportPath, settings.Output.DefaultFilename)
-		}
-		
-		err = composer.WritePLUQQYFile(output, outputPath)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to write output file '%s': %v", outputPath, err))
-		}
 
-		return StatusMsg(fmt.Sprintf("✓ Set pipeline: %s → %s", pipelineName, outputPath))
-	}
-}
 
-func (m *MainListModel) deletePipeline(pipelineName string) tea.Cmd {
-	return func() tea.Msg {
-		// Delete the pipeline file
-		err := files.DeletePipeline(pipelineName)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to delete pipeline '%s': %v", pipelineName, err))
-		}
-		
-		// Reload the pipeline list
-		m.loadPipelines()
-		
-		// Adjust cursor if necessary
-		if m.pipelineCursor >= len(m.pipelines) && m.pipelineCursor > 0 {
-			m.pipelineCursor = len(m.pipelines) - 1
-		}
-		
-		return StatusMsg(fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName))
-	}
-}
-
-func (m *MainListModel) deleteComponent(comp componentItem) tea.Cmd {
-	return func() tea.Msg {
-		// Delete the component file
-		err := files.DeleteComponent(comp.path)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to delete %s '%s': %v", comp.compType, comp.name, err))
-		}
-		
-		// Reload the component list
-		m.loadComponents()
-		
-		// Adjust cursor if necessary
-		components := m.getAllComponents()
-		if m.componentCursor >= len(components) && m.componentCursor > 0 {
-			m.componentCursor = len(components) - 1
-		}
-		
-		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
-	}
-}
-
-func (m *MainListModel) archivePipeline(pipelineName string) tea.Cmd {
-	return func() tea.Msg {
-		// Archive the pipeline file
-		err := files.ArchivePipeline(pipelineName)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to archive pipeline '%s': %v", pipelineName, err))
-		}
-		
-		// Reload the pipeline list
-		m.loadPipelines()
-		
-		// Adjust cursor if necessary
-		if m.pipelineCursor >= len(m.pipelines) && m.pipelineCursor > 0 {
-			m.pipelineCursor = len(m.pipelines) - 1
-		}
-		
-		return StatusMsg(fmt.Sprintf("✓ Archived pipeline: %s", pipelineName))
-	}
-}
-
-func (m *MainListModel) archiveComponent(comp componentItem) tea.Cmd {
-	return func() tea.Msg {
-		// Archive the component file
-		err := files.ArchiveComponent(comp.path)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to archive %s '%s': %v", comp.compType, comp.name, err))
-		}
-		
-		// Reload the component list
-		m.loadComponents()
-		
-		// Adjust cursor if necessary
-		components := m.getAllComponents()
-		if m.componentCursor >= len(components) && m.componentCursor > 0 {
-			m.componentCursor = len(components) - 1
-		}
-		
-		return StatusMsg(fmt.Sprintf("✓ Archived %s: %s", comp.compType, comp.name))
-	}
-}
 
 func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.componentCreator.GetCurrentStep() {
@@ -1693,36 +1573,4 @@ func (m *MainListModel) componentCreationView() string {
 		
 	return dialogStyle.Render(mainPane)
 } */
-func (m *MainListModel) openInEditor(path string) tea.Cmd {
-	return func() tea.Msg {
-		editor := os.Getenv("EDITOR")
-		if editor == "" {
-			return StatusMsg("Error: $EDITOR environment variable not set. Please set it to your preferred editor.")
-		}
-
-		// Validate editor path to prevent command injection
-		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
-			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
-		}
-
-		// Construct full path
-		fullPath := filepath.Join(files.PluqqyDir, path)
-		
-		// Execute editor
-		cmd := exec.Command(editor, fullPath)
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		err := cmd.Run()
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
-		}
-
-		// Reload components to reflect any changes
-		m.loadComponents()
-
-		return StatusMsg(fmt.Sprintf("Edited: %s", filepath.Base(path)))
-	}
-}
 
