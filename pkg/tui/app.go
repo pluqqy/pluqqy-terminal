@@ -240,10 +240,10 @@ func (a *App) View() string {
 	switch a.state {
 	case mainListView:
 		if a.mainList != nil {
-			if a.mainList.creatingComponent {
-				if a.mainList.componentCreationType != "" {
+			if a.mainList.componentCreator.IsActive() {
+				if a.mainList.componentCreator.GetComponentType() != "" {
 					// Capitalize the component type
-					componentType := a.mainList.componentCreationType
+					componentType := a.mainList.componentCreator.GetComponentType()
 					if len(componentType) > 0 {
 						componentType = strings.ToUpper(componentType[:1]) + componentType[1:]
 					}
