@@ -832,8 +832,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	// Update preview if needed
 	if m.showPreview && m.previewContent != "" {
 		// Preprocess content to handle carriage returns and ensure proper line breaks
-		processedContent := strings.ReplaceAll(m.previewContent, "\r\r", "\n\n")
-		processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+		processedContent := preprocessContent(m.previewContent)
 		// Wrap content to viewport width to prevent overflow
 		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
 		m.previewViewport.SetContent(wrappedContent)
@@ -895,25 +894,10 @@ func (m *MainListModel) View() string {
 	}
 
 	// Styles
-	activeStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
-
-	inactiveStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240"))
-
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")).
-		Background(lipgloss.Color("236")).
-		Bold(true)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245"))
-
-	typeHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214"))
+	activeStyle := ActiveBorderStyle
+	inactiveStyle := InactiveBorderStyle
+	normalStyle := NormalStyle
+	typeHeaderStyle := TypeHeaderStyle
 
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
@@ -967,17 +951,14 @@ func (m *MainListModel) View() string {
 
 	
 	// Table header styles
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("241"))
+	headerStyle := HeaderStyle
 	
-	// Table column widths (adjusted for column width)
-	nameWidth := 22
-	tagsWidth := 18
-	tokenWidth := 8  // For "~Tokens" plus padding
-	usageWidth := 10
+	// Table column widths (adjusted for viewport width)
+	// Use viewport width instead of column width to ensure content fits
+	viewportWidth := columnWidth - 4 // Same as m.componentsViewport.Width
+	nameWidth, tagsWidth, tokenWidth, usageWidth := formatColumnWidths(viewportWidth, true)
 	
-	// Render table header with 2-space shift - extra space between Tags and ~Tokens
+	// Render table header with consistent spacing
 	header := fmt.Sprintf("  %-*s %-*s  %*s %*s", 
 		nameWidth, "Name",
 		tagsWidth, "Tags",
@@ -993,9 +974,7 @@ func (m *MainListModel) View() string {
 	if len(m.filteredComponents) == 0 {
 		if m.activePane == componentsPane {
 			// Active pane - show prominent message
-			emptyStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("214")). // Orange
-				Bold(true)
+			emptyStyle := EmptyActiveStyle
 			
 			// Check if we have components but they're filtered out
 			allComponents := m.getAllComponents()
@@ -1006,8 +985,7 @@ func (m *MainListModel) View() string {
 			}
 		} else {
 			// Inactive pane - show dimmed message
-			dimmedStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("242"))
+			dimmedStyle := EmptyInactiveStyle
 			
 			// Check if we have components but they're filtered out
 			allComponents := m.getAllComponents()
@@ -1042,10 +1020,7 @@ func (m *MainListModel) View() string {
 		}
 
 		// Format the row data
-		nameStr := comp.name
-		if len(nameStr) > nameWidth-3 {
-			nameStr = nameStr[:nameWidth-6] + "..."
-		}
+		nameStr := truncateName(comp.name, nameWidth)
 		
 		
 		// Format usage count
@@ -1057,8 +1032,7 @@ func (m *MainListModel) View() string {
 		// Format tags
 		tagsStr := renderTagChipsWithWidth(comp.tags, tagsWidth, 2) // Show max 2 tags inline
 		
-		// Build the row components separately
-		// Use padding to ensure consistent column alignment
+		// Build the row components separately for proper styling
 		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
 		
 		// For tags, we need to pad based on rendered width
@@ -1075,7 +1049,7 @@ func (m *MainListModel) View() string {
 		var row string
 		if m.activePane == componentsPane && i == m.componentCursor {
 			// Apply selection styling only to name column
-			row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
+			row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
 		} else {
 			// Normal row styling
 			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
@@ -1090,9 +1064,7 @@ func (m *MainListModel) View() string {
 	}
 	
 	// Update components viewport with content
-	// Wrap content to viewport width to prevent overflow
-	wrappedComponentsContent := wordwrap.String(componentsScrollContent.String(), m.componentsViewport.Width)
-	m.componentsViewport.SetContent(wrappedComponentsContent)
+	m.componentsViewport.SetContent(componentsScrollContent.String())
 	
 	// Update viewport to follow cursor
 	if m.activePane == componentsPane && len(m.filteredComponents) > 0 {
@@ -1151,16 +1123,13 @@ func (m *MainListModel) View() string {
 	rightContent.WriteString("\n\n")
 	
 	// Table header for pipelines with token count
-	pipelineHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("241"))
+	pipelineHeaderStyle := HeaderStyle
 	
-	// Table column widths for pipelines
-	pipelineNameWidth := 25
-	pipelineTagsWidth := 15
-	pipelineTokenWidth := 8  // For "~Tokens"
+	// Table column widths for pipelines (adjusted for viewport width)
+	pipelineViewportWidth := columnWidth - 4 // Same as m.pipelinesViewport.Width
+	pipelineNameWidth, pipelineTagsWidth, pipelineTokenWidth, _ := formatColumnWidths(pipelineViewportWidth, false)
 	
-	// Render table header
+	// Render table header with consistent spacing to match rows
 	pipelineHeader := fmt.Sprintf("  %-*s %-*s %*s", 
 		pipelineNameWidth, "Name",
 		pipelineTagsWidth, "Tags",
@@ -1174,9 +1143,7 @@ func (m *MainListModel) View() string {
 	if len(m.filteredPipelines) == 0 {
 		if m.activePane == pipelinesPane {
 			// Active pane - show prominent message
-			emptyStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("214")). // Orange
-				Bold(true)
+			emptyStyle := EmptyActiveStyle
 			
 			// Check if we have pipelines but they're filtered out
 			if len(m.pipelines) > 0 && m.searchQuery != "" {
@@ -1186,8 +1153,7 @@ func (m *MainListModel) View() string {
 			}
 		} else {
 			// Inactive pane - show dimmed message
-			dimmedStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("242"))
+			dimmedStyle := EmptyInactiveStyle
 			
 			// Check if we have pipelines but they're filtered out
 			if len(m.pipelines) > 0 && m.searchQuery != "" {
@@ -1199,10 +1165,7 @@ func (m *MainListModel) View() string {
 	} else {
 		for i, pipeline := range m.filteredPipelines {
 			// Format the pipeline name
-			nameStr := pipeline.name
-			if len(nameStr) > pipelineNameWidth-3 {
-				nameStr = nameStr[:pipelineNameWidth-6] + "..."
-			}
+			nameStr := truncateName(pipeline.name, pipelineNameWidth)
 			
 			// Format tags
 			tagsStr := renderTagChipsWithWidth(pipeline.tags, pipelineTagsWidth, 2) // Show max 2 tags inline
@@ -1210,7 +1173,7 @@ func (m *MainListModel) View() string {
 			// Format token count - right-aligned
 			tokenStr := fmt.Sprintf("%d", pipeline.tokenCount)
 			
-			// Build the row components separately
+			// Build the row components separately for proper styling
 			namePart := fmt.Sprintf("%-*s", pipelineNameWidth, nameStr)
 			
 			// For tags, we need to pad based on rendered width
@@ -1226,7 +1189,7 @@ func (m *MainListModel) View() string {
 			var row string
 			if m.activePane == pipelinesPane && i == m.pipelineCursor {
 				// Apply selection styling only to name column
-				row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
+				row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
 			} else {
 				// Normal row styling
 				row = "  " + normalStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
@@ -1241,9 +1204,7 @@ func (m *MainListModel) View() string {
 	}
 	
 	// Update pipelines viewport with content
-	// Wrap content to viewport width to prevent overflow
-	wrappedPipelinesContent := wordwrap.String(pipelinesScrollContent.String(), m.pipelinesViewport.Width)
-	m.pipelinesViewport.SetContent(wrappedPipelinesContent)
+	m.pipelinesViewport.SetContent(pipelinesScrollContent.String())
 	
 	// Update viewport to follow cursor
 	if m.activePane == pipelinesPane && len(m.pipelines) > 0 {
@@ -1305,43 +1266,20 @@ func (m *MainListModel) View() string {
 	if m.showPreview && m.previewContent != "" {
 		// Calculate token count
 		tokenCount := utils.EstimateTokens(m.previewContent)
-		_, _, status := utils.GetTokenLimitStatus(tokenCount)
 		
 		// Create token badge with appropriate color
-		var tokenBadgeStyle lipgloss.Style
-		switch status {
-		case "good":
-			tokenBadgeStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("28")).  // Green
-				Foreground(lipgloss.Color("255")). // White
-				Padding(0, 1).
-				Bold(true)
-		case "warning":
-			tokenBadgeStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("214")). // Yellow/Orange
-				Foreground(lipgloss.Color("235")). // Dark
-				Padding(0, 1).
-				Bold(true)
-		case "danger":
-			tokenBadgeStyle = lipgloss.NewStyle().
-				Background(lipgloss.Color("196")). // Red
-				Foreground(lipgloss.Color("255")). // White
-				Padding(0, 1).
-				Bold(true)
-		}
+		tokenBadgeStyle := GetTokenBadgeStyle(tokenCount)
 		
 		tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
 		
 		// Apply active/inactive style to preview border
-		previewBorderColor := lipgloss.Color("243") // inactive
+		var previewBorderStyle lipgloss.Style
 		if m.activePane == previewPane {
-			previewBorderColor = lipgloss.Color("170") // active (same as other active borders)
+			previewBorderStyle = ActiveBorderStyle
+		} else {
+			previewBorderStyle = InactiveBorderStyle
 		}
-		
-		previewBorderStyle := lipgloss.NewStyle().
-			Border(lipgloss.RoundedBorder()).
-			BorderForeground(previewBorderColor).
-			Width(m.width - 4) // Account for padding (2) and border (2)
+		previewBorderStyle = previewBorderStyle.Width(m.width - 4) // Account for padding (2) and border (2)
 
 		s.WriteString("\n")
 		
@@ -2102,15 +2040,8 @@ func (m *MainListModel) componentTypeSelectionView() string {
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
 
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")).
-		Background(lipgloss.Color("236")).
-		Bold(true).
-		Padding(0, 1)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Padding(0, 1)
+	selectedStyle := SelectedStyle.Padding(0, 1)
+	normalStyle := NormalStyle.Padding(0, 1)
 
 	descStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
@@ -2127,17 +2058,14 @@ func (m *MainListModel) componentTypeSelectionView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	heading := "CREATE NEW COMPONENT"
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -2223,10 +2151,7 @@ func (m *MainListModel) componentNameInputView() string {
 	promptStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245"))
 
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(0, 1).
+	inputStyle := InputStyle.
 		Width(60)
 
 	// Calculate dimensions
@@ -2241,17 +2166,14 @@ func (m *MainListModel) componentNameInputView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(m.componentCreationType))
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -2363,17 +2285,14 @@ func (m *MainListModel) componentContentEditView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	heading := fmt.Sprintf("EDIT %s: %s", strings.ToUpper(m.componentCreationType), m.componentName)
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -2381,8 +2300,7 @@ func (m *MainListModel) componentContentEditView() string {
 	content := m.componentContent + "│" // cursor
 	
 	// Preprocess content to handle carriage returns and ensure proper line breaks
-	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
-	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+	processedContent := preprocessContent(content)
 	
 	// Calculate available width for wrapping (accounting for padding)
 	availableWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
@@ -2438,13 +2356,8 @@ func (m *MainListModel) componentContentEditView() string {
 
 func (m *MainListModel) tagEditView() string {
 	// Styles
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(0, 1).
+	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
+	inputStyle := InputStyle.
 		Width(40)
 	suggestionStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
@@ -2591,7 +2504,7 @@ func (m *MainListModel) tagEditView() string {
 	// Current tags
 	mainContent.WriteString(headerPadding.Render("Current tags:\n"))
 	if len(m.currentTags) == 0 {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		dimStyle := DescriptionStyle
 		mainContent.WriteString(headerPadding.Render(dimStyle.Render("(no tags)")))
 	} else {
 		var tagDisplay strings.Builder
@@ -2743,7 +2656,7 @@ func (m *MainListModel) tagEditView() string {
 	
 	// Display available tags
 	if len(m.availableTags) == 0 {
-		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
+		dimStyle := DescriptionStyle
 		tagCloudContent.WriteString(headerPadding.Render(dimStyle.Render("(no available tags)")))
 	} else {
 		// Group tags in rows
@@ -2963,17 +2876,14 @@ func (m *MainListModel) componentEditView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(m.editingComponentName))
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
+	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
 	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
@@ -2989,8 +2899,7 @@ func (m *MainListModel) componentEditView() string {
 	content := m.componentContent + "│" // cursor
 	
 	// Preprocess content to handle carriage returns and ensure proper line breaks
-	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
-	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
+	processedContent := preprocessContent(content)
 	
 	// Wrap content to viewport width to prevent overflow
 	wrappedContent := wordwrap.String(processedContent, viewportWidth)
@@ -3055,9 +2964,7 @@ func (m *MainListModel) componentEditView() string {
 		BorderForeground(lipgloss.Color("170")).
 		Padding(1)
 	
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
+	headerStyle := TypeHeaderStyle // Orange like other headers
 		
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")) // Orange for warning

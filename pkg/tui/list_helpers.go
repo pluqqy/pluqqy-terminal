@@ -51,23 +51,23 @@ func preprocessContent(content string) string {
 
 // formatColumnWidths calculates column widths based on available space
 func formatColumnWidths(totalWidth int, hasUsageColumn bool) (nameWidth, tagsWidth, tokenWidth, usageWidth int) {
-	// Base widths
-	nameWidth = 30
-	tagsWidth = 20
+	// Fixed widths for tokens and usage
 	tokenWidth = 8
-	usageWidth = 5
+	usageWidth = 6
 	
 	if !hasUsageColumn {
 		// For pipelines (no usage column)
-		availableWidth := totalWidth - tokenWidth - 4 // 4 for spacing
-		nameWidth = availableWidth * 60 / 100
-		tagsWidth = availableWidth * 40 / 100
-		usageWidth = 0
-	} else {
-		// For components (with usage column)
-		availableWidth := totalWidth - tokenWidth - usageWidth - 6 // 6 for spacing
+		// Account for: 2 leading spaces + 1 space between name/tags + 1 space between tags/tokens = 4
+		availableWidth := totalWidth - tokenWidth - 4
 		nameWidth = availableWidth * 55 / 100
 		tagsWidth = availableWidth * 45 / 100
+		usageWidth = 0
+	} else {
+		// For components (with usage column)  
+		// Account for: 2 leading spaces + 1 space between name/tags + 2 spaces between tags/tokens + 1 space between tokens/usage = 6
+		availableWidth := totalWidth - tokenWidth - usageWidth - 6
+		nameWidth = availableWidth * 50 / 100
+		tagsWidth = availableWidth * 50 / 100
 	}
 	
 	// Ensure minimum widths
