@@ -15,6 +15,7 @@ import (
 func NewMainListModel() *MainListModel {
 	m := &MainListModel{
 		stateManager:       NewStateManager(),
+		businessLogic:      NewBusinessLogic(),
 		previewViewport:    viewport.New(80, 20), // Default size
 		pipelinesViewport:  viewport.New(40, 20), // Default size
 		componentsViewport: viewport.New(40, 20), // Default size
@@ -29,6 +30,7 @@ func NewMainListModel() *MainListModel {
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'
 	m.loadPipelines()
 	m.loadComponents()
+	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 	m.initializeSearchEngine()
 	// Initialize filtered lists with all items
 	m.filteredPipelines = m.pipelines
@@ -211,6 +213,9 @@ func (m *MainListModel) loadComponents() {
 			tags:         tags,
 		})
 	}
+	
+	// Update business logic with new components
+	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 	
 	// Rebuild search index when components are reloaded
 	if m.searchEngine != nil {

@@ -9,13 +9,15 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
 
 type MainListModel struct {
 	// State management
 	stateManager       *StateManager
+	
+	// Business logic
+	businessLogic      *BusinessLogic
 	
 	// Pipelines data
 	pipelines          []pipelineItem
@@ -66,12 +68,11 @@ type MainListModel struct {
 	filteredComponents    []componentItem
 }
 
-
 func (m *MainListModel) performSearch() {
 	if m.searchQuery == "" {
 		// No search query, show all items
 		m.filteredPipelines = m.pipelines
-		m.filteredComponents = m.getAllComponents()
+		m.filteredComponents = m.businessLogic.GetAllComponents()
 		return
 	}
 	
@@ -81,7 +82,7 @@ func (m *MainListModel) performSearch() {
 		if err != nil {
 			// On error, show all items
 			m.filteredPipelines = m.pipelines
-			m.filteredComponents = m.getAllComponents()
+			m.filteredComponents = m.businessLogic.GetAllComponents()
 			return
 		}
 		
@@ -89,7 +90,7 @@ func (m *MainListModel) performSearch() {
 		m.filteredPipelines, m.filteredComponents = FilterSearchResults(
 			results,
 			m.pipelines,
-			m.getAllComponents(),
+			m.businessLogic.GetAllComponents(),
 		)
 		
 		// Reset cursors if they're out of bounds
@@ -97,30 +98,14 @@ func (m *MainListModel) performSearch() {
 	}
 }
 
-
-
 func (m *MainListModel) getAllComponents() []componentItem {
-	// Load settings for section order
-	settings, err := files.ReadSettings()
-	if err != nil || settings == nil {
-		settings = models.DefaultSettings()
-	}
-	
-	// Group components by type
-	typeGroups := make(map[string][]componentItem)
-	typeGroups[models.ComponentTypeContext] = m.contexts
-	typeGroups[models.ComponentTypePrompt] = m.prompts
-	typeGroups[models.ComponentTypeRules] = m.rules
-	
-	// Build ordered list based on sections
-	var all []componentItem
-	for _, section := range settings.Output.Formatting.Sections {
-		if components, exists := typeGroups[section.Type]; exists {
-			all = append(all, components...)
-		}
-	}
-	
-	return all
+	return m.businessLogic.GetAllComponents()
+}
+
+// reloadComponents loads components and updates business logic
+func (m *MainListModel) reloadComponents() {
+	m.loadComponents()
+	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 }
 
 // getCurrentComponents returns either filtered components (if searching) or all components
@@ -129,19 +114,8 @@ func (m *MainListModel) getCurrentComponents() []componentItem {
 }
 
 func (m *MainListModel) getEditingItemName() string {
-	if m.tagEditor.ItemType == "component" {
-		components := m.getCurrentComponents()
-		if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
-			return components[m.stateManager.ComponentCursor].name
-		}
-	} else {
-		if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
-			return m.pipelines[m.stateManager.PipelineCursor].name
-		}
-	}
-	return ""
+	return GetEditingItemName(m.tagEditor, m.stateManager, m.getCurrentComponents(), m.pipelines)
 }
-
 
 func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -196,7 +170,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Check if editor is still active after handling input
 			if !m.componentEditor.IsActive() {
 				// Reload components after editing
-				m.loadComponents()
+				m.reloadComponents()
 				m.performSearch()
 			}
 			return m, cmd
@@ -335,7 +309,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				components := m.getCurrentComponents()
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
-					return m, m.pipelineOperator.OpenInEditor(comp.path, m.loadComponents)
+					return m, m.pipelineOperator.OpenInEditor(comp.path, m.reloadComponents)
 				}
 			}
 			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged
@@ -412,7 +386,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
-							return m.pipelineOperator.DeleteComponent(comp, m.loadComponents)
+							return m.pipelineOperator.DeleteComponent(comp, m.reloadComponents)
 						},
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
@@ -461,7 +435,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
 						func() tea.Cmd {
 							m.stateManager.ClearArchiveState()
-							return m.pipelineOperator.ArchiveComponent(comp, m.loadComponents)
+							return m.pipelineOperator.ArchiveComponent(comp, m.reloadComponents)
 						},
 						func() tea.Cmd {
 							m.stateManager.ClearArchiveState()
@@ -474,7 +448,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	case ReloadMsg:
 		// Reload data after tag editing
-		m.loadComponents()
+		m.reloadComponents()
 		m.loadPipelines()
 		// Re-run search if active
 		if m.searchQuery != "" {
@@ -665,7 +639,6 @@ func (m *MainListModel) SetSize(width, height int) {
 	m.updateViewportSizes()
 }
 
-
 func (m *MainListModel) updatePreview() {
 	if !m.stateManager.ShowPreview {
 		return
@@ -702,12 +675,6 @@ func (m *MainListModel) updatePreview() {
 		}
 	}
 }
-
-
-
-
-
-
 func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch m.componentCreator.GetCurrentStep() {
 	case 0: // Type selection
@@ -751,7 +718,7 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 			// Check if component was saved (creator will be reset)
 			if !m.componentCreator.IsActive() {
 				// Component was saved, reload components
-				m.loadComponents()
+				m.reloadComponents()
 				return m, func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) }
 			}
 			return m, nil
@@ -775,86 +742,3 @@ func (m *MainListModel) componentCreationView() string {
 	
 	return "Unknown creation step"
 }
-
-
-
-
-
-
-
-// exitConfirmationView is replaced by the confirmation module
-/* func (m *MainListModel) exitConfirmationView() string {
-	// Styles matching the rest of the UI
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(1)
-	
-	headerStyle := TypeHeaderStyle // Orange like other headers
-		
-	warningStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("214")) // Orange for warning
-	
-	// Calculate dimensions
-	contentWidth := m.width - 4
-	contentHeight := 10 // Small dialog
-	
-	// Build main content
-	var mainContent strings.Builder
-	
-	// Header
-	header := "EXIT CONFIRMATION"
-	centeredHeader := lipgloss.NewStyle().
-		Width(contentWidth - 4).
-		Align(lipgloss.Center).
-		Render(headerStyle.Render(header))
-	mainContent.WriteString(centeredHeader)
-	mainContent.WriteString("\n\n")
-	
-	// Warning message
-	var warningMsg string
-	if m.exitConfirmationType == "component" {
-		warningMsg = "You have unsaved content in this component."
-	} else if m.exitConfirmationType == "component-edit" {
-		warningMsg = "You have unsaved changes to this component."
-	}
-	
-	centeredWarning := lipgloss.NewStyle().
-		Width(contentWidth - 4).
-		Align(lipgloss.Center).
-		Render(warningStyle.Render(warningMsg))
-	mainContent.WriteString(centeredWarning)
-	mainContent.WriteString("\n")
-	
-	exitWarning := "Are you sure you want to exit?"
-	centeredExitWarning := lipgloss.NewStyle().
-		Width(contentWidth - 4).
-		Align(lipgloss.Center).
-		Render(warningStyle.Render(exitWarning))
-	mainContent.WriteString(centeredExitWarning)
-	mainContent.WriteString("\n\n")
-	
-	// Options - exit is destructive
-	options := formatConfirmOptions(true) + "  (exit / stay)"
-	centeredOptions := lipgloss.NewStyle().
-		Width(contentWidth - 4).
-		Align(lipgloss.Center).
-		Render(options)
-	mainContent.WriteString(centeredOptions)
-	
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-	
-	// Center the dialog vertically
-	verticalPadding := (m.height - contentHeight - 4) / 2
-	dialogStyle := lipgloss.NewStyle().
-		PaddingTop(verticalPadding).
-		PaddingLeft(1).
-		PaddingRight(1)
-		
-	return dialogStyle.Render(mainPane)
-} */
-
