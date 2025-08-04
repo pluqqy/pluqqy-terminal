@@ -122,10 +122,24 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case settingsSavedMsg:
 		// Handle settings saved - reload components in main list
 		if a.mainList != nil {
-			a.mainList.loadComponents()
+			a.mainList.reloadComponents()
 		}
-		// Then switch view with the embedded message
-		return a.Update(msg.switchMsg)
+		// Switch to main list view
+		a.state = mainListView
+		// Set the status message
+		if msg.switchMsg.status != "" {
+			a.statusMsg = msg.switchMsg.status
+			// Set timer to clear status after 3 seconds
+			if a.statusTimer != nil {
+				a.statusTimer.Stop()
+			}
+			a.statusTimer = time.NewTimer(3 * time.Second)
+			return a, func() tea.Msg {
+				<-a.statusTimer.C
+				return clearStatusMsg{}
+			}
+		}
+		return a, a.mainList.Init()
 
 	case SwitchViewMsg:
 		// Handle view switching

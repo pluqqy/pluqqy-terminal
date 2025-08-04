@@ -278,7 +278,7 @@ func (m *SettingsEditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return SwitchViewMsg{view: mainListView}
 			}
 			
-		case "S":
+		case "ctrl+s":
 			// Save settings
 			return m, m.saveSettings()
 			
@@ -465,7 +465,7 @@ func (m *SettingsEditorModel) View() string {
 		"J/K move section",
 		"space toggle",
 		"enter edit",
-		"S save",
+		"ctrl+s save",
 		"esc cancel",
 		"ctrl+c quit",
 	}

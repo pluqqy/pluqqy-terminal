@@ -1363,8 +1363,8 @@ func (m *PipelineBuilderModel) View() string {
 	if m.activeColumn == searchColumn {
 		// Show search syntax help when search is active
 		helpRows := [][]string{
-			{"esc exit search", "enter search", "tag:<name>", "type:<type>"},
-			{"pipeline:<name>", "<keyword>", "combine with spaces"},
+			{"esc clear+exit search", "enter search"},
+			{"tag:<name>", "type:<type>", "<keyword>", "combine with spaces"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	} else {
