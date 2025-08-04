@@ -4,7 +4,8 @@ package tui
 type pane int
 
 const (
-	searchPane pane = iota
+	nonePane pane = iota
+	searchPane
 	pipelinesPane
 	componentsPane
 	previewPane
