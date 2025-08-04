@@ -135,8 +135,13 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if a.mainList == nil {
 				a.mainList = NewMainListModel()
 			} else {
-				// Reload pipelines when returning to list
+				// Reload both components and pipelines when returning to list
+				a.mainList.reloadComponents()
 				a.mainList.loadPipelines()
+				// Re-run search if active
+				if a.mainList.searchQuery != "" {
+					a.mainList.performSearch()
+				}
 			}
 			return a, a.mainList.Init()
 		case pipelineBuilderView:
@@ -274,8 +279,10 @@ func (a *App) View() string {
 			title = "Pipeline: " + a.viewer.pipeline.Name
 		}
 	case settingsEditorView:
-		// No title - settings editor has its own header inside the pane
-		title = ""
+		title = "Settings"
+		if a.settingsEditor != nil && a.settingsEditor.hasChanges {
+			title = "Settings (modified)"
+		}
 	}
 
 	// Render the header with title

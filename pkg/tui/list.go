@@ -214,6 +214,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.updatePreview()
 			}
 		
+		case "shift+tab", "backtab":
+			// Handle reverse tab navigation
+			if m.stateManager.IsInSearchPane() {
+				m.searchBar.SetActive(false)
+			}
+			m.stateManager.HandleTabNavigation(true)
+			// Update preview when switching to non-preview pane
+			if m.stateManager.ActivePane != previewPane && m.stateManager.ActivePane != searchPane {
+				m.updatePreview()
+			}
+		
 		case "up", "k":
 			handled, updatePreview := m.stateManager.HandleKeyNavigation(msg.String())
 			if handled {

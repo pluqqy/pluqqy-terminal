@@ -1,8 +1,10 @@
 package tui
 
 import (
+	"sort"
 	"strings"
 	
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
 
@@ -93,6 +95,34 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 			}
 		}
 	}
+	
+	// Sort filtered components by type to ensure proper grouping
+	sort.Slice(filteredComponents, func(i, j int) bool {
+		// Define type order
+		typeOrder := map[string]int{
+			models.ComponentTypeContext: 1,
+			models.ComponentTypePrompt:  2,
+			models.ComponentTypeRules:   3,
+		}
+		
+		// Get order values, defaulting to 4 for unknown types
+		orderI, okI := typeOrder[filteredComponents[i].compType]
+		if !okI {
+			orderI = 4
+		}
+		orderJ, okJ := typeOrder[filteredComponents[j].compType]
+		if !okJ {
+			orderJ = 4
+		}
+		
+		// Sort by type order first
+		if orderI != orderJ {
+			return orderI < orderJ
+		}
+		
+		// Within same type, sort by name
+		return filteredComponents[i].name < filteredComponents[j].name
+	})
 	
 	return filteredPipelines, filteredComponents
 }

@@ -118,6 +118,9 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 			c.componentName = c.componentName[:len(c.componentName)-1]
 		}
 		return true
+	case " ":
+		c.componentName += " "
+		return true
 	default:
 		if msg.Type == tea.KeyRunes {
 			c.componentName += string(msg.Runes)

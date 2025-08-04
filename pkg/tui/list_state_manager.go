@@ -131,19 +131,19 @@ func (sm *StateManager) navigateForward() {
 // navigateBackward handles backward tab navigation (shift+tab)
 func (sm *StateManager) navigateBackward() {
 	if sm.ShowPreview {
-		// With preview: components -> preview -> pipelines -> components
+		// With preview: components <- pipelines <- preview <- components (reverse of forward)
 		switch sm.ActivePane {
 		case searchPane:
 			sm.ActivePane = componentsPane
 		case componentsPane:
 			sm.ActivePane = previewPane
-		case previewPane:
-			sm.ActivePane = pipelinesPane
 		case pipelinesPane:
 			sm.ActivePane = componentsPane
+		case previewPane:
+			sm.ActivePane = pipelinesPane
 		}
 	} else {
-		// Without preview: components -> pipelines -> components
+		// Without preview: components <- pipelines <- components (reverse of forward)
 		switch sm.ActivePane {
 		case searchPane:
 			sm.ActivePane = componentsPane

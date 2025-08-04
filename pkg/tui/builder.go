@@ -3006,6 +3006,12 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			if m.tagCloudCursor > 0 {
 				m.tagCloudCursor--
 			}
+			return m, nil
+		}
+		// For "k", only handle as navigation if not typing
+		if msg.String() == "k" && m.tagInput != "" {
+			// Fall through to default case to handle as regular input
+			break
 		}
 		return m, nil
 		
@@ -3015,12 +3021,26 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			if m.tagCloudCursor < len(availableForSelection)-1 {
 				m.tagCloudCursor++
 			}
+			return m, nil
+		}
+		// For "j", only handle as navigation if not typing
+		if msg.String() == "j" && m.tagInput != "" {
+			// Fall through to default case to handle as regular input
+			break
+		}
+		return m, nil
+		
+	case " ":
+		if !m.tagCloudActive {
+			m.tagInput += " "
+			m.showTagSuggestions = m.tagInput != ""
 		}
 		return m, nil
 		
 	default:
-		if !m.tagCloudActive && msg.Type == tea.KeyRunes {
-			m.tagInput += string(msg.Runes)
+		// Add to input only when in main pane (matching Main List View logic)
+		if !m.tagCloudActive && len(msg.String()) == 1 {
+			m.tagInput += msg.String()
 			m.showTagSuggestions = m.tagInput != ""
 		}
 	}
@@ -3328,7 +3348,13 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 			if m.pipeline != nil {
 				m.pipeline.Tags = make([]string, len(m.currentTags))
 				copy(m.pipeline.Tags, m.currentTags)
-				// Note: Pipeline will be saved when user saves the pipeline
+				// Save the pipeline to persist the tags immediately
+				if m.pipeline.Path != "" {
+					err = files.WritePipeline(m.pipeline)
+					if err != nil {
+						return StatusMsg(fmt.Sprintf("Failed to save pipeline tags: %v", err))
+					}
+				}
 			}
 		} else {
 			// Editing component tags
