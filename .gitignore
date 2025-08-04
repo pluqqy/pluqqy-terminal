@@ -36,3 +36,7 @@ Thumbs.db
 # Project specific
 /pluqqy
 .pluqqy/
+
+# Development process files
+PLUQQY.md
+AGENT.md
