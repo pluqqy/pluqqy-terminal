@@ -126,12 +126,13 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 			Name:       "",
 			Components: []models.ComponentRef{},
 		},
-		previewViewport:  viewport.New(80, 20), // Default size, will be resized
-		leftViewport:     viewport.New(40, 20), // Default size, will be resized
-		rightViewport:    viewport.New(40, 20), // Default size, will be resized
-		searchBar:        NewSearchBar(),
-		exitConfirm:      NewConfirmation(),
-		tagDeleteConfirm: NewConfirmation(),
+		originalComponents: []models.ComponentRef{}, // Initialize to empty slice for new pipelines
+		previewViewport:    viewport.New(80, 20),    // Default size, will be resized
+		leftViewport:       viewport.New(40, 20),    // Default size, will be resized
+		rightViewport:      viewport.New(40, 20),    // Default size, will be resized
+		searchBar:          NewSearchBar(),
+		exitConfirm:        NewConfirmation(),
+		tagDeleteConfirm:   NewConfirmation(),
 	}
 	
 	// Initialize search engine
@@ -1470,12 +1471,13 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		m.editingName = false // Don't show name input when editing
 		m.nameInput = p.Name
 		
-		// Store original components for change detection
-		m.originalComponents = make([]models.ComponentRef, len(p.Components))
-		copy(m.originalComponents, p.Components)
-		
 		// Reorganize components by type to match display
 		m.reorganizeComponentsByType()
+		
+		// Store original components for change detection AFTER reorganization
+		// This ensures the comparison baseline matches the displayed order
+		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
+		copy(m.originalComponents, m.selectedComponents)
 		
 		// Update local usage counts to reflect this pipeline's components
 		// This ensures the counts show what would happen if we save

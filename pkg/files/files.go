@@ -286,8 +286,11 @@ func ReadPipeline(path string) (*models.Pipeline, error) {
 			pipeline.Components[i].Type = models.ComponentTypeContext
 		case "prompt":
 			pipeline.Components[i].Type = models.ComponentTypePrompt
-		case "rules":
+		case "rule":
 			pipeline.Components[i].Type = models.ComponentTypeRules
+		// Already plural forms are correct - no change needed
+		case "contexts", "prompts", "rules":
+			// These are already in the correct format
 		}
 	}
 	
