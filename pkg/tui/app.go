@@ -142,6 +142,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return a, a.mainList.Init()
 
 	case SwitchViewMsg:
+		// Set status message if provided
+		if msg.status != "" {
+			a.statusMsg = msg.status
+			// Set timer to clear status after 3 seconds
+			if a.statusTimer != nil {
+				a.statusTimer.Stop()
+			}
+			a.statusTimer = time.NewTimer(3 * time.Second)
+			// We'll handle the timer after the view switch
+		}
+		
 		// Handle view switching
 		switch msg.view {
 		case mainListView:
@@ -156,6 +167,17 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if a.mainList.searchQuery != "" {
 					a.mainList.performSearch()
 				}
+			}
+			
+			// If we have a status message, return with timer command
+			if msg.status != "" {
+				return a, tea.Batch(
+					a.mainList.Init(),
+					func() tea.Msg {
+						<-a.statusTimer.C
+						return clearStatusMsg{}
+					},
+				)
 			}
 			return a, a.mainList.Init()
 		case pipelineBuilderView:

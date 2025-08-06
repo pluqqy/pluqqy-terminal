@@ -91,6 +91,9 @@ type PipelineBuilderModel struct {
 	exitConfirm          *ConfirmationModel
 	exitConfirmationType string // "pipeline" or "component"
 	
+	// Delete confirmation
+	deleteConfirm        *ConfirmationModel
+	
 	// Change tracking
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
 	originalContent       string                // Original content for component editing
@@ -133,6 +136,7 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		searchBar:          NewSearchBar(),
 		exitConfirm:        NewConfirmation(),
 		tagDeleteConfirm:   NewConfirmation(),
+		deleteConfirm:      NewConfirmation(),
 	}
 	
 	// Initialize search engine
@@ -369,6 +373,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle exit confirmation
 		if m.exitConfirm.Active() {
 			return m, m.exitConfirm.Update(msg)
+		}
+		
+		// Handle delete confirmation
+		if m.deleteConfirm.Active() {
+			return m, m.deleteConfirm.Update(msg)
 		}
 		
 		// Handle component creation mode
@@ -618,6 +627,23 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			// Save pipeline
 			return m, m.savePipeline()
+			
+		case "ctrl+d":
+			// Delete pipeline with confirmation
+			if m.pipeline != nil && m.pipeline.Path != "" {
+				pipelineName := filepath.Base(m.pipeline.Path)
+				m.deleteConfirm.ShowInline(
+					fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
+					true, // destructive
+					func() tea.Cmd {
+						return m.deletePipeline()
+					},
+					func() tea.Cmd {
+						return nil
+					},
+				)
+			}
+			return m, nil
 			
 		case "S":
 			// Save and set pipeline (generate PLUQQY.md)
@@ -1374,9 +1400,20 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "E external", "t tag", "del remove", "ctrl+s save", "S save+set", "esc back", "ctrl+c quit"},
+			{"n new", "e edit", "E external", "t tag", "del remove", "ctrl+s save", "ctrl+d delete", "S save+set", "esc back", "ctrl+c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
+	}
+	
+	// Show delete confirmation if active (inline above help)
+	if m.deleteConfirm.Active() {
+		confirmStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196")).
+			Bold(true).
+			MarginTop(1).
+			MarginBottom(1)
+		s.WriteString("\n")
+		s.WriteString(contentStyle.Render(confirmStyle.Render(m.deleteConfirm.ViewWithWidth(m.width - 4))))
 	}
 	
 	s.WriteString("\n")
@@ -1982,6 +2019,29 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		
 		// Return success message
 		return StatusMsg(fmt.Sprintf("✓ Saved & Set → %s", outputPath))
+	}
+}
+
+func (m *PipelineBuilderModel) deletePipeline() tea.Cmd {
+	return func() tea.Msg {
+		if m.pipeline == nil || m.pipeline.Path == "" {
+			return StatusMsg("× No pipeline to delete")
+		}
+		
+		// Delete the pipeline file
+		err := files.DeletePipeline(m.pipeline.Path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("× Failed to delete pipeline: %v", err))
+		}
+		
+		// Extract pipeline name from path
+		pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+		
+		// Return to the list view with success message
+		return SwitchViewMsg{
+			view:   mainListView,
+			status: fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName),
+		}
 	}
 }
 

@@ -370,7 +370,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		
-		case "d", "delete":
+		case "ctrl+d":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Delete pipeline with confirmation
 				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
