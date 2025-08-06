@@ -18,6 +18,8 @@ const (
 	ColorWhite        = "255" // White
 	ColorDark         = "235" // Dark for contrast
 	ColorBorder       = "243" // Border gray
+	ColorPrimary      = "33"  // Blue for primary actions
+	ColorError        = "196" // Red for errors (same as danger)
 )
 
 // Common styles
@@ -86,6 +88,10 @@ var (
 	// Description styles
 	DescriptionStyle = lipgloss.NewStyle().
 		Foreground(lipgloss.Color(ColorDim))
+	
+	// Error style
+	ErrorStyle = lipgloss.NewStyle().
+		Foreground(lipgloss.Color(ColorError))
 
 	// Cursor style
 	CursorStyle = lipgloss.NewStyle().

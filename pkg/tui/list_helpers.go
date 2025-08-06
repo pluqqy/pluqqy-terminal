@@ -80,3 +80,26 @@ func formatColumnWidths(totalWidth int, hasUsageColumn bool) (nameWidth, tagsWid
 	
 	return
 }
+
+// overlayViews combines two views by overlaying the second on top of the first
+func overlayViews(base, overlay string) string {
+	baseLines := strings.Split(base, "\n")
+	overlayLines := strings.Split(overlay, "\n")
+	
+	// Create result with base content
+	result := make([]string, len(baseLines))
+	copy(result, baseLines)
+	
+	// Overlay the second view
+	for i, overlayLine := range overlayLines {
+		if i < len(result) && overlayLine != "" {
+			// Replace the base line with overlay line if overlay is not empty
+			result[i] = overlayLine
+		} else if i >= len(result) && overlayLine != "" {
+			// Append if overlay extends beyond base
+			result = append(result, overlayLine)
+		}
+	}
+	
+	return strings.Join(result, "\n")
+}

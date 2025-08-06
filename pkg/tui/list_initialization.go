@@ -25,6 +25,8 @@ func NewMainListModel() *MainListModel {
 		componentCreator:   NewComponentCreator(),
 		componentEditor:    NewComponentEditor(),
 		tagEditor:          NewTagEditor(),
+		tagReloader:        NewTagReloader(),
+		tagReloadRenderer:  NewTagReloadRenderer(80, 20), // Default size
 	}
 	// Set initial preview state
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'

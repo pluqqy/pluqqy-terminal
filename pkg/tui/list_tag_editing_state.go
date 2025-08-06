@@ -36,12 +36,16 @@ type TagEditor struct {
 	
 	// Confirmation models
 	TagDeleteConfirm    *ConfirmationModel
+	
+	// Tag reloader
+	TagReloader         *TagReloader
 }
 
 // NewTagEditor creates a new tag editor instance
 func NewTagEditor() *TagEditor {
 	return &TagEditor{
 		TagDeleteConfirm: NewConfirmation(),
+		TagReloader:      NewTagReloader(),
 	}
 }
 
@@ -117,6 +121,13 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 	case "ctrl+s":
 		// Save tags
 		return true, t.SaveTags()
+		
+	case "ctrl+t":
+		// Reload tags from all components and pipelines
+		if !t.TagReloader.IsActive() {
+			return true, t.TagReloader.Start()
+		}
+		return true, nil
 		
 	case "enter":
 		if t.TagCloudActive {
@@ -482,4 +493,31 @@ func (t *TagEditor) HasChanges() bool {
 	}
 	
 	return false
+}
+
+// HandleMessage processes messages related to tag reloading
+func (t *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
+	if !t.Active {
+		return false, nil
+	}
+	
+	// Handle tag reload messages if reloader is active
+	if t.TagReloader != nil {
+		switch msg := msg.(type) {
+		case TagReloadMsg:
+			handled, cmd := t.TagReloader.HandleMessage(msg)
+			if handled {
+				// Reload available tags after successful reload
+				if msg.Error == nil {
+					t.LoadAvailableTags()
+				}
+				return true, cmd
+			}
+		case tagReloadCompleteMsg:
+			t.TagReloader.HandleComplete()
+			return true, nil
+		}
+	}
+	
+	return false, nil
 }

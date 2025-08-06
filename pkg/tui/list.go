@@ -58,6 +58,10 @@ type MainListModel struct {
 	// Tag editing
 	tagEditor *TagEditor
 	
+	// Tag reloading
+	tagReloader     *TagReloader
+	tagReloadRenderer *TagReloadRenderer
+	
 	// Search engine
 	searchEngine          *search.Engine
 	
@@ -465,6 +469,37 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if m.searchQuery != "" {
 			m.performSearch()
 		}
+		// Also reload available tags for tag editor
+		if m.tagEditor != nil {
+			m.tagEditor.LoadAvailableTags()
+		}
+		return m, nil
+	
+	case TagReloadMsg:
+		// First check if tag editor is active and should handle the message
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				// Reload components and pipelines to reflect new tags
+				m.reloadComponents()
+				m.loadPipelines()
+				// Re-run search if active
+				if m.searchQuery != "" {
+					m.performSearch()
+				}
+				return m, cmd
+			}
+		}
+		return m, nil
+	
+	case tagReloadCompleteMsg:
+		// Check if tag editor should handle this
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, _ := m.tagEditor.HandleMessage(msg)
+			if handled {
+				return m, nil
+			}
+		}
 		return m, nil
 	}
 	
@@ -573,7 +608,18 @@ func (m *MainListModel) View() string {
 		renderer.GetAvailableTagsForCloudFunc = func(availableTags []string, currentTags []string) []string {
 			return m.tagEditor.GetAvailableTagsForCloud()
 		}
-		return renderer.Render()
+		
+		tagEditView := renderer.Render()
+		
+		// Overlay tag reload status if active
+		if m.tagEditor.TagReloader != nil && m.tagEditor.TagReloader.IsActive() && m.tagReloadRenderer != nil {
+			overlay := m.tagReloadRenderer.RenderStatus(m.tagEditor.TagReloader)
+			if overlay != "" {
+				return overlayViews(tagEditView, overlay)
+			}
+		}
+		
+		return tagEditView
 	}
 
 	// Calculate content height
@@ -639,7 +685,18 @@ func (m *MainListModel) View() string {
 	s.WriteString("\n")
 	s.WriteString(mainRenderer.RenderHelpPane(m.stateManager.IsInSearchPane()))
 
-	return s.String()
+	finalView := s.String()
+	
+	// Overlay tag reload status if active
+	if m.tagReloader != nil && m.tagReloader.IsActive() && m.tagReloadRenderer != nil {
+		overlay := m.tagReloadRenderer.RenderStatus(m.tagReloader)
+		if overlay != "" {
+			// Combine the views by overlaying
+			return overlayViews(finalView, overlay)
+		}
+	}
+	
+	return finalView
 }
 
 func (m *MainListModel) SetSize(width, height int) {
@@ -647,6 +704,10 @@ func (m *MainListModel) SetSize(width, height int) {
 	m.height = height
 	// Update search bar width
 	m.searchBar.SetWidth(width)
+	// Update tag reload renderer size
+	if m.tagReloadRenderer != nil {
+		m.tagReloadRenderer.SetSize(width, height)
+	}
 	m.updateViewportSizes()
 }
 
