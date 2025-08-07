@@ -1,6 +1,8 @@
 package tags
 
 import (
+	"fmt"
+	
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
@@ -134,4 +136,42 @@ func GetAllTagUsage() (map[string]*UsageStats, error) {
 	}
 	
 	return usage, nil
+}
+
+// CleanupOrphanedTags removes tags from the registry that are no longer used
+// Returns the list of tags that were removed
+func CleanupOrphanedTags(tagsToCheck []string) ([]string, error) {
+	registry, err := NewRegistry()
+	if err != nil {
+		return nil, err
+	}
+	
+	var removedTags []string
+	
+	for _, tagName := range tagsToCheck {
+		normalized := models.NormalizeTagName(tagName)
+		
+		// Check if tag is still in use
+		stats, err := CountTagUsage(normalized)
+		if err != nil {
+			// If we can't check usage, skip this tag to be safe
+			continue
+		}
+		
+		// If tag is not used anywhere, remove it from registry
+		if stats.TotalCount == 0 {
+			if err := registry.RemoveTag(normalized); err == nil {
+				removedTags = append(removedTags, normalized)
+			}
+		}
+	}
+	
+	// Save the updated registry if any tags were removed
+	if len(removedTags) > 0 {
+		if err := registry.Save(); err != nil {
+			return removedTags, fmt.Errorf("removed tags but failed to save registry: %w", err)
+		}
+	}
+	
+	return removedTags, nil
 }

@@ -375,14 +375,16 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Delete pipeline with confirmation
 				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
 					m.stateManager.SetDeletingFromPane(pipelinesPane)
-					pipelineName := m.pipelines[m.stateManager.PipelineCursor].name
-					pipelinePath := m.pipelines[m.stateManager.PipelineCursor].path
+					pipeline := m.pipelines[m.stateManager.PipelineCursor]
+					pipelineName := pipeline.name
+					pipelinePath := pipeline.path
+					pipelineTags := pipeline.tags
 					
 					m.pipelineOperator.ShowDeleteConfirmation(
 						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
-							return m.pipelineOperator.DeletePipeline(pipelinePath, m.loadPipelines)
+							return m.pipelineOperator.DeletePipeline(pipelinePath, pipelineTags, m.loadPipelines)
 						},
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()

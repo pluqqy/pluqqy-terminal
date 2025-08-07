@@ -2028,6 +2028,10 @@ func (m *PipelineBuilderModel) deletePipeline() tea.Cmd {
 			return StatusMsg("× No pipeline to delete")
 		}
 		
+		// Store tags before deletion for cleanup
+		tagsToCleanup := make([]string, len(m.pipeline.Tags))
+		copy(tagsToCleanup, m.pipeline.Tags)
+		
 		// Delete the pipeline file
 		err := files.DeletePipeline(m.pipeline.Path)
 		if err != nil {
@@ -2036,6 +2040,14 @@ func (m *PipelineBuilderModel) deletePipeline() tea.Cmd {
 		
 		// Extract pipeline name from path
 		pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+		
+		// Start async tag cleanup if there were tags
+		if len(tagsToCleanup) > 0 {
+			// This will run asynchronously after we return
+			go func() {
+				tags.CleanupOrphanedTags(tagsToCleanup)
+			}()
+		}
 		
 		// Return to the list view with success message
 		return SwitchViewMsg{

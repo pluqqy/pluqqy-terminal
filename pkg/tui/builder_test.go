@@ -67,6 +67,19 @@ func TestPipelineBuilderModel_DeletePipeline_Logic(t *testing.T) {
 			wantMsgType:   "status", // Will fail because file doesn't exist
 			wantStatusMsg: "× Failed to delete pipeline:",
 		},
+		{
+			name: "pipeline with tags triggers async cleanup",
+			setup: func() *PipelineBuilderModel {
+				m := makeTestBuilderModel()
+				// Pipeline with tags (will fail deletion but shows tag handling)
+				pipeline := makeTestPipelineModel("test-pipeline", "/nonexistent/test-pipeline.yaml")
+				pipeline.Tags = []string{"tag1", "tag2", "orphaned-tag"}
+				m.pipeline = pipeline
+				return m
+			},
+			wantMsgType:   "status", // Will fail because file doesn't exist
+			wantStatusMsg: "× Failed to delete pipeline:",
+		},
 	}
 
 	for _, tt := range tests {

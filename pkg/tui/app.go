@@ -118,6 +118,14 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.statusMsg = ""
 		// Force a redraw to ensure layout is recalculated
 		return a, tea.ClearScreen
+	
+	case tagCleanupCompleteMsg:
+		// Log tag cleanup results (optional - could show a subtle status)
+		if len(msg.removedTags) > 0 {
+			// We could optionally show a status, but keeping it silent for now
+			// since it's a background operation
+		}
+		return a, nil
 
 	case settingsSavedMsg:
 		// Handle settings saved - reload components in main list
@@ -465,6 +473,10 @@ func formatConfirmOptions(destructive bool) string {
 type StatusMsg string
 
 type clearStatusMsg struct{}
+
+type tagCleanupCompleteMsg struct {
+	removedTags []string
+}
 
 type ReloadMsg struct {
 	Message string

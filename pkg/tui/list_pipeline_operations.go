@@ -11,6 +11,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/tags"
 )
 
 // PipelineOperator handles all pipeline-related operations
@@ -72,7 +73,7 @@ func (po *PipelineOperator) SetPipeline(pipelinePath string) tea.Cmd {
 }
 
 // DeletePipeline deletes a pipeline and returns a command to reload the list
-func (po *PipelineOperator) DeletePipeline(pipelinePath string, reloadFunc func()) tea.Cmd {
+func (po *PipelineOperator) DeletePipeline(pipelinePath string, pipelineTags []string, reloadFunc func()) tea.Cmd {
 	return func() tea.Msg {
 		// Delete the pipeline file
 		err := files.DeletePipeline(pipelinePath)
@@ -82,6 +83,13 @@ func (po *PipelineOperator) DeletePipeline(pipelinePath string, reloadFunc func(
 		
 		// Reload the pipeline list
 		reloadFunc()
+		
+		// Start async tag cleanup if there were tags
+		if len(pipelineTags) > 0 {
+			go func() {
+				tags.CleanupOrphanedTags(pipelineTags)
+			}()
+		}
 		
 		// Extract pipeline name from path
 		pipelineName := strings.TrimSuffix(filepath.Base(pipelinePath), ".yaml")
@@ -202,6 +210,13 @@ func (po *PipelineOperator) DeleteComponent(comp componentItem, reloadFunc func(
 		
 		// Reload the component list
 		reloadFunc()
+		
+		// Start async tag cleanup if there were tags
+		if len(comp.tags) > 0 {
+			go func() {
+				tags.CleanupOrphanedTags(comp.tags)
+			}()
+		}
 		
 		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
 	}
