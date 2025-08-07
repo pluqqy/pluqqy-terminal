@@ -3048,6 +3048,10 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 	return m, nil
 }
 
+// handleTagEditing handles tag editing mode.
+// Note: Vim-style navigation (h,j,k,l) is intentionally disabled when typing tag names
+// to allow these letters to be entered as part of tag text. This matches the behavior
+// of the Main List View's tag editor. Arrow keys are used for navigation instead.
 func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if m.tagDeleteConfirm.Active() {
 		return m, m.tagDeleteConfirm.Update(msg)
@@ -3108,23 +3112,6 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 		
-	case "h":
-		// Only handle as navigation if not typing
-		if m.tagInput == "" {
-			if m.tagCloudActive {
-				// Navigate in tag cloud
-				if m.tagCloudCursor > 0 {
-					m.tagCloudCursor--
-				}
-			} else {
-				// Move cursor left in current tags
-				if m.tagCursor > 0 {
-					m.tagCursor--
-				}
-			}
-			return m, nil
-		}
-		
 	case "right":
 		if m.tagCloudActive {
 			// Navigate in tag cloud
@@ -3139,24 +3126,6 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			}
 		}
 		return m, nil
-		
-	case "l":
-		// Only handle as navigation if not typing
-		if m.tagInput == "" {
-			if m.tagCloudActive {
-				// Navigate in tag cloud
-				availableForSelection := m.getAvailableTagsForCloud()
-				if m.tagCloudCursor < len(availableForSelection)-1 {
-					m.tagCloudCursor++
-				}
-			} else {
-				// Move cursor right in current tags
-				if m.tagCursor < len(m.currentTags)-1 {
-					m.tagCursor++
-				}
-			}
-			return m, nil
-		}
 		
 	case "backspace":
 		if !m.tagCloudActive {
@@ -3221,32 +3190,20 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 		
-	case "up", "k":
+	case "up":
 		if m.tagCloudActive {
 			if m.tagCloudCursor > 0 {
 				m.tagCloudCursor--
 			}
-			return m, nil
-		}
-		// For "k", only handle as navigation if not typing
-		if msg.String() == "k" && m.tagInput != "" {
-			// Fall through to default case to handle as regular input
-			break
 		}
 		return m, nil
 		
-	case "down", "j":
+	case "down":
 		if m.tagCloudActive {
 			availableForSelection := m.getAvailableTagsForCloud()
 			if m.tagCloudCursor < len(availableForSelection)-1 {
 				m.tagCloudCursor++
 			}
-			return m, nil
-		}
-		// For "j", only handle as navigation if not typing
-		if msg.String() == "j" && m.tagInput != "" {
-			// Fall through to default case to handle as regular input
-			break
 		}
 		return m, nil
 		
