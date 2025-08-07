@@ -29,6 +29,14 @@ const (
 	previewColumn
 )
 
+// Constants for preview synchronization
+const (
+	defaultLinesPerComponent = 15  // Estimated lines per component in preview
+	minLinesPerComponent     = 10  // Minimum estimate for lines per component
+	scrollContextLines       = 2   // Lines to show before component when scrolling
+	scrollBottomPadding      = 10  // Lines to keep from bottom when estimating position
+)
+
 type PipelineBuilderModel struct {
 	width    int
 	height   int
@@ -570,6 +578,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.leftCursor = 0
 			} else if m.activeColumn == rightColumn {
 				m.rightCursor = 0
+				// Sync preview scroll when jumping to first component in pipeline
+				if m.showPreview && len(m.selectedComponents) > 0 {
+					m.syncPreviewToSelectedComponent()
+				}
 			}
 			
 		case "end":
@@ -581,6 +593,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.activeColumn == rightColumn {
 				if len(m.selectedComponents) > 0 {
 					m.rightCursor = len(m.selectedComponents) - 1
+				}
+				// Sync preview scroll when jumping to last component in pipeline
+				if m.showPreview && len(m.selectedComponents) > 0 {
+					m.syncPreviewToSelectedComponent()
 				}
 			}
 
@@ -757,6 +773,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Wrap content to viewport width to prevent overflow
 		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
 		m.previewViewport.SetContent(wrappedContent)
+		
+		// Sync preview scroll to highlighted component if right column is active
+		if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+			m.syncPreviewToSelectedComponent()
+		}
 	}
 	
 	// Only forward non-key messages to viewports
@@ -1573,13 +1594,17 @@ func (m *PipelineBuilderModel) moveCursor(delta int) {
 		if m.leftCursor >= len(components) {
 			m.leftCursor = len(components) - 1
 		}
-	} else {
+	} else if m.activeColumn == rightColumn {
 		m.rightCursor += delta
 		if m.rightCursor < 0 {
 			m.rightCursor = 0
 		}
 		if m.rightCursor >= len(m.selectedComponents) {
 			m.rightCursor = len(m.selectedComponents) - 1
+		}
+		// Sync preview scroll when navigating components in right column (Pipeline Components)
+		if m.showPreview && len(m.selectedComponents) > 0 {
+			m.syncPreviewToSelectedComponent()
 		}
 	}
 	// Update preview when cursor moves
@@ -1873,6 +1898,127 @@ func (m *PipelineBuilderModel) updatePreview() {
 		}
 
 		m.previewContent = output
+	}
+}
+
+// findComponentInPreview finds the line number where a component's content appears in the preview
+// It returns the line number, or -1 if not found
+func (m *PipelineBuilderModel) findComponentInPreview(componentContent, componentPath string) int {
+	// Get the first non-empty line of the component content for matching
+	componentLines := strings.Split(strings.TrimSpace(componentContent), "\n")
+	var firstContentLine string
+	for _, line := range componentLines {
+		trimmed := strings.TrimSpace(line)
+		if trimmed != "" && !strings.HasPrefix(trimmed, "#") && !strings.HasPrefix(trimmed, "---") {
+			firstContentLine = trimmed
+			break
+		}
+	}
+	
+	if firstContentLine == "" {
+		return -1
+	}
+	
+	// Calculate line position in the preview
+	lines := strings.Split(m.previewContent, "\n")
+	
+	// Track which occurrence we're looking for (components might repeat)
+	occurrenceCount := 0
+	targetOccurrence := 0
+	
+	// Count how many times this component appears before our target
+	for i := 0; i < m.rightCursor; i++ {
+		if m.selectedComponents[i].Path == componentPath {
+			targetOccurrence++
+		}
+	}
+	
+	// Search for the component's content in the preview
+	for i, line := range lines {
+		if strings.Contains(line, firstContentLine) {
+			if occurrenceCount == targetOccurrence {
+				// Found the right occurrence, return line with context
+				targetLine := i - scrollContextLines
+				if targetLine < 0 {
+					targetLine = 0
+				}
+				return targetLine
+			}
+			occurrenceCount++
+		}
+	}
+	
+	return -1
+}
+
+// estimateComponentPosition estimates the line position of a component based on its order
+func (m *PipelineBuilderModel) estimateComponentPosition() int {
+	if m.rightCursor == 0 {
+		return 0
+	}
+	
+	lines := strings.Split(m.previewContent, "\n")
+	
+	// Calculate average lines per component
+	linesPerComponent := 0
+	if len(lines) > 0 && len(m.selectedComponents) > 0 {
+		linesPerComponent = len(lines) / len(m.selectedComponents)
+	}
+	if linesPerComponent < minLinesPerComponent {
+		linesPerComponent = defaultLinesPerComponent
+	}
+	
+	targetLine := (m.rightCursor * linesPerComponent) + 5
+	if targetLine >= len(lines)-scrollBottomPadding {
+		targetLine = len(lines) - scrollBottomPadding
+	}
+	if targetLine < 0 {
+		targetLine = 0
+	}
+	
+	return targetLine
+}
+
+// syncPreviewToSelectedComponent scrolls the preview viewport to show the currently selected component in the pipeline
+func (m *PipelineBuilderModel) syncPreviewToSelectedComponent() {
+	if !m.showPreview || len(m.selectedComponents) == 0 || m.rightCursor < 0 || m.rightCursor >= len(m.selectedComponents) {
+		return
+	}
+	
+	// Get the currently selected component in the right column
+	selectedComp := m.selectedComponents[m.rightCursor]
+	
+	// Read the component content to match it in the preview
+	// Component paths in YAML are relative to the pipelines directory
+	componentPath := filepath.Join(files.PipelinesDir, selectedComp.Path)
+	componentPath = filepath.Clean(componentPath)
+	
+	content, err := files.ReadComponent(componentPath)
+	if err != nil {
+		return
+	}
+	
+	// Try to find the component in the preview by its content
+	targetLine := m.findComponentInPreview(content.Content, selectedComp.Path)
+	
+	// If we couldn't find by content, estimate position by component order
+	if targetLine == -1 && m.rightCursor > 0 {
+		targetLine = m.estimateComponentPosition()
+	}
+	
+	// If still not found and we're at position 0, scroll to top
+	if targetLine == -1 {
+		targetLine = 0
+	}
+	
+	// Scroll to the target line, centering it if possible
+	viewportHeight := m.previewViewport.Height
+	if targetLine > viewportHeight/2 {
+		// Scroll so the target line is centered
+		m.previewViewport.SetYOffset(targetLine - viewportHeight/2)
+	} else {
+		// Scroll to top if target is near the beginning
+		m.previewViewport.SetYOffset(0)
 	}
 }
 
