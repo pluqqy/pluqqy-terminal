@@ -734,7 +734,6 @@ func (m *MainListModel) View() string {
 	componentRenderer.AllComponents = m.getAllComponents()
 	componentRenderer.ComponentCursor = m.stateManager.ComponentCursor
 	componentRenderer.SearchQuery = m.searchQuery
-	componentRenderer.Viewport = m.componentsViewport
 
 	// Create pipeline view renderer
 	pipelineRenderer := NewPipelineViewRenderer(m.width, contentHeight)

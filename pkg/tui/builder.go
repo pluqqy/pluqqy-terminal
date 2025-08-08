@@ -57,7 +57,7 @@ type PipelineBuilderModel struct {
 	showPreview    bool
 	previewContent string
 	previewViewport viewport.Model
-	leftViewport   viewport.Model  // For available components
+	leftTableRenderer *ComponentTableRenderer  // For available components table
 	rightViewport  viewport.Model  // For selected components
 	err            error
 	
@@ -142,7 +142,7 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		},
 		originalComponents: []models.ComponentRef{}, // Initialize to empty slice for new pipelines
 		previewViewport:    viewport.New(80, 20),    // Default size, will be resized
-		leftViewport:       viewport.New(40, 20),    // Default size, will be resized
+		leftTableRenderer:  NewComponentTableRenderer(40, 20, true), // Default size, will be resized, true for showUsageColumn
 		rightViewport:      viewport.New(40, 20),    // Default size, will be resized
 		searchBar:          NewSearchBar(),
 		exitConfirm:        NewConfirmation(),
@@ -153,6 +153,9 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 	
 	// Initialize search engine
 	m.searchEngine = search.NewEngine()
+	
+	// Configure table renderer for pipeline builder
+	m.leftTableRenderer.ShowAddedIndicator = true
 	
 	m.loadAvailableComponents()
 	return m
@@ -920,10 +923,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		
-		m.leftViewport, cmd = m.leftViewport.Update(msg)
-		if cmd != nil {
-			cmds = append(cmds, cmd)
-		}
 		m.rightViewport, cmd = m.rightViewport.Update(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
@@ -1002,6 +1001,25 @@ func (m *PipelineBuilderModel) View() string {
 		contentHeight = 10
 	}
 
+	// Update table renderer for left column
+	allComponents := m.getAllAvailableComponents()
+	m.leftTableRenderer.SetSize(columnWidth, contentHeight)
+	m.leftTableRenderer.SetComponents(allComponents)
+	m.leftTableRenderer.SetCursor(m.leftCursor)
+	m.leftTableRenderer.SetActive(m.activeColumn == leftColumn)
+	
+	// Mark already added components
+	m.leftTableRenderer.ClearAddedMarks()
+	for _, comp := range allComponents {
+		componentPath := "../" + comp.path
+		for _, existing := range m.selectedComponents {
+			if existing.Path == componentPath {
+				m.leftTableRenderer.MarkAsAdded(componentPath)
+				break
+			}
+		}
+	}
+	
 	// Build left column (available components)
 	var leftContent strings.Builder
 	// Create padding style for headers
@@ -1034,164 +1052,15 @@ func (m *PipelineBuilderModel) View() string {
 	leftContent.WriteString(headerPadding.Render(leftHeaderStyle.Render(heading) + " " + leftColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	leftContent.WriteString("\n\n")
 
-	// Table header styles
-	headerStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("241"))
-	
-	// Table column widths (adjusted for left column width)
-	nameWidth := 22
-	tagsWidth := 18
-	tokenWidth := 8  // For "~Tokens" plus padding
-	usageWidth := 10
-	
-	// Render table header with 2-space shift - extra spaces between columns
-	header := fmt.Sprintf("  %-*s %-*s  %*s  %*s", 
-		nameWidth, "Name",
-		tagsWidth, "Tags",
-		tokenWidth, "~Tokens",
-		usageWidth, "Usage")
-	leftContent.WriteString(headerPadding.Render(headerStyle.Render(header)))
+	// Render table header
+	leftContent.WriteString(headerPadding.Render(m.leftTableRenderer.RenderHeader()))
 	leftContent.WriteString("\n\n")
 	
-	// Build scrollable content for left viewport
-	var leftScrollContent strings.Builder
-	
-	allComponents := m.getAllAvailableComponents()
-	currentType := ""
-	
-	for i, comp := range allComponents {
-		if comp.compType != currentType {
-			if currentType != "" {
-				leftScrollContent.WriteString("\n")
-			}
-			currentType = comp.compType
-			// Convert to uppercase plural form
-			var typeHeader string
-			switch currentType {
-			case models.ComponentTypeContext:
-				typeHeader = "CONTEXTS"
-			case models.ComponentTypePrompt:
-				typeHeader = "PROMPTS"
-			case models.ComponentTypeRules:
-				typeHeader = "RULES"
-			default:
-				typeHeader = strings.ToUpper(currentType)
-			}
-			leftScrollContent.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
-		}
-
-		// Check if component is already in pipeline
-		isAdded := false
-		componentPath := "../" + comp.path
-		for _, existing := range m.selectedComponents {
-			if existing.Path == componentPath {
-				isAdded = true
-				break
-			}
-		}
-
-		// Format the row data with archived indicator
-		nameStr := comp.name
-		if comp.isArchived {
-			nameStr = "📦 " + nameStr + " [ARC]"
-		}
-		if len(nameStr) > nameWidth-3 {
-			nameStr = nameStr[:nameWidth-6] + "..."
-		}
-		if isAdded {
-			nameStr = nameStr + " ✓"
-		}
-		
-		
-		// Format usage count
-		usageStr := fmt.Sprintf("%d", comp.usageCount)
-		
-		// Format token count - right-aligned with consistent width
-		tokenStr := fmt.Sprintf("%d", comp.tokenCount)
-		
-		// Format tags
-		tagsStr := renderTagChipsWithWidth(comp.tags, tagsWidth, 2) // Show max 2 tags inline
-		
-		// Build the row components separately
-		namePart := fmt.Sprintf("%-*s", nameWidth, nameStr)
-		
-		// For tags, we need to pad based on rendered width
-		tagsPadding := tagsWidth - lipgloss.Width(tagsStr)
-		if tagsPadding < 0 {
-			tagsPadding = 0
-		}
-		tagsPart := tagsStr + strings.Repeat(" ", tagsPadding)
-		
-		tokenPart := fmt.Sprintf("%*s", tokenWidth, tokenStr)
-		
-		// Build row with styling
-		var row string
-		if m.activeColumn == leftColumn && i == m.leftCursor {
-			// Apply selection styling only to name column
-			if comp.isArchived {
-				// Dimmed style for archived items
-				archivedStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color("243"))
-				row = "▸ " + archivedStyle.Render(namePart) + " " + tagsPart + "  " + archivedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
-			} else {
-				row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
-			}
-		} else if isAdded {
-			// Use a dimmed style for already added components
-			addedStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("242"))
-			row = "  " + addedStyle.Render(namePart) + " " + tagsPart + "  " + addedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
-		} else if comp.isArchived {
-			// Dimmed style for archived components
-			archivedStyle := lipgloss.NewStyle().
-				Foreground(lipgloss.Color("243"))
-			row = "  " + archivedStyle.Render(namePart) + " " + tagsPart + "  " + archivedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
-		} else {
-			// Normal row styling
-			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
-		}
-		
-		leftScrollContent.WriteString(row)
-		
-		if i < len(allComponents)-1 {
-			leftScrollContent.WriteString("\n")
-		}
-	}
-	
-	// Update left viewport with content
-	// Wrap content to viewport width to prevent overflow
-	wrappedLeftContent := wordwrap.String(leftScrollContent.String(), m.leftViewport.Width)
-	m.leftViewport.SetContent(wrappedLeftContent)
-	
-	// Update viewport to follow cursor
-	if m.activeColumn == leftColumn && len(allComponents) > 0 {
-		// Calculate the line position of the cursor
-		currentLine := 0
-		for i := 0; i < m.leftCursor && i < len(allComponents); i++ {
-			currentLine++ // Component line
-			// Check if it's the first item of a new type to add header line
-			if i == 0 || allComponents[i].compType != allComponents[i-1].compType {
-				currentLine++ // Type header line
-				if i > 0 {
-					currentLine++ // Empty line between sections
-				}
-			}
-		}
-		
-		// Ensure the cursor line is visible
-		if currentLine < m.leftViewport.YOffset {
-			m.leftViewport.SetYOffset(currentLine)
-		} else if currentLine >= m.leftViewport.YOffset+m.leftViewport.Height {
-			m.leftViewport.SetYOffset(currentLine - m.leftViewport.Height + 1)
-		}
-	}
-	
-	// Add padding to viewport content
+	// Add padding to table content
 	leftViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	leftContent.WriteString(leftViewportPadding.Render(m.leftViewport.View()))
+	leftContent.WriteString(leftViewportPadding.Render(m.leftTableRenderer.RenderTable()))
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
@@ -1649,8 +1518,9 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 		rightViewportHeight = 5
 	}
 	
-	m.leftViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
-	m.leftViewport.Height = leftViewportHeight
+	// Update left table renderer
+	m.leftTableRenderer.SetSize(columnWidth, contentHeight)
+	
 	m.rightViewport.Width = columnWidth - 4  // Account for borders (2) and padding (2)
 	m.rightViewport.Height = rightViewportHeight
 	
