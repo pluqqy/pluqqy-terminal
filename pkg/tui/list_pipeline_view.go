@@ -113,6 +113,7 @@ func (r *PipelineViewRenderer) Render() string {
 func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, tokenWidth int) string {
 	var content strings.Builder
 	normalStyle := NormalStyle
+	dimmedStyle := EmptyInactiveStyle
 	
 	if len(r.FilteredPipelines) == 0 {
 		if r.ActivePane == pipelinesPane {
@@ -127,7 +128,6 @@ func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, toke
 			}
 		} else {
 			// Inactive pane - show dimmed message
-			dimmedStyle := EmptyInactiveStyle
 			
 			// Check if we have pipelines but they're filtered out
 			if len(r.Pipelines) > 0 && r.SearchQuery != "" {
@@ -138,8 +138,12 @@ func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, toke
 		}
 	} else {
 		for i, pipeline := range r.FilteredPipelines {
-			// Format the pipeline name
-			nameStr := truncateName(pipeline.name, nameWidth)
+			// Format the pipeline name with archived indicator
+			nameStr := pipeline.name
+			if pipeline.isArchived {
+				nameStr = "📦 " + nameStr + " [ARCHIVED]"
+			}
+			nameStr = truncateName(nameStr, nameWidth)
 			
 			// Format tags
 			tagsStr := renderTagChipsWithWidth(pipeline.tags, tagsWidth, 2) // Show max 2 tags inline
@@ -163,10 +167,20 @@ func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, toke
 			var row string
 			if r.ActivePane == pipelinesPane && i == r.PipelineCursor {
 				// Apply selection styling only to name column
-				row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
+				if pipeline.isArchived {
+					// Dimmed style for archived items
+					row = "▸ " + dimmedStyle.Render(namePart) + " " + tagsPart + " " + dimmedStyle.Render(tokenPart)
+				} else {
+					row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
+				}
 			} else {
 				// Normal row styling
-				row = "  " + normalStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
+				if pipeline.isArchived {
+					// Dimmed style for archived items
+					row = "  " + dimmedStyle.Render(namePart) + " " + tagsPart + " " + dimmedStyle.Render(tokenPart)
+				} else {
+					row = "  " + normalStyle.Render(namePart) + " " + tagsPart + " " + normalStyle.Render(tokenPart)
+				}
 			}
 			
 			content.WriteString(row)

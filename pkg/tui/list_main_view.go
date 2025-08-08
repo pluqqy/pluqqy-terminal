@@ -48,7 +48,7 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 		// Show search syntax help when search is active
 		helpRows := [][]string{
 			{"esc clear+exit search", "enter search"},
-			{"tag:<name>", "type:<type>", "<keyword>", "combine with spaces"},
+			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
 		}
 		helpContent = formatHelpTextRows(helpRows, r.Width - 8) // -8 for borders and padding
 	} else {

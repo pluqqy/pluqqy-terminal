@@ -17,4 +17,5 @@ type pipelineItem struct {
 	path       string
 	tags       []string
 	tokenCount int
+	isArchived bool
 }

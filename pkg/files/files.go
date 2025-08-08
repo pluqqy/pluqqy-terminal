@@ -384,6 +384,136 @@ func ListComponents(componentType string) ([]string, error) {
 	return components, nil
 }
 
+// ListArchivedPipelines returns a list of archived pipeline files
+func ListArchivedPipelines() ([]string, error) {
+	archivePipelinesPath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir)
+	
+	entries, err := os.ReadDir(archivePipelinesPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to read archived pipelines directory '%s': %w", archivePipelinesPath, err)
+	}
+	
+	var pipelines []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
+			pipelines = append(pipelines, entry.Name())
+		}
+	}
+	
+	return pipelines, nil
+}
+
+// ListArchivedComponents returns a list of archived component files for a given type
+func ListArchivedComponents(componentType string) ([]string, error) {
+	var subDir string
+	switch componentType {
+	case models.ComponentTypePrompt:
+		subDir = PromptsDir
+	case models.ComponentTypeContext:
+		subDir = ContextsDir
+	case models.ComponentTypeRules:
+		subDir = RulesDir
+	default:
+		return nil, fmt.Errorf("invalid component type '%s': must be one of: prompt, context, rules", componentType)
+	}
+
+	archiveComponentsPath := filepath.Join(PluqqyDir, ArchiveDir, ComponentsDir, subDir)
+	
+	entries, err := os.ReadDir(archiveComponentsPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return []string{}, nil
+		}
+		return nil, fmt.Errorf("failed to read archived components directory '%s': %w", archiveComponentsPath, err)
+	}
+
+	var components []string
+	for _, entry := range entries {
+		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".md") {
+			components = append(components, entry.Name())
+		}
+	}
+
+	return components, nil
+}
+
+// ReadArchivedPipeline reads an archived pipeline file
+func ReadArchivedPipeline(path string) (*models.Pipeline, error) {
+	if err := validatePath(path); err != nil {
+		return nil, fmt.Errorf("invalid pipeline path: %w", err)
+	}
+	
+	absPath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, path)
+	
+	// Validate file size before reading
+	fileInfo, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("archived pipeline not found at path '%s'", path)
+		}
+		return nil, fmt.Errorf("failed to stat archived pipeline file '%s': %w", path, err)
+	}
+	if fileInfo.Size() > MaxFileSize {
+		return nil, fmt.Errorf("archived pipeline file '%s' is too large (%d bytes)", path, fileInfo.Size())
+	}
+	
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read archived pipeline file '%s': %w", path, err)
+	}
+	
+	var pipeline models.Pipeline
+	if err := yaml.Unmarshal(data, &pipeline); err != nil {
+		return nil, fmt.Errorf("failed to parse archived pipeline file '%s': %w", path, err)
+	}
+	
+	// Set the path
+	pipeline.Path = path
+	
+	return &pipeline, nil
+}
+
+// ReadArchivedComponent reads an archived component file
+func ReadArchivedComponent(path string) (*models.Component, error) {
+	if err := validatePath(path); err != nil {
+		return nil, fmt.Errorf("invalid component path: %w", err)
+	}
+	
+	absPath := filepath.Join(PluqqyDir, ArchiveDir, path)
+	
+	fileInfo, err := os.Stat(absPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("archived component not found at path '%s'", path)
+		}
+		return nil, fmt.Errorf("failed to stat archived component file '%s': %w", path, err)
+	}
+	if fileInfo.Size() > MaxFileSize {
+		return nil, fmt.Errorf("archived component file '%s' is too large (%d bytes)", path, fileInfo.Size())
+	}
+	
+	data, err := os.ReadFile(absPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read archived component file '%s': %w", path, err)
+	}
+	
+	// Extract frontmatter to get tags
+	frontmatter, _, _ := extractFrontmatter(data)
+	
+	comp := &models.Component{
+		Content:     string(data),
+		Path:        path,
+		Type:        getComponentType(path),
+		Modified:    fileInfo.ModTime(),
+		Tags:        frontmatter.Tags,
+	}
+	
+	return comp, nil
+}
+
 func getComponentType(path string) string {
 	if strings.Contains(path, PromptsDir) {
 		return models.ComponentTypePrompt

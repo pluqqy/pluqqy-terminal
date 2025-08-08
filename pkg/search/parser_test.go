@@ -191,6 +191,60 @@ func TestParse(t *testing.T) {
 			input:         "modified:yesterday",
 			expectError:   true,
 		},
+		{
+			name:          "status archived",
+			input:         "status:archived",
+			conditionCount: 1,
+			checkConditions: func(t *testing.T, q *Query) {
+				if q.Conditions[0].Field != FieldStatus {
+					t.Errorf("Expected status field, got %v", q.Conditions[0].Field)
+				}
+				if q.Conditions[0].Value != "archived" {
+					t.Errorf("Expected value 'archived', got %v", q.Conditions[0].Value)
+				}
+				if q.Conditions[0].Operator != OperatorEquals {
+					t.Errorf("Expected equals operator, got %v", q.Conditions[0].Operator)
+				}
+			},
+		},
+		{
+			name:          "status with other conditions",
+			input:         "status:archived AND tag:api",
+			conditionCount: 2,
+			checkConditions: func(t *testing.T, q *Query) {
+				// Check first condition is status
+				if q.Conditions[0].Field != FieldStatus {
+					t.Errorf("Expected first condition to be status field, got %v", q.Conditions[0].Field)
+				}
+				if q.Conditions[0].Value != "archived" {
+					t.Errorf("Expected status value 'archived', got %v", q.Conditions[0].Value)
+				}
+				// Check second condition is tag
+				if q.Conditions[1].Field != FieldTag {
+					t.Errorf("Expected second condition to be tag field, got %v", q.Conditions[1].Field)
+				}
+				if q.Conditions[1].Value != "api" {
+					t.Errorf("Expected tag value 'api', got %v", q.Conditions[1].Value)
+				}
+				// Check logic operator
+				if len(q.Logic) != 1 || q.Logic[0] != OperatorAND {
+					t.Errorf("Expected AND operator, got %v", q.Logic)
+				}
+			},
+		},
+		{
+			name:          "quoted status value",
+			input:         `status:"archived"`,
+			conditionCount: 1,
+			checkConditions: func(t *testing.T, q *Query) {
+				if q.Conditions[0].Field != FieldStatus {
+					t.Errorf("Expected status field, got %v", q.Conditions[0].Field)
+				}
+				if q.Conditions[0].Value != "archived" {
+					t.Errorf("Expected value 'archived', got %v", q.Conditions[0].Value)
+				}
+			},
+		},
 	}
 	
 	for _, tt := range tests {

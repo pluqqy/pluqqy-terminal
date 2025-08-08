@@ -115,6 +115,7 @@ func (r *ComponentViewRenderer) Render() string {
 func (r *ComponentViewRenderer) buildScrollableContent(nameWidth, tagsWidth, tokenWidth, usageWidth int) string {
 	var content strings.Builder
 	normalStyle := NormalStyle
+	dimmedStyle := EmptyInactiveStyle
 	typeHeaderStyle := TypeHeaderStyle
 	
 	// Use filtered components instead of all components
@@ -131,7 +132,6 @@ func (r *ComponentViewRenderer) buildScrollableContent(nameWidth, tagsWidth, tok
 			}
 		} else {
 			// Inactive pane - show dimmed message
-			dimmedStyle := EmptyInactiveStyle
 			
 			// Check if we have components but they're filtered out
 			if len(r.AllComponents) > 0 && r.SearchQuery != "" {
@@ -164,8 +164,12 @@ func (r *ComponentViewRenderer) buildScrollableContent(nameWidth, tagsWidth, tok
 				content.WriteString(typeHeaderStyle.Render(fmt.Sprintf("▸ %s", typeHeader)) + "\n")
 			}
 			
-			// Format the row data
-			nameStr := truncateName(comp.name, nameWidth)
+			// Format the row data with archived indicator
+			nameStr := comp.name
+			if comp.isArchived {
+				nameStr = "📦 " + nameStr + " [ARCHIVED]"
+			}
+			nameStr = truncateName(nameStr, nameWidth)
 			
 			// Format usage count
 			usageStr := fmt.Sprintf("%d", comp.usageCount)
@@ -193,10 +197,20 @@ func (r *ComponentViewRenderer) buildScrollableContent(nameWidth, tagsWidth, tok
 			var row string
 			if r.ActivePane == componentsPane && i == r.ComponentCursor {
 				// Apply selection styling only to name column
-				row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
+				if comp.isArchived {
+					// Dimmed style for archived items
+					row = "▸ " + dimmedStyle.Render(namePart) + " " + tagsPart + "  " + dimmedStyle.Render(tokenPart + " " + usagePart)
+				} else {
+					row = "▸ " + SelectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
+				}
 			} else {
 				// Normal row styling
-				row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
+				if comp.isArchived {
+					// Dimmed style for archived items
+					row = "  " + dimmedStyle.Render(namePart) + " " + tagsPart + "  " + dimmedStyle.Render(tokenPart + " " + usagePart)
+				} else {
+					row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + " " + usagePart)
+				}
 			}
 			
 			content.WriteString(row)

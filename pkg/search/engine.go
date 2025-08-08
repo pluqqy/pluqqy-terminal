@@ -29,6 +29,7 @@ type SearchItem struct {
 	Content    string
 	Modified   time.Time
 	TokenCount int
+	IsArchived bool     // Whether the item is archived
 }
 
 // SearchResult represents a search result with relevance score
@@ -51,8 +52,9 @@ type Index struct {
 
 // Engine represents the search engine
 type Engine struct {
-	index  *Index
-	parser *Parser
+	index          *Index
+	parser         *Parser
+	includeArchived bool // Whether to include archived items in search
 }
 
 // NewEngine creates a new search engine
@@ -70,6 +72,11 @@ func NewEngine() *Engine {
 
 // BuildIndex builds the search index from all components and pipelines
 func (e *Engine) BuildIndex() error {
+	return e.BuildIndexWithOptions(false)
+}
+
+// BuildIndexWithOptions builds the search index with options
+func (e *Engine) BuildIndexWithOptions(includeArchived bool) error {
 	e.index.mu.Lock()
 	defer e.index.mu.Unlock()
 	
@@ -79,7 +86,7 @@ func (e *Engine) BuildIndex() error {
 	e.index.typeIndex = make(map[string][]int)
 	e.index.contentTokens = make(map[string][]int)
 	
-	// Index components
+	// Index active components
 	for _, compType := range []string{models.ComponentTypePrompt, models.ComponentTypeContext, models.ComponentTypeRules} {
 		components, err := files.ListComponents(compType)
 		if err != nil {
@@ -94,20 +101,51 @@ func (e *Engine) BuildIndex() error {
 			}
 			
 			item := SearchItem{
-				Type:     ItemTypeComponent,
-				SubType:  compType,
-				Path:     compPath,
-				Name:     strings.TrimSuffix(compFile, ".md"),
-				Tags:     comp.Tags,
-				Content:  comp.Content,
-				Modified: comp.Modified,
+				Type:       ItemTypeComponent,
+				SubType:    compType,
+				Path:       compPath,
+				Name:       strings.TrimSuffix(compFile, ".md"),
+				Tags:       comp.Tags,
+				Content:    comp.Content,
+				Modified:   comp.Modified,
+				IsArchived: false,
 			}
 			
 			e.addToIndex(item)
 		}
+		
+		// Index archived components if requested
+		if includeArchived {
+			archivedComponents, err := files.ListArchivedComponents(compType)
+			if err != nil {
+				// Don't fail if archived directory doesn't exist
+				continue
+			}
+			
+			for _, compFile := range archivedComponents {
+				compPath := filepath.Join(files.ComponentsDir, compType, compFile)
+				comp, err := files.ReadArchivedComponent(compPath)
+				if err != nil {
+					continue // Skip components that can't be read
+				}
+				
+				item := SearchItem{
+					Type:       ItemTypeComponent,
+					SubType:    compType,
+					Path:       compPath,
+					Name:       strings.TrimSuffix(compFile, ".md"),
+					Tags:       comp.Tags,
+					Content:    comp.Content,
+					Modified:   comp.Modified,
+					IsArchived: true,
+				}
+				
+				e.addToIndex(item)
+			}
+		}
 	}
 	
-	// Index pipelines
+	// Index active pipelines
 	pipelines, err := files.ListPipelines()
 	if err != nil {
 		return fmt.Errorf("failed to list pipelines: %w", err)
@@ -127,15 +165,47 @@ func (e *Engine) BuildIndex() error {
 		}
 		
 		item := SearchItem{
-			Type:     ItemTypePipeline,
-			Path:     pipelineFile,
-			Name:     pipeline.Name,
-			Tags:     pipeline.Tags,
-			Content:  searchableContent,
-			Modified: time.Now(), // TODO: Get actual modified time
+			Type:       ItemTypePipeline,
+			Path:       pipelineFile,
+			Name:       pipeline.Name,
+			Tags:       pipeline.Tags,
+			Content:    searchableContent,
+			Modified:   time.Now(), // TODO: Get actual modified time
+			IsArchived: false,
 		}
 		
 		e.addToIndex(item)
+	}
+	
+	// Index archived pipelines if requested
+	if includeArchived {
+		archivedPipelines, err := files.ListArchivedPipelines()
+		if err == nil {
+			for _, pipelineFile := range archivedPipelines {
+				pipeline, err := files.ReadArchivedPipeline(pipelineFile)
+				if err != nil {
+					continue // Skip pipelines that can't be read
+				}
+				
+				// Create searchable content from pipeline name and tags
+				searchableContent := pipeline.Name
+				if len(pipeline.Tags) > 0 {
+					searchableContent += " " + strings.Join(pipeline.Tags, " ")
+				}
+				
+				item := SearchItem{
+					Type:       ItemTypePipeline,
+					Path:       pipelineFile,
+					Name:       pipeline.Name,
+					Tags:       pipeline.Tags,
+					Content:    searchableContent,
+					Modified:   time.Now(), // TODO: Get actual modified time
+					IsArchived: true,
+				}
+				
+				e.addToIndex(item)
+			}
+		}
 	}
 	
 	return nil
@@ -171,6 +241,34 @@ func (e *Engine) Search(queryStr string) ([]SearchResult, error) {
 	query, err := e.parser.Parse(queryStr)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse query: %w", err)
+	}
+	
+	// Check if query contains status:archived and rebuild index if needed
+	hasArchivedQuery := false
+	for _, condition := range query.Conditions {
+		if condition.Field == FieldStatus {
+			statusStr := strings.ToLower(condition.Value.(string))
+			if statusStr == "archived" {
+				hasArchivedQuery = true
+				break
+			}
+		}
+	}
+	
+	// If we need to search archived items but haven't indexed them, rebuild index
+	if hasArchivedQuery && !e.includeArchived {
+		e.includeArchived = true
+		err := e.BuildIndexWithOptions(true)
+		if err != nil {
+			return nil, fmt.Errorf("failed to rebuild index with archived items: %w", err)
+		}
+	} else if !hasArchivedQuery && e.includeArchived {
+		// If we don't need archived items anymore, rebuild without them
+		e.includeArchived = false
+		err := e.BuildIndexWithOptions(false)
+		if err != nil {
+			return nil, fmt.Errorf("failed to rebuild index without archived items: %w", err)
+		}
 	}
 	
 	e.index.mu.RLock()
@@ -316,6 +414,25 @@ func (e *Engine) evaluateCondition(condition Condition) []int {
 				matches = append(matches, i)
 			}
 		}
+		
+	case FieldStatus:
+		statusStr := strings.ToLower(condition.Value.(string))
+		if statusStr == "archived" {
+			// Match archived items
+			for i, item := range e.index.items {
+				if item.IsArchived {
+					matches = append(matches, i)
+				}
+			}
+		} else if statusStr == "active" {
+			// Match active (non-archived) items
+			for i, item := range e.index.items {
+				if !item.IsArchived {
+					matches = append(matches, i)
+				}
+			}
+		}
+		// If status value is not recognized, return no matches
 	}
 	
 	// Handle negation

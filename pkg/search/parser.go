@@ -34,6 +34,7 @@ const (
 	FieldName     FieldType = "name"
 	FieldContent  FieldType = "content"
 	FieldModified FieldType = "modified"
+	FieldStatus   FieldType = "status"
 )
 
 // Operator represents a search operator
@@ -237,7 +238,7 @@ func (p *Parser) parseCondition(tokens []string) (*Condition, int, error) {
 		// Return a special condition that matches everything for that field
 		// This way, typing "tag:" shows all items instead of no results
 		switch field {
-		case "tag", "type", "name", "content", "modified":
+		case "tag", "type", "name", "content", "modified", "status":
 			// Valid field but no value yet - skip creating a condition
 			// This effectively shows all results
 			return nil, 1, nil
@@ -272,6 +273,10 @@ func (p *Parser) parseCondition(tokens []string) (*Condition, int, error) {
 		}
 		cond.Operator = op
 		cond.Value = duration
+	case "status":
+		cond.Field = FieldStatus
+		cond.Operator = OperatorEquals
+		cond.Value = p.unquote(value)
 	default:
 		return nil, 0, fmt.Errorf("unknown field: %s", field)
 	}

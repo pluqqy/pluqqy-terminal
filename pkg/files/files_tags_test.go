@@ -177,10 +177,10 @@ func TestComponentTagOperations(t *testing.T) {
 	}
 	defer os.RemoveAll(tmpDir)
 	
-	// Save original PluqqyDir and restore it after test
-	originalDir := PluqqyDir
-	PluqqyDir = tmpDir
-	defer func() { PluqqyDir = originalDir }()
+	// Save original working directory
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(tmpDir)
 	
 	// Initialize project structure
 	if err := InitProjectStructure(); err != nil {

@@ -123,6 +123,7 @@ type componentItem struct {
 	usageCount   int
 	tokenCount   int
 	tags         []string
+	isArchived   bool
 }
 
 type clearEditSaveMsg struct{}
@@ -155,6 +156,9 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 }
 
 func (m *PipelineBuilderModel) loadAvailableComponents() {
+	// Check if we should include archived items based on search query
+	includeArchived := m.shouldIncludeArchived()
+	
 	// Get usage counts for all components
 	usageMap, _ := files.CountComponentUsage()
 	
@@ -164,112 +168,13 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	m.rules = nil
 	
 	// Load prompts
-	prompts, _ := files.ListComponents("prompts")
-	for _, p := range prompts {
-		componentPath := filepath.Join(files.ComponentsDir, files.PromptsDir, p)
-		modTime, _ := files.GetComponentStats(componentPath)
-		
-		// Calculate usage count - need to check different path formats
-		usage := 0
-		relativePath := "../" + componentPath
-		if count, exists := usageMap[relativePath]; exists {
-			usage = count
-		}
-		
-		// Read component content for token estimation
-		component, _ := files.ReadComponent(componentPath)
-		tokenCount := 0
-		if component != nil {
-			tokenCount = utils.EstimateTokens(component.Content)
-		}
-		
-		tags := []string{}
-		if component != nil {
-			tags = component.Tags
-		}
-		
-		m.prompts = append(m.prompts, componentItem{
-			name:         p,
-			path:         componentPath,
-			compType:     models.ComponentTypePrompt,
-			lastModified: modTime,
-			usageCount:   usage,
-			tokenCount:   tokenCount,
-			tags:         tags,
-		})
-	}
-
+	m.prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
+	
 	// Load contexts
-	contexts, _ := files.ListComponents("contexts")
-	for _, c := range contexts {
-		componentPath := filepath.Join(files.ComponentsDir, files.ContextsDir, c)
-		modTime, _ := files.GetComponentStats(componentPath)
-		
-		// Calculate usage count
-		usage := 0
-		relativePath := "../" + componentPath
-		if count, exists := usageMap[relativePath]; exists {
-			usage = count
-		}
-		
-		// Read component content for token estimation
-		component, _ := files.ReadComponent(componentPath)
-		tokenCount := 0
-		if component != nil {
-			tokenCount = utils.EstimateTokens(component.Content)
-		}
-		
-		tags := []string{}
-		if component != nil {
-			tags = component.Tags
-		}
-		
-		m.contexts = append(m.contexts, componentItem{
-			name:         c,
-			path:         componentPath,
-			compType:     models.ComponentTypeContext,
-			lastModified: modTime,
-			usageCount:   usage,
-			tokenCount:   tokenCount,
-			tags:         tags,
-		})
-	}
-
+	m.contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
+	
 	// Load rules
-	rules, _ := files.ListComponents("rules")
-	for _, r := range rules {
-		componentPath := filepath.Join(files.ComponentsDir, files.RulesDir, r)
-		modTime, _ := files.GetComponentStats(componentPath)
-		
-		// Calculate usage count
-		usage := 0
-		relativePath := "../" + componentPath
-		if count, exists := usageMap[relativePath]; exists {
-			usage = count
-		}
-		
-		// Read component content for token estimation
-		component, _ := files.ReadComponent(componentPath)
-		tokenCount := 0
-		if component != nil {
-			tokenCount = utils.EstimateTokens(component.Content)
-		}
-		
-		tags := []string{}
-		if component != nil {
-			tags = component.Tags
-		}
-		
-		m.rules = append(m.rules, componentItem{
-			name:         r,
-			path:         componentPath,
-			compType:     models.ComponentTypeRules,
-			lastModified: modTime,
-			usageCount:   usage,
-			tokenCount:   tokenCount,
-			tags:         tags,
-		})
-	}
+	m.rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
 	
 	// Initialize filtered lists with all components
 	m.filteredPrompts = m.prompts
@@ -278,8 +183,120 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	
 	// Rebuild search engine index
 	if m.searchEngine != nil {
-		m.searchEngine.BuildIndex()
+		if includeArchived {
+			m.searchEngine.BuildIndexWithOptions(true)
+		} else {
+			m.searchEngine.BuildIndex()
+		}
 	}
+}
+
+// shouldIncludeArchived checks if the current search query requires archived items
+func (m *PipelineBuilderModel) shouldIncludeArchived() bool {
+	if m.searchQuery == "" {
+		return false
+	}
+	
+	// Parse the search query to check for status:archived
+	parser := search.NewParser()
+	query, err := parser.Parse(m.searchQuery)
+	if err != nil {
+		return false
+	}
+	
+	for _, condition := range query.Conditions {
+		if condition.Field == search.FieldStatus {
+			if statusStr, ok := condition.Value.(string); ok && strings.ToLower(statusStr) == "archived" {
+				return true
+			}
+		}
+	}
+	
+	return false
+}
+
+// loadComponentsOfType loads components of a specific type
+func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType string, usageMap map[string]int, includeArchived bool) []componentItem {
+	var items []componentItem
+	
+	// Load active components
+	components, _ := files.ListComponents(compType)
+	for _, c := range components {
+		componentPath := filepath.Join(files.ComponentsDir, subDir, c)
+		modTime, _ := files.GetComponentStats(componentPath)
+		
+		// Calculate usage count
+		usage := 0
+		relativePath := "../" + componentPath
+		if count, exists := usageMap[relativePath]; exists {
+			usage = count
+		}
+		
+		// Read component content for token estimation
+		component, _ := files.ReadComponent(componentPath)
+		tokenCount := 0
+		if component != nil {
+			tokenCount = utils.EstimateTokens(component.Content)
+		}
+		
+		tags := []string{}
+		if component != nil {
+			tags = component.Tags
+		}
+		
+		items = append(items, componentItem{
+			name:         c,
+			path:         componentPath,
+			compType:     modelType,
+			lastModified: modTime,
+			usageCount:   usage,
+			tokenCount:   tokenCount,
+			tags:         tags,
+			isArchived:   false,
+		})
+	}
+	
+	// Load archived components if needed
+	if includeArchived {
+		archivedComponents, _ := files.ListArchivedComponents(compType)
+		for _, c := range archivedComponents {
+			componentPath := filepath.Join(files.ComponentsDir, subDir, c)
+			
+			// Read archived component
+			component, _ := files.ReadArchivedComponent(componentPath)
+			modTime := time.Time{}
+			if component != nil {
+				modTime = component.Modified
+			}
+			
+			// Calculate usage count (archived components typically have 0 usage)
+			usage := 0
+			
+			// Get token count
+			tokenCount := 0
+			if component != nil {
+				tokenCount = utils.EstimateTokens(component.Content)
+			}
+			
+			tags := []string{}
+			if component != nil {
+				tags = component.Tags
+			}
+			
+			items = append(items, componentItem{
+				name:         c,
+				path:         componentPath,
+				compType:     modelType,
+				lastModified: modTime,
+				usageCount:   usage,
+				tokenCount:   tokenCount,
+				tags:         tags,
+				isArchived:   true,
+			})
+		}
+	}
+	
+	return items
 }
 
 func (m *PipelineBuilderModel) Init() tea.Cmd {
@@ -965,8 +982,11 @@ func (m *PipelineBuilderModel) View() string {
 			}
 		}
 
-		// Format the row data
+		// Format the row data with archived indicator
 		nameStr := comp.name
+		if comp.isArchived {
+			nameStr = "📦 " + nameStr + " [ARC]"
+		}
 		if len(nameStr) > nameWidth-3 {
 			nameStr = nameStr[:nameWidth-6] + "..."
 		}
@@ -1000,12 +1020,24 @@ func (m *PipelineBuilderModel) View() string {
 		var row string
 		if m.activeColumn == leftColumn && i == m.leftCursor {
 			// Apply selection styling only to name column
-			row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
+			if comp.isArchived {
+				// Dimmed style for archived items
+				archivedStyle := lipgloss.NewStyle().
+					Foreground(lipgloss.Color("243"))
+				row = "▸ " + archivedStyle.Render(namePart) + " " + tagsPart + "  " + archivedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
+			} else {
+				row = "▸ " + selectedStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
+			}
 		} else if isAdded {
 			// Use a dimmed style for already added components
 			addedStyle := lipgloss.NewStyle().
 				Foreground(lipgloss.Color("242"))
 			row = "  " + addedStyle.Render(namePart) + " " + tagsPart + "  " + addedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
+		} else if comp.isArchived {
+			// Dimmed style for archived components
+			archivedStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("243"))
+			row = "  " + archivedStyle.Render(namePart) + " " + tagsPart + "  " + archivedStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
 		} else {
 			// Normal row styling
 			row = "  " + normalStyle.Render(namePart) + " " + tagsPart + "  " + normalStyle.Render(tokenPart + "  " + fmt.Sprintf("%*s", usageWidth, usageStr))
@@ -1412,7 +1444,7 @@ func (m *PipelineBuilderModel) View() string {
 		// Show search syntax help when search is active
 		helpRows := [][]string{
 			{"esc clear+exit search", "enter search"},
-			{"tag:<name>", "type:<type>", "<keyword>", "combine with spaces"},
+			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	} else {
