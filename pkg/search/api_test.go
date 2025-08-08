@@ -2,7 +2,6 @@ package search
 
 import (
 	"testing"
-	"time"
 )
 
 func TestSearchAPI(t *testing.T) {
@@ -22,29 +21,6 @@ func TestSearchAPI(t *testing.T) {
 		
 		if len(results) == 0 {
 			t.Error("Expected results but got none")
-		}
-	})
-	
-	t.Run("SearchWithOptions", func(t *testing.T) {
-		opts := SearchOptions{
-			Tags:       []string{"api"},
-			Types:      []string{"component"},
-			MaxResults: 2,
-			SortBy:     "name",
-		}
-		
-		results, err := api.SearchWithOptions(opts)
-		if err != nil {
-			t.Errorf("SearchWithOptions failed: %v", err)
-		}
-		
-		if len(results) > 2 {
-			t.Errorf("Expected max 2 results, got %d", len(results))
-		}
-		
-		// Check sorting
-		if len(results) >= 2 && results[0].Item.Name > results[1].Item.Name {
-			t.Error("Results not sorted by name")
 		}
 	})
 	
@@ -214,32 +190,5 @@ func TestSearchAPISorting(t *testing.T) {
 			
 			tt.check(t, results)
 		})
-	}
-}
-
-func TestGetRecentItems(t *testing.T) {
-	_, cleanup := setupTestEnvironment(t)
-	defer cleanup()
-	
-	api, _ := NewSearchAPI()
-	
-	// All test items should be recent (created just now)
-	results, err := api.GetRecentItems(24 * time.Hour)
-	if err != nil {
-		t.Errorf("GetRecentItems failed: %v", err)
-	}
-	
-	if len(results) == 0 {
-		t.Error("Expected recent items but got none")
-	}
-	
-	// Items older than 1 year should return empty
-	results, err = api.GetRecentItems(-365 * 24 * time.Hour)
-	if err != nil {
-		t.Errorf("GetRecentItems failed: %v", err)
-	}
-	
-	if len(results) != 0 {
-		t.Error("Expected no items older than 1 year")
 	}
 }

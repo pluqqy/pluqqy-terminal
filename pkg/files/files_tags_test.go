@@ -105,8 +105,8 @@ func TestFormatComponentContent(t *testing.T) {
 			tags:    []string{"api", "v2"},
 			expectedContent: `---
 tags:
-- api
-- v2
+    - api
+    - v2
 ---
 # Component Content
 This is the content.`,
@@ -121,8 +121,8 @@ tags: [old, obsolete]
 			tags: []string{"new", "updated"},
 			expectedContent: `---
 tags:
-- new
-- updated
+    - new
+    - updated
 ---
 
 # Content`,
@@ -147,7 +147,7 @@ tags: [existing]
 			tags:            nil,
 			expectedContent: `---
 tags:
-- existing
+    - existing
 ---
 
 # Content`,

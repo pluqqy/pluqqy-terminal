@@ -11,17 +11,11 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	// Create a temporary directory for testing
-	tmpDir, err := os.MkdirTemp("", "pluqqy-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	
-	// Save original PluqqyDir and restore it after test
-	originalDir := files.PluqqyDir
-	files.PluqqyDir = tmpDir
-	defer func() { files.PluqqyDir = originalDir }()
+	// Create a temporary directory and change to it
+	tempDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(tempDir)
 	
 	// Initialize project structure
 	if err := files.InitProjectStructure(); err != nil {
@@ -234,17 +228,11 @@ func TestRegistry(t *testing.T) {
 }
 
 func TestGetTagStats(t *testing.T) {
-	// Create a temporary directory for testing
-	tmpDir, err := os.MkdirTemp("", "pluqqy-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-	
-	// Save original PluqqyDir and restore it after test
-	originalDir := files.PluqqyDir
-	files.PluqqyDir = tmpDir
-	defer func() { files.PluqqyDir = originalDir }()
+	// Create a temporary directory and change to it
+	tempDir := t.TempDir()
+	oldWd, _ := os.Getwd()
+	defer os.Chdir(oldWd)
+	os.Chdir(tempDir)
 	
 	// Initialize project structure
 	if err := files.InitProjectStructure(); err != nil {

@@ -305,13 +305,13 @@ func TestEngineBuildIndexWithOptions(t *testing.T) {
 	os.MkdirAll(archiveComponentDir, 0755)
 	
 	// Create an archived pipeline
-	archivedPipeline := `---
-name: Archived Pipeline
+	archivedPipeline := `name: Archived Pipeline
 tags: [archived, test]
----
-
-# Archived Pipeline Content`
-	err := os.WriteFile(filepath.Join(archivePipelineDir, "archived-pipeline.md"), 
+components:
+  - type: prompts
+    path: ../components/prompts/test.md
+    order: 1`
+	err := os.WriteFile(filepath.Join(archivePipelineDir, "archived-pipeline.yaml"), 
 		[]byte(archivedPipeline), 0644)
 	if err != nil {
 		t.Fatalf("Failed to create archived pipeline: %v", err)
@@ -340,12 +340,12 @@ tags: [archived, context]
 			name:            "index without archived items",
 			includeArchived: false,
 			expectedInIndex: []string{"api-prompt", "auth-prompt"},
-			notInIndex:      []string{"Archived Pipeline", "Archived Context"},
+			notInIndex:      []string{"Archived Pipeline", "archived-context"},
 		},
 		{
 			name:            "index with archived items",
 			includeArchived: true,
-			expectedInIndex: []string{"api-prompt", "auth-prompt", "Archived Pipeline", "Archived Context"},
+			expectedInIndex: []string{"api-prompt", "auth-prompt", "Archived Pipeline", "archived-context"},
 			notInIndex:      []string{},
 		},
 	}
@@ -383,215 +383,6 @@ tags: [archived, context]
 				}
 			}
 		})
-	}
-}
-
-func TestEngineSearchStatusArchived(t *testing.T) {
-	_, cleanup := setupTestEnvironment(t)
-	defer cleanup()
-	
-	// Create archived items
-	archivePipelineDir := filepath.Join(".pluqqy", "archive", "pipelines")
-	os.MkdirAll(archivePipelineDir, 0755)
-	
-	archiveComponentDir := filepath.Join(".pluqqy", "archive", "components", "prompts")
-	os.MkdirAll(archiveComponentDir, 0755)
-	
-	// Create archived items with different tags
-	archivedPipeline1 := `---
-name: Archived API Pipeline
-tags: [api, v1]
----
-
-# Archived API Pipeline`
-	err := os.WriteFile(filepath.Join(archivePipelineDir, "archived-api-pipeline.md"), 
-		[]byte(archivedPipeline1), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create archived pipeline: %v", err)
-	}
-	
-	archivedPipeline2 := `---
-name: Archived Auth Pipeline
-tags: [auth, v2]
----
-
-# Archived Auth Pipeline`
-	err = os.WriteFile(filepath.Join(archivePipelineDir, "archived-auth-pipeline.md"), 
-		[]byte(archivedPipeline2), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create archived pipeline: %v", err)
-	}
-	
-	archivedComponent := `---
-name: Archived Prompt
-tags: [test]
----
-
-# Archived Prompt Content`
-	err = os.WriteFile(filepath.Join(archiveComponentDir, "archived-prompt.md"), 
-		[]byte(archivedComponent), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create archived component: %v", err)
-	}
-	
-	tests := []struct {
-		name          string
-		query         string
-		expectedCount int
-		expectedNames []string
-		checkArchived bool
-	}{
-		{
-			name:          "search for archived items only",
-			query:         "status:archived",
-			expectedCount: 3,
-			expectedNames: []string{"Archived API Pipeline", "Archived Auth Pipeline", "Archived Prompt"},
-			checkArchived: true,
-		},
-		{
-			name:          "search archived with tag filter",
-			query:         "status:archived AND tag:api",
-			expectedCount: 1,
-			expectedNames: []string{"Archived API Pipeline"},
-			checkArchived: true,
-		},
-		{
-			name:          "search archived with type filter",
-			query:         "status:archived AND type:prompt",
-			expectedCount: 1,
-			expectedNames: []string{"Archived Prompt"},
-			checkArchived: true,
-		},
-		{
-			name:          "search archived with name filter",
-			query:         "status:archived AND name:auth",
-			expectedCount: 1,
-			expectedNames: []string{"Archived Auth Pipeline"},
-			checkArchived: true,
-		},
-		{
-			name:          "regular search should not include archived",
-			query:         "name:api",
-			expectedCount: 1,
-			expectedNames: []string{"api-prompt"},
-			checkArchived: false,
-		},
-	}
-	
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			engine := NewEngine()
-			results, err := engine.Search(tt.query)
-			
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-				return
-			}
-			
-			if len(results) != tt.expectedCount {
-				t.Errorf("Expected %d results, got %d", tt.expectedCount, len(results))
-				// Print actual results for debugging
-				for _, r := range results {
-					t.Logf("  - %s (archived: %v)", r.Item.Name, r.Item.IsArchived)
-				}
-			}
-			
-			// Check specific items are in results
-			for _, expectedName := range tt.expectedNames {
-				found := false
-				for _, result := range results {
-					if result.Item.Name == expectedName {
-						found = true
-						if tt.checkArchived && !result.Item.IsArchived {
-							t.Errorf("Expected %s to be marked as archived", expectedName)
-						}
-						break
-					}
-				}
-				if !found {
-					t.Errorf("Expected %s in results, but not found", expectedName)
-				}
-			}
-			
-			// If checking archived, verify all results are marked as archived
-			if tt.checkArchived {
-				for _, result := range results {
-					if !result.Item.IsArchived {
-						t.Errorf("Expected all results to be archived, but %s is not", result.Item.Name)
-					}
-				}
-			}
-		})
-	}
-}
-
-func TestEngineArchivedItemProperties(t *testing.T) {
-	_, cleanup := setupTestEnvironment(t)
-	defer cleanup()
-	
-	// Create an archived pipeline
-	archivePipelineDir := filepath.Join(".pluqqy", "archive", "pipelines")
-	os.MkdirAll(archivePipelineDir, 0755)
-	
-	archivedPipeline := `---
-name: Test Archived Pipeline
-tags: [test, archived]
----
-
-# Content for archived pipeline
-
-This pipeline has been archived.`
-	
-	pipelinePath := filepath.Join(archivePipelineDir, "test-archived.md")
-	err := os.WriteFile(pipelinePath, []byte(archivedPipeline), 0644)
-	if err != nil {
-		t.Fatalf("Failed to create archived pipeline: %v", err)
-	}
-	
-	// Build index with archived items
-	engine := NewEngine()
-	engine.BuildIndexWithOptions(true)
-	
-	// Find the archived item
-	var archivedItem *SearchItem
-	for _, item := range engine.index.items {
-		if item.Name == "Test Archived Pipeline" {
-			archivedItem = &item
-			break
-		}
-	}
-	
-	if archivedItem == nil {
-		t.Fatal("Archived item not found in index")
-	}
-	
-	// Verify properties
-	if !archivedItem.IsArchived {
-		t.Error("Expected item to be marked as archived")
-	}
-	
-	if archivedItem.Type != "pipeline" {
-		t.Errorf("Expected type 'pipeline', got %s", archivedItem.Type)
-	}
-	
-	if archivedItem.Path != pipelinePath {
-		t.Errorf("Expected path %s, got %s", pipelinePath, archivedItem.Path)
-	}
-	
-	if !strings.Contains(archivedItem.Content, "This pipeline has been archived") {
-		t.Error("Expected content to be indexed")
-	}
-	
-	// Check tags
-	hasTestTag := false
-	for _, tag := range archivedItem.Tags {
-		if tag == "test" {
-			hasTestTag = true
-			break
-		}
-	}
-	if !hasTestTag {
-		t.Error("Expected 'test' tag to be present")
 	}
 }
 

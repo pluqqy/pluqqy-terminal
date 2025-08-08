@@ -35,9 +35,9 @@ func TestComposePipeline(t *testing.T) {
 	pipeline := &models.Pipeline{
 		Name: "test-debug",
 		Components: []models.ComponentRef{
-			{Type: "context", Path: "../components/contexts/system.md", Order: 1},
-			{Type: "prompt", Path: "../components/prompts/debug.md", Order: 2},
-			{Type: "rules", Path: "../components/rules/technical.md", Order: 3},
+			{Type: models.ComponentTypeContext, Path: "../components/contexts/system.md", Order: 1},
+			{Type: models.ComponentTypePrompt, Path: "../components/prompts/debug.md", Order: 2},
+			{Type: models.ComponentTypeRules, Path: "../components/rules/technical.md", Order: 3},
 		},
 	}
 
@@ -87,10 +87,10 @@ func TestComposePipelineWithMultipleComponents(t *testing.T) {
 	pipeline := &models.Pipeline{
 		Name: "multi-component",
 		Components: []models.ComponentRef{
-			{Type: "context", Path: "../components/contexts/context1.md", Order: 1},
-			{Type: "context", Path: "../components/contexts/context2.md", Order: 2},
-			{Type: "prompt", Path: "../components/prompts/step1.md", Order: 3},
-			{Type: "prompt", Path: "../components/prompts/step2.md", Order: 4},
+			{Type: models.ComponentTypeContext, Path: "../components/contexts/context1.md", Order: 1},
+			{Type: models.ComponentTypeContext, Path: "../components/contexts/context2.md", Order: 2},
+			{Type: models.ComponentTypePrompt, Path: "../components/prompts/step1.md", Order: 3},
+			{Type: models.ComponentTypePrompt, Path: "../components/prompts/step2.md", Order: 4},
 		},
 	}
 
@@ -133,7 +133,7 @@ func TestComposePipelineErrors(t *testing.T) {
 	pipeline = &models.Pipeline{
 		Name: "missing-component",
 		Components: []models.ComponentRef{
-			{Type: "prompt", Path: "nonexistent.md", Order: 1},
+			{Type: models.ComponentTypePrompt, Path: "nonexistent.md", Order: 1},
 		},
 	}
 	_, err = ComposePipeline(pipeline)

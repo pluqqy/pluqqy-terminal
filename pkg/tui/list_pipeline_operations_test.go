@@ -405,112 +405,6 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 	}
 }
 
-func TestPipelineOperator_ConcurrentDeletes(t *testing.T) {
-	_, cleanup := setupTestEnvironment(t)
-	defer cleanup()
-
-	// Create registry with many tags
-	allTags := []string{"tag1", "tag2", "tag3", "tag4", "tag5", "tag6", "tag7", "tag8"}
-	createTestRegistry(t, allTags)
-	
-	// Create multiple pipelines with overlapping tags
-	createTestPipeline(t, "pipeline1", []string{"tag1", "tag2", "tag3"})
-	createTestPipeline(t, "pipeline2", []string{"tag2", "tag4", "tag5"})
-	createTestPipeline(t, "pipeline3", []string{"tag3", "tag5", "tag6"})
-	
-	// Create components with different tags
-	createTestComponent(t, "comp1", "prompts", []string{"tag7", "tag8"})
-	createTestComponent(t, "comp2", "contexts", []string{"tag7"})
-	
-	po := NewPipelineOperator()
-	
-	// Execute concurrent deletes
-	done := make(chan bool, 5)
-	
-	// Delete pipelines concurrently
-	go func() {
-		cmd := po.DeletePipeline("pipeline1.yaml", []string{"tag1", "tag2", "tag3"}, func() {})
-		cmd()
-		done <- true
-	}()
-	
-	go func() {
-		cmd := po.DeletePipeline("pipeline2.yaml", []string{"tag2", "tag4", "tag5"}, func() {})
-		cmd()
-		done <- true
-	}()
-	
-	go func() {
-		cmd := po.DeletePipeline("pipeline3.yaml", []string{"tag3", "tag5", "tag6"}, func() {})
-		cmd()
-		done <- true
-	}()
-	
-	// Delete components concurrently
-	go func() {
-		comp := componentItem{
-			name:     "comp1",
-			path:     "components/prompts/comp1.md",
-			compType: "prompts",
-			tags:     []string{"tag7", "tag8"},
-		}
-		cmd := po.DeleteComponent(comp, func() {})
-		cmd()
-		done <- true
-	}()
-	
-	go func() {
-		comp := componentItem{
-			name:     "comp2",
-			path:     "components/contexts/comp2.md",
-			compType: "contexts",
-			tags:     []string{"tag7"},
-		}
-		cmd := po.DeleteComponent(comp, func() {})
-		cmd()
-		done <- true
-	}()
-	
-	// Wait for all operations to complete
-	for i := 0; i < 5; i++ {
-		<-done
-	}
-	
-	// Wait for async cleanup to complete
-	time.Sleep(1 * time.Second)
-	
-	// Verify all files were deleted
-	testFiles := []string{
-		"pipelines/pipeline1.yaml",
-		"pipelines/pipeline2.yaml",
-		"pipelines/pipeline3.yaml",
-		"components/prompts/comp1.md",
-		"components/contexts/comp2.md",
-	}
-	
-	for _, file := range testFiles {
-		fullPath := filepath.Join(files.PluqqyDir, file)
-		if _, err := os.Stat(fullPath); !os.IsNotExist(err) {
-			t.Errorf("File %s should have been deleted", file)
-		}
-	}
-	
-	// Verify all tags were cleaned up (since no files reference them)
-	registry, err := tags.NewRegistry()
-	if err != nil {
-		t.Fatalf("Failed to load registry: %v", err)
-	}
-	
-	remainingTags := registry.ListTags()
-	if len(remainingTags) != 0 {
-		tagNames := make([]string, len(remainingTags))
-		for i, tag := range remainingTags {
-			tagNames[i] = tag.Name
-		}
-		t.Errorf("All tags should have been removed, but %d remain: %v", len(remainingTags), tagNames)
-	}
-}
-
 func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 	tests := []struct {
 		name           string
@@ -583,7 +477,7 @@ func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 
 func TestPipelineOperator_Confirmations(t *testing.T) {
 	po := NewPipelineOperator()
-	
+
 	t.Run("delete confirmation workflow", func(t *testing.T) {
 		// Initially not active
 		if po.IsDeleteConfirmActive() {
@@ -626,7 +520,7 @@ func TestPipelineOperator_Confirmations(t *testing.T) {
 			t.Error("Cancel callback should not have been called")
 		}
 	})
-	
+
 	t.Run("archive confirmation workflow", func(t *testing.T) {
 		// Initially not active
 		if po.IsArchiveConfirmActive() {

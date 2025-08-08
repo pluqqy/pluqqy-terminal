@@ -64,8 +64,8 @@ func TestReadWriteComponent(t *testing.T) {
 		t.Errorf("Expected content %q, got %q", content, component.Content)
 	}
 
-	if component.Type != "prompt" {
-		t.Errorf("Expected type 'prompt', got %q", component.Type)
+	if component.Type != models.ComponentTypePrompt {
+		t.Errorf("Expected type %q, got %q", models.ComponentTypePrompt, component.Type)
 	}
 }
 
@@ -83,9 +83,9 @@ func TestReadWritePipeline(t *testing.T) {
 	pipeline := &models.Pipeline{
 		Name: "test-pipeline",
 		Components: []models.ComponentRef{
-			{Type: "context", Path: "../components/contexts/test.md", Order: 1},
-			{Type: "prompt", Path: "../components/prompts/test.md", Order: 2},
-			{Type: "rules", Path: "../components/rules/test.md", Order: 3},
+			{Type: models.ComponentTypeContext, Path: "../components/contexts/test.md", Order: 1},
+			{Type: models.ComponentTypePrompt, Path: "../components/prompts/test.md", Order: 2},
+			{Type: models.ComponentTypeRules, Path: "../components/rules/test.md", Order: 3},
 		},
 	}
 
@@ -119,8 +119,18 @@ func TestListPipelines(t *testing.T) {
 		t.Fatalf("InitProjectStructure failed: %v", err)
 	}
 
-	pipeline1 := &models.Pipeline{Name: "pipeline1"}
-	pipeline2 := &models.Pipeline{Name: "pipeline2"}
+	pipeline1 := &models.Pipeline{
+		Name: "pipeline1",
+		Components: []models.ComponentRef{
+			{Type: models.ComponentTypePrompt, Path: "../components/prompts/test.md", Order: 1},
+		},
+	}
+	pipeline2 := &models.Pipeline{
+		Name: "pipeline2",
+		Components: []models.ComponentRef{
+			{Type: models.ComponentTypeContext, Path: "../components/contexts/test.md", Order: 1},
+		},
+	}
 	
 	WritePipeline(pipeline1)
 	WritePipeline(pipeline2)

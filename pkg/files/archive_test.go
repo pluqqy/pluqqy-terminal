@@ -202,7 +202,7 @@ tags: [prompt]
 				}
 			},
 			expectedCount: 2,
-			expectedNames: []string{"test-prompt.md", "review-prompt.md"},
+			expectedNames: []string{"review-prompt.md", "test-prompt.md"},
 		},
 		{
 			name:          "archived rules",
@@ -418,7 +418,7 @@ This is a test context component.`
 				if err != nil {
 					t.Fatalf("Failed to write test component: %v", err)
 				}
-				return filepath.Base(componentPath)
+				return "components/contexts/test-context.md"
 			},
 			validate: func(t *testing.T, c *models.Component) {
 				// Component doesn't have Name field, check from path
@@ -455,7 +455,7 @@ Just content here.`
 				if err != nil {
 					t.Fatalf("Failed to write test component: %v", err)
 				}
-				return filepath.Base(componentPath)
+				return "components/contexts/no-frontmatter.md"
 			},
 			validate: func(t *testing.T, c *models.Component) {
 				baseName := filepath.Base(c.Path)
@@ -481,7 +481,7 @@ Just content here.`
 				if err != nil {
 					t.Fatalf("Failed to write test component: %v", err)
 				}
-				return filepath.Base(componentPath)
+				return "components/prompts/test-prompt.md"
 			},
 			validate: func(t *testing.T, c *models.Component) {
 				if c.Type != models.ComponentTypePrompt {
@@ -500,7 +500,7 @@ Just content here.`
 				if err != nil {
 					t.Fatalf("Failed to write test component: %v", err)
 				}
-				return filepath.Base(componentPath)
+				return "components/rules/test-rules.md"
 			},
 			validate: func(t *testing.T, c *models.Component) {
 				if c.Type != models.ComponentTypeRules {

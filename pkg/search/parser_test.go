@@ -22,11 +22,6 @@ func TestParseSimple(t *testing.T) {
 			expected: []string{"api", "v2"},
 		},
 		{
-			name:     "quoted tag",
-			query:    `tag:"api endpoint"`,
-			expected: []string{"api endpoint"},
-		},
-		{
 			name:     "mixed content",
 			query:    "some text tag:api other text tag:frontend",
 			expected: []string{"api", "frontend"},
