@@ -74,10 +74,49 @@ type MainListModel struct {
 
 func (m *MainListModel) performSearch() {
 	if m.searchQuery == "" {
-		// No search query, show all items
+		// No search query, check if we need to reload without archived items
+		currentHasArchived := false
+		for _, p := range m.pipelines {
+			if p.isArchived {
+				currentHasArchived = true
+				break
+			}
+		}
+		
+		// If we have archived items loaded, reload without them
+		if currentHasArchived {
+			m.loadPipelines()
+			m.loadComponents()
+			m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+		}
+		
+		// Show all active items
 		m.filteredPipelines = m.pipelines
 		m.filteredComponents = m.businessLogic.GetAllComponents()
 		return
+	}
+	
+	// Check if we need to reload data with archived items
+	needsArchived := m.shouldIncludeArchived()
+	currentHasArchived := false
+	for _, p := range m.pipelines {
+		if p.isArchived {
+			currentHasArchived = true
+			break
+		}
+	}
+	
+	// Reload data if archived status changed
+	if needsArchived && !currentHasArchived {
+		// Need to reload with archived items
+		m.loadPipelines()
+		m.loadComponents()
+		m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+	} else if !needsArchived && currentHasArchived {
+		// Need to reload without archived items
+		m.loadPipelines()
+		m.loadComponents()
+		m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 	}
 	
 	// Use search engine to find matching items
@@ -110,11 +149,32 @@ func (m *MainListModel) getAllComponents() []componentItem {
 func (m *MainListModel) reloadComponents() {
 	m.loadComponents()
 	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+	// Re-run search if active
+	if m.searchQuery != "" {
+		m.performSearch()
+	}
+}
+
+// reloadPipelinesWithSearch loads pipelines and refreshes search
+func (m *MainListModel) reloadPipelinesWithSearch() {
+	m.loadPipelines()
+	// Re-run search if active
+	if m.searchQuery != "" {
+		m.performSearch()
+	}
 }
 
 // getCurrentComponents returns either filtered components (if searching) or all components
 func (m *MainListModel) getCurrentComponents() []componentItem {
 	return m.filteredComponents
+}
+
+// getCurrentPipelines returns either filtered pipelines (if searching) or all pipelines
+func (m *MainListModel) getCurrentPipelines() []pipelineItem {
+	if m.searchQuery != "" {
+		return m.filteredPipelines
+	}
+	return m.pipelines
 }
 
 func (m *MainListModel) getEditingItemName() string {
@@ -276,12 +336,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		case "enter":
 			if m.stateManager.ActivePane == pipelinesPane {
-				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					// View the selected pipeline
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineViewerView,
-							pipeline: m.pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
+							pipeline: pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
 						}
 					}
 				}
@@ -291,12 +352,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		
 		case "e":
 			if m.stateManager.ActivePane == pipelinesPane {
-				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					// Edit the selected pipeline
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineBuilderView,
-							pipeline: m.pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
+							pipeline: pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
 						}
 					}
 				}
@@ -365,17 +427,19 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "S":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Set selected pipeline (generate PLUQQY.md)
-				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
-					return m, m.pipelineOperator.SetPipeline(m.pipelines[m.stateManager.PipelineCursor].path)
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					return m, m.pipelineOperator.SetPipeline(pipelines[m.stateManager.PipelineCursor].path)
 				}
 			}
 		
 		case "ctrl+d":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Delete pipeline with confirmation
-				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					m.stateManager.SetDeletingFromPane(pipelinesPane)
-					pipeline := m.pipelines[m.stateManager.PipelineCursor]
+					pipeline := pipelines[m.stateManager.PipelineCursor]
 					pipelineName := pipeline.name
 					pipelinePath := pipeline.path
 					pipelineTags := pipeline.tags
@@ -384,7 +448,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
-							return m.pipelineOperator.DeletePipeline(pipelinePath, pipelineTags, m.loadPipelines)
+							return m.pipelineOperator.DeletePipeline(pipelinePath, pipelineTags, m.reloadPipelinesWithSearch)
 						},
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
@@ -423,42 +487,74 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			
 		case "a":
 			if m.stateManager.ActivePane == pipelinesPane {
-				// Archive pipeline with confirmation
-				if len(m.pipelines) > 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
+				// Archive/Unarchive pipeline with confirmation
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					pipeline := pipelines[m.stateManager.PipelineCursor]
 					m.stateManager.SetArchivingFromPane(pipelinesPane)
-					pipelineName := m.pipelines[m.stateManager.PipelineCursor].name
-					pipelinePath := m.pipelines[m.stateManager.PipelineCursor].path
 					
-					m.pipelineOperator.ShowArchiveConfirmation(
-						fmt.Sprintf("Archive pipeline '%s'?", pipelineName),
-						func() tea.Cmd {
-							m.stateManager.ClearArchiveState()
-							return m.pipelineOperator.ArchivePipeline(pipelinePath, m.loadPipelines)
-						},
-						func() tea.Cmd {
-							m.stateManager.ClearArchiveState()
-							return nil
-						},
-					)
+					if pipeline.isArchived {
+						// Unarchive the pipeline
+						m.pipelineOperator.ShowArchiveConfirmation(
+							fmt.Sprintf("Unarchive pipeline '%s'?", pipeline.name),
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return m.pipelineOperator.UnarchivePipeline(pipeline.path, m.reloadPipelinesWithSearch)
+							},
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return nil
+							},
+						)
+					} else {
+						// Archive the pipeline
+						m.pipelineOperator.ShowArchiveConfirmation(
+							fmt.Sprintf("Archive pipeline '%s'?", pipeline.name),
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return m.pipelineOperator.ArchivePipeline(pipeline.path, m.reloadPipelinesWithSearch)
+							},
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return nil
+							},
+						)
+					}
 				}
 			} else if m.stateManager.ActivePane == componentsPane {
-				// Archive component with confirmation
+				// Archive/Unarchive component with confirmation
 				components := m.getCurrentComponents()
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
 					m.stateManager.SetArchivingFromPane(componentsPane)
 					
-					m.pipelineOperator.ShowArchiveConfirmation(
-						fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
-						func() tea.Cmd {
-							m.stateManager.ClearArchiveState()
-							return m.pipelineOperator.ArchiveComponent(comp, m.reloadComponents)
-						},
-						func() tea.Cmd {
-							m.stateManager.ClearArchiveState()
-							return nil
-						},
-					)
+					if comp.isArchived {
+						// Unarchive the component
+						m.pipelineOperator.ShowArchiveConfirmation(
+							fmt.Sprintf("Unarchive %s '%s'?", comp.compType, comp.name),
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return m.pipelineOperator.UnarchiveComponent(comp, m.reloadComponents)
+							},
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return nil
+							},
+						)
+					} else {
+						// Archive the component
+						m.pipelineOperator.ShowArchiveConfirmation(
+							fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return m.pipelineOperator.ArchiveComponent(comp, m.reloadComponents)
+							},
+							func() tea.Cmd {
+								m.stateManager.ClearArchiveState()
+								return nil
+							},
+						)
+					}
 				}
 			}
 		}
@@ -672,7 +768,7 @@ func (m *MainListModel) View() string {
 	s.WriteString(contentStyle.Render(columns))
 
 	// Add preview if enabled
-	previewPane := mainRenderer.RenderPreviewPane(m.pipelines, m.filteredComponents, m.stateManager.PipelineCursor, m.stateManager.ComponentCursor)
+	previewPane := mainRenderer.RenderPreviewPane(m.getCurrentPipelines(), m.filteredComponents, m.stateManager.PipelineCursor, m.stateManager.ComponentCursor)
 	if previewPane != "" {
 		s.WriteString(previewPane)
 	}
@@ -726,13 +822,14 @@ func (m *MainListModel) updatePreview() {
 	
 	if previewPane == pipelinesPane {
 		// Show pipeline preview
-		if len(m.pipelines) == 0 {
+		pipelines := m.getCurrentPipelines()
+		if len(pipelines) == 0 {
 			m.previewContent = renderer.RenderEmptyPreview(pipelinesPane, false, false)
 			return
 		}
 		
-		if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(m.pipelines) {
-			pipelinePath := m.pipelines[m.stateManager.PipelineCursor].path
+		if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(pipelines) {
+			pipelinePath := pipelines[m.stateManager.PipelineCursor].path
 			m.previewContent = renderer.RenderPipelinePreview(pipelinePath)
 		}
 	} else if previewPane == componentsPane {

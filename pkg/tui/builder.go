@@ -101,6 +101,8 @@ type PipelineBuilderModel struct {
 	
 	// Delete confirmation
 	deleteConfirm        *ConfirmationModel
+	// Archive confirmation
+	archiveConfirm       *ConfirmationModel
 	
 	// Change tracking
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
@@ -146,6 +148,7 @@ func NewPipelineBuilderModel() *PipelineBuilderModel {
 		exitConfirm:        NewConfirmation(),
 		tagDeleteConfirm:   NewConfirmation(),
 		deleteConfirm:      NewConfirmation(),
+		archiveConfirm:     NewConfirmation(),
 	}
 	
 	// Initialize search engine
@@ -305,11 +308,60 @@ func (m *PipelineBuilderModel) Init() tea.Cmd {
 
 func (m *PipelineBuilderModel) performSearch() {
 	if m.searchQuery == "" {
-		// No search query, show all items
+		// No search query, check if we need to reload without archived items
+		hasArchived := false
+		for _, p := range m.prompts {
+			if p.isArchived {
+				hasArchived = true
+				break
+			}
+		}
+		if !hasArchived {
+			for _, c := range m.contexts {
+				if c.isArchived {
+					hasArchived = true
+					break
+				}
+			}
+		}
+		if !hasArchived {
+			for _, r := range m.rules {
+				if r.isArchived {
+					hasArchived = true
+					break
+				}
+			}
+		}
+		
+		// If we have archived items loaded, reload without them
+		if hasArchived {
+			m.loadAvailableComponents()
+		}
+		
+		// Show all items
 		m.filteredPrompts = m.prompts
 		m.filteredContexts = m.contexts
 		m.filteredRules = m.rules
 		return
+	}
+	
+	// Check if we need to reload data with archived items
+	needsArchived := m.shouldIncludeArchived()
+	hasArchived := false
+	for _, p := range m.prompts {
+		if p.isArchived {
+			hasArchived = true
+			break
+		}
+	}
+	
+	// Reload data if archived status changed
+	if needsArchived && !hasArchived {
+		// Need to reload with archived items
+		m.loadAvailableComponents()
+	} else if !needsArchived && hasArchived {
+		// Need to reload without archived items
+		m.loadAvailableComponents()
 	}
 	
 	// Clear filtered lists
@@ -403,6 +455,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle delete confirmation
 		if m.deleteConfirm.Active() {
 			return m, m.deleteConfirm.Update(msg)
+		}
+		
+		// Handle archive confirmation
+		if m.archiveConfirm.Active() {
+			return m, m.archiveConfirm.Update(msg)
 		}
 		
 		// Handle component creation mode
@@ -651,6 +708,58 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.startPipelineTagEditing(m.pipeline.Tags)
 				}
 			}
+		
+		case "a":
+			// Archive/Unarchive - context aware based on active column
+			if m.activeColumn == leftColumn {
+				// Archive/Unarchive component
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					if comp.isArchived {
+						// Unarchive the component with confirmation
+						m.archiveConfirm.ShowInline(
+							fmt.Sprintf("Unarchive %s '%s'?", comp.compType, comp.name),
+							false, // not destructive
+							func() tea.Cmd {
+								return m.unarchiveComponent(comp)
+							},
+							func() tea.Cmd {
+								return nil
+							},
+						)
+					} else {
+						// Archive the component with confirmation
+						m.archiveConfirm.ShowInline(
+							fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
+							false, // not destructive
+							func() tea.Cmd {
+								return m.archiveComponent(comp)
+							},
+							func() tea.Cmd {
+								return nil
+							},
+						)
+					}
+				}
+			} else if m.activeColumn == rightColumn {
+				// Archive the pipeline being edited
+				if m.pipeline != nil && m.pipeline.Path != "" {
+					pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+					m.archiveConfirm.ShowInline(
+						fmt.Sprintf("Archive pipeline '%s'?", pipelineName),
+						false, // not destructive
+						func() tea.Cmd {
+							return m.archivePipeline()
+						},
+						func() tea.Cmd {
+							return nil
+						},
+					)
+				}
+			}
+			return m, nil
+			
 		case "/":
 			// Jump to search
 			m.activeColumn = searchColumn
@@ -1453,12 +1562,12 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "E external", "t tag", "del remove", "ctrl+s save", "ctrl+d delete", "S save+set", "esc back", "ctrl+c quit"},
+			{"n new", "e edit", "E external", "t tag", "a archive/unarchive", "del remove", "ctrl+s save", "ctrl+d delete", "S save+set", "esc back", "ctrl+c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
 	
-	// Show delete confirmation if active (inline above help)
+	// Show confirmation dialogs if active (inline above help)
 	if m.deleteConfirm.Active() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
@@ -1467,6 +1576,14 @@ func (m *PipelineBuilderModel) View() string {
 			MarginBottom(1)
 		s.WriteString("\n")
 		s.WriteString(contentStyle.Render(confirmStyle.Render(m.deleteConfirm.ViewWithWidth(m.width - 4))))
+	} else if m.archiveConfirm.Active() {
+		confirmStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("214")).
+			Bold(true).
+			MarginTop(1).
+			MarginBottom(1)
+		s.WriteString("\n")
+		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4))))
 	}
 	
 	s.WriteString("\n")
@@ -3910,4 +4027,67 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 	
 	return s.String()
+}
+
+// archiveComponent archives a component
+func (m *PipelineBuilderModel) archiveComponent(comp componentItem) tea.Cmd {
+	return func() tea.Msg {
+		err := files.ArchiveComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to archive %s '%s': %v", comp.compType, comp.name, err))
+		}
+		
+		// Reload components to reflect the change
+		m.loadAvailableComponents()
+		
+		// Refresh search if active
+		if m.searchQuery != "" {
+			m.performSearch()
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Archived %s: %s", comp.compType, comp.name))
+	}
+}
+
+// unarchiveComponent unarchives a component
+func (m *PipelineBuilderModel) unarchiveComponent(comp componentItem) tea.Cmd {
+	return func() tea.Msg {
+		err := files.UnarchiveComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to unarchive %s '%s': %v", comp.compType, comp.name, err))
+		}
+		
+		// Reload components to reflect the change
+		m.loadAvailableComponents()
+		
+		// Refresh search if active
+		if m.searchQuery != "" {
+			m.performSearch()
+		}
+		
+		return StatusMsg(fmt.Sprintf("✓ Unarchived %s: %s", comp.compType, comp.name))
+	}
+}
+
+// archivePipeline archives the pipeline being edited
+func (m *PipelineBuilderModel) archivePipeline() tea.Cmd {
+	return func() tea.Msg {
+		if m.pipeline == nil || m.pipeline.Path == "" {
+			return StatusMsg("× No pipeline to archive")
+		}
+		
+		err := files.ArchivePipeline(m.pipeline.Path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to archive pipeline: %v", err))
+		}
+		
+		// Extract pipeline name from path
+		pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+		
+		// Return to main list after archiving
+		return SwitchViewMsg{
+			view: mainListView,
+			status: fmt.Sprintf("✓ Archived pipeline: %s", pipelineName),
+		}
+	}
 }

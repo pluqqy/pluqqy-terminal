@@ -2,7 +2,6 @@ package tui
 
 import (
 	"sort"
-	"strings"
 	
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
@@ -69,15 +68,12 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 	
 	for _, result := range results {
 		if result.Item.Type == search.ItemTypePipeline {
-			// Match by pipeline name (without .yaml extension)
-			searchName := strings.TrimSuffix(result.Item.Name, ".yaml")
-			
-			// Check if already added
-			if !addedPipelines[searchName] {
+			// Match by path for accuracy (handles archived items correctly)
+			if !addedPipelines[result.Item.Path] {
 				for _, p := range pipelines {
-					if p.name == searchName || p.name == result.Item.Name {
+					if p.path == result.Item.Path {
 						filteredPipelines = append(filteredPipelines, p)
-						addedPipelines[searchName] = true
+						addedPipelines[result.Item.Path] = true
 						break
 					}
 				}

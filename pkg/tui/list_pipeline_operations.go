@@ -237,3 +237,38 @@ func (po *PipelineOperator) ArchiveComponent(comp componentItem, reloadFunc func
 		return StatusMsg(fmt.Sprintf("✓ Archived %s: %s", comp.compType, comp.name))
 	}
 }
+
+// UnarchivePipeline unarchives a pipeline and returns a command to reload the list
+func (po *PipelineOperator) UnarchivePipeline(pipelinePath string, reloadFunc func()) tea.Cmd {
+	return func() tea.Msg {
+		// Unarchive the pipeline file
+		err := files.UnarchivePipeline(pipelinePath)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to unarchive pipeline '%s': %v", pipelinePath, err))
+		}
+		
+		// Reload the pipeline list
+		reloadFunc()
+		
+		// Extract pipeline name from path
+		pipelineName := strings.TrimSuffix(filepath.Base(pipelinePath), ".yaml")
+		
+		return StatusMsg(fmt.Sprintf("✓ Unarchived pipeline: %s", pipelineName))
+	}
+}
+
+// UnarchiveComponent unarchives a component file
+func (po *PipelineOperator) UnarchiveComponent(comp componentItem, reloadFunc func()) tea.Cmd {
+	return func() tea.Msg {
+		// Unarchive the component file
+		err := files.UnarchiveComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to unarchive %s '%s': %v", comp.compType, comp.name, err))
+		}
+		
+		// Reload the component list
+		reloadFunc()
+		
+		return StatusMsg(fmt.Sprintf("✓ Unarchived %s: %s", comp.compType, comp.name))
+	}
+}

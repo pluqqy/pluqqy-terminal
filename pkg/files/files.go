@@ -839,3 +839,69 @@ func RemoveComponentTag(path string, tag string) error {
 	
 	return UpdateComponentTags(path, newTags)
 }
+
+// UnarchivePipeline moves a pipeline from archive back to active pipelines
+func UnarchivePipeline(path string) error {
+	if err := validatePath(path); err != nil {
+		return fmt.Errorf("invalid pipeline path: %w", err)
+	}
+	
+	archivePath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, path)
+	activePath := filepath.Join(PluqqyDir, PipelinesDir, path)
+	
+	// Check if archived file exists
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return fmt.Errorf("archived pipeline not found at path '%s'", path)
+	}
+	
+	// Check if active file already exists
+	if _, err := os.Stat(activePath); err == nil {
+		return fmt.Errorf("cannot unarchive: active pipeline already exists at path '%s'", path)
+	}
+	
+	// Create active directory if it doesn't exist
+	activeDir := filepath.Dir(activePath)
+	if err := os.MkdirAll(activeDir, 0755); err != nil {
+		return fmt.Errorf("failed to create active directory: %w", err)
+	}
+	
+	// Move the file from archive to active
+	if err := os.Rename(archivePath, activePath); err != nil {
+		return fmt.Errorf("failed to unarchive pipeline: %w", err)
+	}
+	
+	return nil
+}
+
+// UnarchiveComponent moves a component from archive back to active components
+func UnarchiveComponent(path string) error {
+	if err := validatePath(path); err != nil {
+		return fmt.Errorf("invalid component path: %w", err)
+	}
+	
+	archivePath := filepath.Join(PluqqyDir, ArchiveDir, path)
+	activePath := filepath.Join(PluqqyDir, path)
+	
+	// Check if archived file exists
+	if _, err := os.Stat(archivePath); os.IsNotExist(err) {
+		return fmt.Errorf("archived component not found at path '%s'", path)
+	}
+	
+	// Check if active file already exists
+	if _, err := os.Stat(activePath); err == nil {
+		return fmt.Errorf("cannot unarchive: active component already exists at path '%s'", path)
+	}
+	
+	// Create active directory if it doesn't exist
+	activeDir := filepath.Dir(activePath)
+	if err := os.MkdirAll(activeDir, 0755); err != nil {
+		return fmt.Errorf("failed to create active directory: %w", err)
+	}
+	
+	// Move the file from archive to active
+	if err := os.Rename(archivePath, activePath); err != nil {
+		return fmt.Errorf("failed to unarchive component: %w", err)
+	}
+	
+	return nil
+}
