@@ -178,13 +178,13 @@ func ReadComponent(path string) (*models.Component, error) {
 
 	componentType := getComponentType(path)
 	
-	// Extract frontmatter to get tags
-	frontmatter, _, _ := extractFrontmatter(content)
+	// Extract frontmatter to get tags and content without frontmatter
+	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(content)
 	
 	return &models.Component{
 		Path:     path,
 		Type:     componentType,
-		Content:  string(content), // Keep original content with frontmatter
+		Content:  string(contentWithoutFrontmatter), // Use content without frontmatter
 		Modified: info.ModTime(),
 		Tags:     frontmatter.Tags,
 	}, nil
@@ -500,11 +500,11 @@ func ReadArchivedComponent(path string) (*models.Component, error) {
 		return nil, fmt.Errorf("failed to read archived component file '%s': %w", path, err)
 	}
 	
-	// Extract frontmatter to get tags
-	frontmatter, _, _ := extractFrontmatter(data)
+	// Extract frontmatter to get tags and content without frontmatter
+	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(data)
 	
 	comp := &models.Component{
-		Content:     string(data),
+		Content:     string(contentWithoutFrontmatter), // Use content without frontmatter
 		Path:        path,
 		Type:        getComponentType(path),
 		Modified:    fileInfo.ModTime(),

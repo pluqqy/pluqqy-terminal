@@ -2,7 +2,6 @@ package tui
 
 import (
 	"fmt"
-	"strings"
 	
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
@@ -52,20 +51,8 @@ func (r *PreviewRenderer) RenderComponentPreview(comp componentItem) string {
 		return fmt.Sprintf("Error loading component: %v", err)
 	}
 	
-	// Format component preview with metadata
-	var preview strings.Builder
-	preview.WriteString(fmt.Sprintf("# %s\n\n", comp.name))
-	preview.WriteString(fmt.Sprintf("**Type:** %s\n", strings.Title(comp.compType)))
-	preview.WriteString(fmt.Sprintf("**Path:** %s\n", comp.path))
-	preview.WriteString(fmt.Sprintf("**Usage Count:** %d\n", comp.usageCount))
-	preview.WriteString(fmt.Sprintf("**Token Count:** ~%d\n", comp.tokenCount))
-	if !comp.lastModified.IsZero() {
-		preview.WriteString(fmt.Sprintf("**Last Modified:** %s\n", comp.lastModified.Format("2006-01-02 15:04:05")))
-	}
-	preview.WriteString("\n---\n\n")
-	preview.WriteString(content.Content)
-	
-	return preview.String()
+	// Return just the component content without metadata
+	return content.Content
 }
 
 // RenderEmptyPreview returns appropriate empty preview message
