@@ -70,6 +70,13 @@ type MainListModel struct {
 	searchQuery           string
 	filteredPipelines     []pipelineItem
 	filteredComponents    []componentItem
+	
+	// Component table renderer - maintains persistent viewport scroll state across renders.
+	// This ensures that when navigating through components with arrow keys, the viewport
+	// automatically scrolls to keep the selected component visible, and maintains that
+	// scroll position between View() calls. Without this persistence, the scroll position
+	// would reset on each render, causing the viewport to jump back to the top.
+	componentTableRenderer *ComponentTableRenderer
 }
 
 func (m *MainListModel) performSearch() {
@@ -734,6 +741,14 @@ func (m *MainListModel) View() string {
 	componentRenderer.AllComponents = m.getAllComponents()
 	componentRenderer.ComponentCursor = m.stateManager.ComponentCursor
 	componentRenderer.SearchQuery = m.searchQuery
+	// Use the persistent table renderer for proper scroll state
+	if m.componentTableRenderer != nil {
+		componentRenderer.TableRenderer = m.componentTableRenderer
+		// Update the table renderer with current state
+		m.componentTableRenderer.SetComponents(m.filteredComponents)
+		m.componentTableRenderer.SetCursor(m.stateManager.ComponentCursor)
+		m.componentTableRenderer.SetActive(m.stateManager.ActivePane == componentsPane)
+	}
 
 	// Create pipeline view renderer
 	pipelineRenderer := NewPipelineViewRenderer(m.width, contentHeight)

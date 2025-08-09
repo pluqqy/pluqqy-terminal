@@ -23,7 +23,7 @@ func NewComponentViewRenderer(width, height int) *ComponentViewRenderer {
 	return &ComponentViewRenderer{
 		Width:         width,
 		Height:        height,
-		TableRenderer: NewComponentTableRenderer(width, height-6, true), // true for showUsageColumn
+		// TableRenderer will be set by the caller if persistent scrolling is needed
 	}
 }
 
@@ -34,11 +34,13 @@ func (r *ComponentViewRenderer) Render() string {
 	// Calculate column width
 	columnWidth := (r.Width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	
-	// Update table renderer state
+	// Create table renderer if not provided (for backward compatibility)
+	if r.TableRenderer == nil {
+		r.TableRenderer = NewComponentTableRenderer(columnWidth, r.Height-6, true)
+	}
+	
+	// Update table renderer state only if not already updated by caller
 	r.TableRenderer.SetSize(columnWidth, r.Height)
-	r.TableRenderer.SetComponents(r.FilteredComponents)
-	r.TableRenderer.SetCursor(r.ComponentCursor)
-	r.TableRenderer.SetActive(r.ActivePane == componentsPane)
 	
 	// Handle empty state with search context
 	if len(r.FilteredComponents) == 0 && len(r.AllComponents) > 0 && r.SearchQuery != "" {

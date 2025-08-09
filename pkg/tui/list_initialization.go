@@ -30,6 +30,7 @@ func NewMainListModel() *MainListModel {
 		tagEditor:          NewTagEditor(),
 		tagReloader:        NewTagReloader(),
 		tagReloadRenderer:  NewTagReloadRenderer(80, 20), // Default size
+		componentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
 	}
 	// Set initial preview state
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'
@@ -338,5 +339,10 @@ func (m *MainListModel) updateViewportSizes() {
 		}
 		m.previewViewport.Width = m.width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
 		m.previewViewport.Height = previewHeight
+	}
+	
+	// Update component table renderer dimensions
+	if m.componentTableRenderer != nil {
+		m.componentTableRenderer.SetSize(columnWidth, contentHeight)
 	}
 }
