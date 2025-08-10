@@ -5,6 +5,7 @@ import (
 	
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
@@ -19,13 +20,23 @@ func NewPreviewRenderer() *PreviewRenderer {
 }
 
 // RenderPipelinePreview generates preview content for a pipeline
-func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string) string {
+func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string, isArchived bool) string {
 	if !r.ShowPreview {
 		return ""
 	}
 	
-	// Load pipeline
-	pipeline, err := files.ReadPipeline(pipelinePath)
+	// Load pipeline - use appropriate function based on archive status
+	var pipeline *models.Pipeline
+	var err error
+	
+	if isArchived {
+		// For archived pipelines, path is just the filename
+		pipeline, err = files.ReadArchivedPipeline(pipelinePath)
+	} else {
+		// For active pipelines, use regular ReadPipeline
+		pipeline, err = files.ReadPipeline(pipelinePath)
+	}
+	
 	if err != nil {
 		return fmt.Sprintf("Error loading pipeline: %v", err)
 	}
@@ -33,6 +44,10 @@ func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string) string {
 	// Generate preview
 	output, err := composer.ComposePipeline(pipeline)
 	if err != nil {
+		// For archived pipelines, provide a more helpful message
+		if isArchived {
+			return fmt.Sprintf("Preview unavailable for archived pipeline.\n\nNote: Archived pipelines may reference components that have also been archived or deleted.\n\nTo fully restore this pipeline, you may need to unarchive its components first.")
+		}
 		return fmt.Sprintf("Error generating preview: %v", err)
 	}
 	
@@ -45,8 +60,18 @@ func (r *PreviewRenderer) RenderComponentPreview(comp componentItem) string {
 		return ""
 	}
 	
-	// Read component content
-	content, err := files.ReadComponent(comp.path)
+	// Read component content - use appropriate function based on archive status
+	var content *models.Component
+	var err error
+	
+	if comp.isArchived {
+		// For archived components, use ReadArchivedComponent
+		content, err = files.ReadArchivedComponent(comp.path)
+	} else {
+		// For active components, use ReadComponent
+		content, err = files.ReadComponent(comp.path)
+	}
+	
 	if err != nil {
 		return fmt.Sprintf("Error loading component: %v", err)
 	}

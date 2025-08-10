@@ -141,7 +141,7 @@ func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, toke
 			// Format the pipeline name with archived indicator
 			nameStr := pipeline.name
 			if pipeline.isArchived {
-				nameStr = "📦 " + nameStr + " [ARCHIVED]"
+				nameStr = "[A] " + nameStr
 			}
 			nameStr = truncateName(nameStr, nameWidth)
 			

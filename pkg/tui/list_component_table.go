@@ -210,11 +210,7 @@ func (r *ComponentTableRenderer) buildTableContent(nameWidth, tagsWidth, tokenWi
 		// Format name with indicators
 		nameStr := comp.name
 		if comp.isArchived {
-			if r.ShowAddedIndicator {
-				nameStr = "📦 " + nameStr + " [ARC]"
-			} else {
-				nameStr = "📦 " + nameStr + " [ARCHIVED]"
-			}
+			nameStr = "[A] " + nameStr
 		}
 		if isAdded {
 			nameStr = nameStr + " ✓"

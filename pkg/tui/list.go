@@ -100,6 +100,9 @@ func (m *MainListModel) performSearch() {
 		// Show all active items
 		m.filteredPipelines = m.pipelines
 		m.filteredComponents = m.businessLogic.GetAllComponents()
+		
+		// Update state manager with current counts for proper cursor navigation
+		m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
 		return
 	}
 	
@@ -133,6 +136,9 @@ func (m *MainListModel) performSearch() {
 			// On error, show all items
 			m.filteredPipelines = m.pipelines
 			m.filteredComponents = m.businessLogic.GetAllComponents()
+			
+			// Update state manager with current counts for proper cursor navigation
+			m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
 			return
 		}
 		
@@ -142,6 +148,9 @@ func (m *MainListModel) performSearch() {
 			m.pipelines,
 			m.businessLogic.GetAllComponents(),
 		)
+		
+		// Update state manager with filtered counts for proper cursor navigation
+		m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
 		
 		// Reset cursors if they're out of bounds
 		m.stateManager.ResetCursorsAfterSearch(len(m.filteredComponents), len(m.filteredPipelines))
@@ -843,8 +852,8 @@ func (m *MainListModel) updatePreview() {
 		}
 		
 		if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(pipelines) {
-			pipelinePath := pipelines[m.stateManager.PipelineCursor].path
-			m.previewContent = renderer.RenderPipelinePreview(pipelinePath)
+			pipeline := pipelines[m.stateManager.PipelineCursor]
+			m.previewContent = renderer.RenderPipelinePreview(pipeline.path, pipeline.isArchived)
 		}
 	} else if previewPane == componentsPane {
 		// Show component preview

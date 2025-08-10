@@ -364,7 +364,7 @@ func TestPreviewRenderer_RenderPipelinePreview(t *testing.T) {
 			renderer.ShowPreview = tt.showPreview
 			
 			pipelinePath := tt.setup()
-			output := renderer.RenderPipelinePreview(pipelinePath)
+			output := renderer.RenderPipelinePreview(pipelinePath, false)
 			
 			if tt.wantEmpty && output != "" {
 				t.Errorf("Expected empty output, got: %s", output)
