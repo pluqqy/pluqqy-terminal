@@ -989,8 +989,8 @@ func (m *PipelineBuilderModel) View() string {
 	searchBarHeight := 3              // Height for search bar
 	
 	// Height calculation matching Main List View:
-	// Base reservation: 14 lines (header, help pane, spacing) + search bar
-	contentHeight := m.height - 14 - searchBarHeight
+	// Base reservation: 13 lines (header, help pane, spacing) + search bar
+	contentHeight := m.height - 13 - searchBarHeight
 
 	if m.showPreview {
 		contentHeight = contentHeight / 2
@@ -1336,8 +1336,6 @@ func (m *PipelineBuilderModel) View() string {
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(previewBorderColor).
 			Width(m.width - 4) // Account for padding (2) and border (2)
-
-		s.WriteString("\n")
 		
 		// Build preview content with header inside
 		var previewContent strings.Builder
@@ -1407,7 +1405,9 @@ func (m *PipelineBuilderModel) View() string {
 			PaddingLeft(1).
 			PaddingRight(1)
 		s.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
-		
+	} else {
+		// Add spacing when preview is not shown to keep layout consistent
+		s.WriteString("\n")
 	}
 
 	// Help text in bordered pane
@@ -1453,9 +1453,11 @@ func (m *PipelineBuilderModel) View() string {
 			MarginBottom(1)
 		s.WriteString("\n")
 		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4))))
+	} else {
+		// Only add newline if no confirmation dialog is shown
+		s.WriteString("\n")
 	}
 	
-	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
 	return s.String()
@@ -1494,7 +1496,7 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 15 - searchBarHeight    // Reserve space for search bar, help pane, status bar, and spacing
+	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for search bar, help pane, status bar, and spacing
 	
 	if m.showPreview {
 		contentHeight = contentHeight / 2

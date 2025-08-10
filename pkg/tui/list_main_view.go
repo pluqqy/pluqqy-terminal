@@ -159,7 +159,7 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 	
 	// Render the border around the entire preview with same padding as top columns
 	var result strings.Builder
-	result.WriteString("\n\n")
+	result.WriteString("\n")
 	previewPaddingStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
@@ -200,7 +200,7 @@ func (r *MainViewRenderer) RenderConfirmationDialogs(pipelineOperator *PipelineO
 // CalculateContentHeight calculates the height for the main content area
 func (r *MainViewRenderer) CalculateContentHeight() int {
 	searchBarHeight := 3 // Height for search bar
-	contentHeight := r.Height - 14 - searchBarHeight // Reserve space for header, search bar, help pane, and spacing
+	contentHeight := r.Height - 13 - searchBarHeight // Reserve space for header, search bar, help pane, and spacing
 	
 	if r.ShowPreview {
 		contentHeight = contentHeight / 2

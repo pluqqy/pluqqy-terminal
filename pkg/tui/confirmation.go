@@ -219,10 +219,7 @@ func (m *ConfirmationModel) renderDialog() string {
 	mainContent.WriteString("\n")
 	
 	// Options
-	yesNoLabels := fmt.Sprintf("(%s / %s)", 
-		strings.ToLower(m.config.YesLabel), 
-		strings.ToLower(m.config.NoLabel))
-	options := formatConfirmOptions(m.config.Destructive) + "  " + yesNoLabels
+	options := formatConfirmOptions(m.config.Destructive)
 	centeredOptions := lipgloss.NewStyle().
 		Width(contentWidth - 4).
 		Align(lipgloss.Center).

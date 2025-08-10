@@ -308,7 +308,7 @@ func (m *MainListModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3              // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight    // Reserve space for header, search bar, help pane, and spacing
+	contentHeight := m.height - 13 - searchBarHeight    // Reserve space for header, search bar, help pane, and spacing
 	
 	if m.stateManager.ShowPreview {
 		contentHeight = contentHeight / 2
