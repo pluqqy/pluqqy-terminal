@@ -447,7 +447,11 @@ func (m *SettingsEditorModel) View() string {
 	
 	// Show exit confirmation dialog if active
 	if m.exitConfirm.Active() {
-		return m.exitConfirm.View()
+		// Add padding to match other views
+		paddingStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		return paddingStyle.Render(m.exitConfirm.View())
 	}
 	
 	s.WriteString(contentStyle.Render(borderStyle.Render(content.String())))

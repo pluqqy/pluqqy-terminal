@@ -27,11 +27,15 @@ func NewMainListModel() *MainListModel {
 		exitConfirm:        NewConfirmation(),
 		componentCreator:   NewComponentCreator(),
 		componentEditor:    NewComponentEditor(),
+		enhancedEditor:     NewEnhancedEditorState(),
+		fileReference:      NewFileReferenceState(),
 		tagEditor:          NewTagEditor(),
 		tagReloader:        NewTagReloader(),
 		tagReloadRenderer:  NewTagReloadRenderer(80, 20), // Default size
 		componentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
 	}
+	// Enable enhanced editor by default (can be configured later)
+	m.useEnhancedEditor = true
 	// Set initial preview state
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'
 	m.loadPipelines()

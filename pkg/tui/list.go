@@ -51,6 +51,11 @@ type MainListModel struct {
 	// Component editing
 	componentEditor  *ComponentEditor
 	
+	// Enhanced component editor
+	enhancedEditor   *EnhancedEditorState
+	fileReference    *FileReferenceState
+	useEnhancedEditor bool // Feature flag for enhanced editor
+	
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
 	exitConfirmationType string // "component" or "component-edit"
@@ -238,8 +243,22 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleComponentCreation(msg)
 		}
 		
-		// Handle component editing mode
-		if m.componentEditor.IsActive() {
+		// Handle enhanced editor mode if enabled
+		if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+			handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
+			if handled {
+				// Check if editor is still active after handling input
+				if !m.enhancedEditor.IsActive() {
+					// Reload components after editing
+					m.reloadComponents()
+					m.performSearch()
+				}
+				return m, cmd
+			}
+		}
+		
+		// Handle component editing mode (old editor)
+		if !m.useEnhancedEditor && m.componentEditor.IsActive() {
 			// Handle exit confirmation first
 			if m.componentEditor.ExitConfirmActive {
 				_, cmd := m.componentEditor.HandleInput(msg, m.width, m.height)
@@ -389,8 +408,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.err = err
 						return m, nil
 					}
-					// Enter editing mode
-					m.componentEditor.StartEditing(comp.path, comp.name, content.Content)
+					
+					// Use enhanced editor if enabled
+					if m.useEnhancedEditor {
+						m.enhancedEditor.StartEditing(comp.path, comp.name, comp.compType, content.Content, comp.tags)
+					} else {
+						// Use old editor
+						m.componentEditor.StartEditing(comp.path, comp.name, content.Content)
+					}
 					
 					return m, nil
 				}
@@ -617,6 +642,27 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 	}
 	
+	// Handle enhanced editor for non-KeyMsg message types
+	// This is crucial for filepicker which needs to process internal messages like directory reads
+	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+		// Only handle non-KeyMsg types here (KeyMsg types are handled in the switch above)
+		if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
+			if m.enhancedEditor.IsFilePicking() {
+				// Filepicker needs to process internal messages for directory reading
+				cmd := m.enhancedEditor.UpdateFilePicker(msg)
+				if cmd != nil {
+					return m, cmd
+				}
+			} else {
+				// Normal editing mode may also need non-key message handling
+				cmd := m.enhancedEditor.UpdateTextarea(msg)
+				if cmd != nil {
+					return m, cmd
+				}
+			}
+		}
+	}
+	
 	// Update preview if needed
 	if m.stateManager.ShowPreview && m.previewContent != "" {
 		// Preprocess content to handle carriage returns and ensure proper line breaks
@@ -673,7 +719,11 @@ func (m *MainListModel) View() string {
 	
 	// If showing exit confirmation, display dialog
 	if m.exitConfirm.Active() {
-		return m.exitConfirm.View()
+		// Add padding to match other views
+		contentStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		return contentStyle.Render(m.exitConfirm.View())
 	}
 	
 	// If creating component, show creation wizard
@@ -681,14 +731,33 @@ func (m *MainListModel) View() string {
 		return m.componentCreationView()
 	}
 	
-	// If editing component, show edit view
-	if m.componentEditor.IsActive() {
+	// If editing component with enhanced editor, show enhanced edit view
+	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+		// Handle exit confirmation dialog
+		if m.enhancedEditor.ExitConfirmActive {
+			// Add padding to match other views
+			contentStyle := lipgloss.NewStyle().
+				PaddingLeft(1).
+				PaddingRight(1)
+			return contentStyle.Render(m.enhancedEditor.ExitConfirm.View())
+		}
+		
+		renderer := NewEnhancedEditorRenderer(m.width, m.height)
+		return renderer.Render(m.enhancedEditor)
+	}
+	
+	// If editing component with old editor, show edit view
+	if !m.useEnhancedEditor && m.componentEditor.IsActive() {
 		// Update viewport dimensions
 		m.componentEditor.UpdateViewport(m.width, m.height)
 		
 		// Handle exit confirmation dialog
 		if m.componentEditor.ExitConfirmActive {
-			return m.componentEditor.ExitConfirm.View()
+			// Add padding to match other views
+			contentStyle := lipgloss.NewStyle().
+				PaddingLeft(1).
+				PaddingRight(1)
+			return contentStyle.Render(m.componentEditor.ExitConfirm.View())
 		}
 		
 		// Create the component editing view renderer

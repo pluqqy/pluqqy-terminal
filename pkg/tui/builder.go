@@ -939,7 +939,11 @@ func (m *PipelineBuilderModel) View() string {
 
 	// If showing exit confirmation, display dialog
 	if m.exitConfirm.Active() {
-		return m.exitConfirm.View()
+		// Add padding to match other views
+		contentStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		return contentStyle.Render(m.exitConfirm.View())
 	}
 
 	// If creating component, show creation wizard
