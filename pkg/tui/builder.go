@@ -1435,7 +1435,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "E external", "t tag", "a archive/unarchive", "del remove", "ctrl+s save", "ctrl+d delete", "S save+set", "esc back", "ctrl+c quit"},
+			{"n new", "e edit", "E external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
@@ -2829,7 +2829,7 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 
 	// Help section
 	help := []string{
-		"ctrl+s save",
+		"^s save",
 		"esc back",
 	}
 
@@ -3360,7 +3360,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 	// Help section
 	help := []string{
 		"↑/↓ scroll",
-		"ctrl+s save",
+		"^s save",
 		"E edit external",
 		"esc cancel",
 	}
@@ -3860,8 +3860,8 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ navigate",
-			"ctrl+d delete tag",
-			"ctrl+s save",
+			"^d delete tag",
+			"^s save",
 			"esc cancel",
 		}
 	} else {
@@ -3869,8 +3869,8 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ select tag",
-			"ctrl+d delete tag",
-			"ctrl+s save",
+			"^d delete tag",
+			"^s save",
 			"esc cancel",
 		}
 	}

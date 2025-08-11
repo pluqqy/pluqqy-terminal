@@ -20,6 +20,7 @@ This approach keeps your context minimal and focused - only including what's rel
 - ⚡ **Duplicate Prevention** - Automatically prevents adding the same component twice
 - 💾 **Smart Save** - Confirmation prompts to prevent accidental overwrites
 - 🛡️ **Exit Protection** - Confirmation dialogs prevent losing unsaved changes
+- 📊 **Pipeline Visualizer** - Generate interactive Mermaid diagrams of your pipelines
 
 ## Installation
 
@@ -93,11 +94,12 @@ pluqqy
 - `n` - Create new pipeline/component
 - `a` - Archive pipeline/component (with confirmation)
 - `d` - Delete pipeline/component (with confirmation)
+- `M` - Generate interactive Mermaid diagram for selected pipeline
 - `S` - Set selected pipeline (generates PLUQQY.md)
 - `s` - Open settings editor
 - `p` - Toggle preview pane
 - `r` - Refresh pipeline list
-- `Ctrl+C` - Quit (double Ctrl+C to confirm)
+- `^C` - Quit (double ^C to confirm)
 
 #### Pipeline Builder
 
@@ -108,9 +110,9 @@ pluqqy
 - `e` - Edit component in TUI
 - `E` - Edit component with external editor
 - `Del`, `d`, `Backspace` - Remove component from pipeline (right pane)
-- `K/J` or `Ctrl+↑/↓` - Reorder pipeline components (move up/down)
+- `K/J` or `^↑/↓` - Reorder pipeline components (move up/down)
 - `p` - Toggle preview pane
-- `Ctrl+S` - Save pipeline
+- `^S` - Save pipeline
 - `S` - Save and set as active pipeline
 - `Esc` - Back to main list (with unsaved changes confirmation)
 
@@ -121,13 +123,13 @@ pluqqy
 - `S` - Set as active pipeline
 - `e` - Edit pipeline
 - `Esc` - Back to pipeline list
-- `Ctrl+C` - Quit
+- `^C` - Quit
 
 #### Component Editor (TUI)
 
 - Type content directly in the editor
 - `↑/↓` - Scroll through content
-- `Ctrl+S` - Save component
+- `^S` - Save component
 - `E` - Open in external editor
 - `Esc` - Cancel (with unsaved changes confirmation)
 
@@ -136,10 +138,37 @@ pluqqy
 - `Tab` - Switch between current tags pane and available tags cloud
 - `Enter` - Add tag (from input field or tag cloud)
 - `←/→` - Navigate tags for selection
-- `Ctrl+D` - Remove tag from current item (main pane) / Delete from registry (tag cloud, with confirmation)
-- `Ctrl+S` - Save tag changes
+- `^D` - Remove tag from current item (main pane) / Delete from registry (tag cloud, with confirmation)
+- `^S` - Save tag changes
 - `Esc` - Cancel without saving
 - Type directly to add new tags with autocomplete suggestions
+
+## Pipeline Visualizer
+
+Pluqqy can generate interactive Mermaid diagrams to visualize your pipeline structure:
+
+### How to Use
+1. Select any pipeline in the main list view
+2. Press `M` to generate an interactive diagram
+3. The diagram opens automatically in your default browser
+
+### Features
+- **Interactive Tooltips** - Click on any component to see its full content and metadata
+- **Tokyo Night Theme** - Consistent dark theme matching the TUI aesthetic
+- **Token Estimation** - View estimated token counts for each component
+- **Visual Organization** - Components grouped by type (Contexts, Prompts, Rules)
+- **Responsive Design** - Diagrams scale to fit your browser window
+- **Export Ready** - Save or print diagrams for documentation
+
+### Diagram Structure
+The visualizer creates a flowchart showing:
+- Pipeline name and total component count at the top
+- Components organized into subgraphs by type
+- Color coding: Contexts (blue), Prompts (green), Rules (red)
+- Connections showing the flow from pipeline through component groups
+
+### Storage
+Generated diagrams are saved in `.pluqqy/tmp/diagrams/` with timestamped filenames for easy reference.
 
 ## Tagging System
 

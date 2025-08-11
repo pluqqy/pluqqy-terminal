@@ -285,7 +285,7 @@ func (m *PipelineViewerModel) View() string {
 		"S set",
 		"e edit",
 		"esc back",
-		"ctrl+c quit",
+		"^c quit",
 	}
 	
 	helpBorderStyle := lipgloss.NewStyle().

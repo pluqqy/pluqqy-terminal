@@ -85,7 +85,7 @@ func (r *ComponentEditingViewRenderer) RenderEditView(componentName, content str
 	// Help section
 	help := []string{
 		"↑/↓ scroll",
-		"ctrl+s save",
+		"^s save",
 		"E edit external",
 		"esc cancel",
 	}

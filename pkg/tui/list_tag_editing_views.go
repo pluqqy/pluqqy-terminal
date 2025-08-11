@@ -299,9 +299,9 @@ func (r *TagEditingViewRenderer) renderHelpSection() string {
 			"enter add tag",
 			"←/→ select tag",
 			"↑/↓ navigate suggestions",
-			"ctrl+d delete tag",
-			"ctrl+t reload tags",
-			"ctrl+s save",
+			"^d delete tag",
+			"^t reload tags",
+			"^s save",
 			"esc cancel",
 		}
 	}

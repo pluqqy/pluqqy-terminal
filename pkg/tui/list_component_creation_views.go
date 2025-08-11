@@ -314,7 +314,7 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 
 	// Help section
 	help := []string{
-		"ctrl+s save",
+		"^s save",
 		"esc back",
 	}
 

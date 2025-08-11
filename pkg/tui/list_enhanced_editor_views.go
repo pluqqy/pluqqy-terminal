@@ -209,7 +209,7 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	switch mode {
 	case EditorModeNormal:
 		help = []string{
-			"ctrl+s save",
+			"^s save",
 			"esc cancel",
 			"@ insert file ref",
 			"\\@ literal @",
@@ -223,7 +223,7 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 		}
 	default:
 		help = []string{
-			"ctrl+s save",
+			"^s save",
 			"esc exit",
 		}
 	}

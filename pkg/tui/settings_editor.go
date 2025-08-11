@@ -469,9 +469,9 @@ func (m *SettingsEditorModel) View() string {
 		"J/K move section",
 		"space toggle",
 		"enter edit",
-		"ctrl+s save",
+		"^s save",
 		"esc cancel",
-		"ctrl+c quit",
+		"^c quit",
 	}
 	
 	helpContent := formatHelpText(help)
