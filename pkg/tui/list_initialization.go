@@ -16,6 +16,9 @@ import (
 
 // NewMainListModel creates and initializes a new MainListModel
 func NewMainListModel() *MainListModel {
+	// Initialize mermaid state
+	mermaidState := NewMermaidState()
+	
 	m := &MainListModel{
 		stateManager:       NewStateManager(),
 		businessLogic:      NewBusinessLogic(),
@@ -33,6 +36,8 @@ func NewMainListModel() *MainListModel {
 		tagReloader:        NewTagReloader(),
 		tagReloadRenderer:  NewTagReloadRenderer(80, 20), // Default size
 		componentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
+		mermaidState:       mermaidState,
+		mermaidOperator:    NewMermaidOperator(mermaidState),
 	}
 	// Enable enhanced editor by default (can be configured later)
 	m.useEnhancedEditor = true

@@ -174,3 +174,26 @@ func GetTagChipStyle(color string) lipgloss.Style {
 		Foreground(lipgloss.Color(ColorWhite)).
 		Padding(0, 1)
 }
+
+// Mermaid diagram colors (Tokyo Night theme)
+var (
+	MermaidPipelineColor      = "#bb9af7"
+	MermaidPipelineStroke     = "#9a7ecc"
+	MermaidContextColor       = "#7aa2f7"
+	MermaidContextStroke      = "#5a82d7"
+	MermaidPromptColor        = "#9ece6a"
+	MermaidPromptStroke       = "#7eae4a"
+	MermaidRulesColor         = "#f7768e"
+	MermaidRulesStroke        = "#d7566e"
+	MermaidBackgroundColor    = "#1a1b26"
+	MermaidStrokeWidth        = "3px"
+	MermaidPipelineStrokeWidth = "4px"
+)
+
+// Mermaid constants
+const (
+	EstimatedTokensPerComponent = 350
+	TokensPerCharacter         = 4
+	MaxFunctionLines           = 50
+	MermaidTmpSubdir          = "diagrams"
+)

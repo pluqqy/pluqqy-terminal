@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{.PipelineName}} - Pipeline Diagram</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <style>
+        :root {
+            --bg-primary: #1a1b26;
+            --bg-secondary: #24283b;
+            --text-primary: #c0caf5;
+            --text-secondary: #9aa5ce;
+            --border-color: #414868;
+            --context-color: #7aa2f7;
+            --prompt-color: #9ece6a;
+            --rules-color: #f7768e;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .header {
+            background: var(--bg-secondary);
+            padding: 1.5rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            background: rgba(36, 40, 59, 0.95);
+        }
+        
+        .header h1 {
+            font-size: 1.75rem;
+            margin-bottom: 0.5rem;
+            background: linear-gradient(135deg, #bb9af7 0%, #7aa2f7 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .metadata {
+            display: flex;
+            gap: 2rem;
+            color: var(--text-secondary);
+            font-size: 0.875rem;
+        }
+        
+        .metadata span {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .metadata span::before {
+            content: '•';
+            color: var(--border-color);
+        }
+        
+        .metadata span:first-child::before {
+            content: '';
+        }
+        
+        .diagram-container {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 2rem;
+            min-height: 500px;
+            position: relative;
+        }
+        
+        #mermaid-diagram {
+            background: var(--bg-secondary);
+            padding: 2.5rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+            max-width: 100%;
+            overflow: auto;
+            transform: scale(1.2);
+            transform-origin: center;
+            margin: 1.5rem;
+        }
+        
+        /* Make the mermaid content itself larger */
+        #mermaid-diagram .mermaid {
+            font-size: 14px !important;
+        }
+        
+        #mermaid-diagram svg {
+            min-width: 640px;
+            min-height: 480px;
+        }
+        
+        .tooltip {
+            position: fixed;
+            background: var(--bg-secondary);
+            border: 2px solid var(--border-color);
+            padding: 1rem;
+            max-width: 500px;
+            max-height: 400px;
+            overflow-y: auto;
+            display: none;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6);
+            font-size: 0.875rem;
+            line-height: 1.6;
+            pointer-events: none; /* Default: don't interfere with mouse events */
+        }
+        
+        .tooltip.show {
+            display: block;
+            pointer-events: auto; /* Enable mouse interaction when visible */
+        }
+        
+        .tooltip.context {
+            border-color: var(--context-color);
+        }
+        
+        .tooltip.prompt {
+            border-color: var(--prompt-color);
+        }
+        
+        .tooltip.rules {
+            border-color: var(--rules-color);
+        }
+        
+        .tooltip-header {
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .tooltip-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+            color: var(--text-secondary);
+        }
+        
+        .tooltip-meta {
+            margin-top: 0.75rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border-color);
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            display: flex;
+            justify-content: space-between;
+        }
+        
+        .footer {
+            padding: 1rem 2rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            border-top: 1px solid var(--border-color);
+            background: var(--bg-secondary);
+            line-height: 1.6;
+        }
+        
+        .footer-help {
+            color: var(--border-color);
+            margin-top: 0.25rem;
+        }
+        
+        /* Mermaid overrides */
+        .mermaid {
+            font-family: inherit !important;
+        }
+        
+        .node rect,
+        .node circle,
+        .node ellipse,
+        .node polygon,
+        .node path {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .node:hover rect,
+        .node:hover circle,
+        .node:hover ellipse,
+        .node:hover polygon {
+            filter: brightness(1.2);
+            stroke-width: 4px !important;
+        }
+        
+        /* Loading animation */
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 1.25rem;
+            color: var(--text-secondary);
+        }
+        
+        .loading::after {
+            content: '';
+            animation: dots 1.5s infinite;
+        }
+        
+        @keyframes dots {
+            0%, 20% { content: ''; }
+            40% { content: '.'; }
+            60% { content: '..'; }
+            80%, 100% { content: '...'; }
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: var(--bg-primary);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: var(--border-color);
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--text-secondary);
+        }
+        
+        /* Hide mermaid.js default tooltip */
+        .mermaidTooltip {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+        }
+        
+        /* Add rounded corners to clusters and nodes */
+        .cluster rect,
+        .node rect {
+            rx: 8 !important;
+            ry: 8 !important;
+        }
+        
+        /* For polygon shapes (like subgraphs), we can't add rounded corners directly
+           but we can style the containers */
+        .cluster {
+            border-radius: 8px;
+        }
+        
+        /* Print styles */
+        @media print {
+            #mermaid-diagram {
+                box-shadow: none !important;
+                transform: scale(1) !important;
+                margin: 0 !important;
+                padding: 1rem !important;
+                background: white !important;
+            }
+            
+            .header {
+                position: static !important;
+                backdrop-filter: none !important;
+                background: white !important;
+                color: black !important;
+                border-bottom: 1px solid #ccc !important;
+            }
+            
+            .footer {
+                background: white !important;
+                color: #666 !important;
+                border-top: 1px solid #ccc !important;
+            }
+            
+            .footer-help {
+                color: #999 !important;
+            }
+            
+            body {
+                background: white !important;
+                color: black !important;
+            }
+            
+            .loading {
+                display: none !important;
+            }
+            
+            .tooltip {
+                display: none !important;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>{{.PipelineName}}</h1>
+        <div class="metadata">
+            <span>{{.ComponentCount}} Components</span>
+            <span>~{{.TokenCount}} Tokens</span>
+            {{if .Tags}}<span>{{.Tags}}</span>{{end}}
+            <span>Generated: {{.Timestamp}}</span>
+        </div>
+    </div>
+    
+    <div class="diagram-container">
+        <div class="loading">Rendering diagram</div>
+        <div id="mermaid-diagram">
+            <pre class="mermaid">
+{{.MermaidDiagram}}
+            </pre>
+        </div>
+    </div>
+    
+    <div class="tooltip" id="tooltip">
+        <div class="tooltip-header" id="tooltip-header"></div>
+        <div class="tooltip-content" id="tooltip-content"></div>
+        <div class="tooltip-meta" id="tooltip-meta"></div>
+    </div>
+    
+    <div class="footer">
+        <div>Generated by Pluqqy</div>
+        <div class="footer-help">Click components to view details • Press ESC or click outside to close</div>
+    </div>
+    
+    <script>
+        // Component data for tooltips
+        const componentData = {{.ComponentData}};
+        console.log('Component data loaded:', componentData);
+        console.log('Component data type:', typeof componentData);
+        console.log('Component data keys:', Object.keys(componentData || {}));
+        
+        // Initialize Mermaid
+        mermaid.initialize({
+            theme: 'dark',
+            themeVariables: {
+                darkMode: true,
+                background: '#1a1b26',
+                primaryColor: '#bb9af7',
+                primaryTextColor: '#1a1b26',
+                primaryBorderColor: '#9a7ecc',
+                lineColor: '#414868',
+                secondaryColor: '#7aa2f7',
+                tertiaryColor: '#9ece6a',
+                mainBkg: '#24283b',
+                secondBkg: '#1a1b26',
+                tertiaryTextColor: '#c0caf5'
+            },
+            flowchart: {
+                htmlLabels: true,
+                curve: 'linear',
+                padding: 40,
+                nodeSpacing: 120,
+                rankSpacing: 80,
+                fontSize: 14,
+                useMaxWidth: false
+            },
+            securityLevel: 'loose'
+        });
+        
+        // Wait for diagram to render
+        mermaid.run().then(() => {
+            document.querySelector('.loading').style.display = 'none';
+            // Add a delay to ensure DOM is fully ready
+            setTimeout(() => {
+                attachTooltips();
+                // Try again after another delay in case Mermaid is still rendering
+                setTimeout(() => {
+                    if (document.querySelectorAll('[data-tooltip-attached]').length === 0) {
+                        console.log('Retrying tooltip attachment...');
+                        attachTooltips();
+                    }
+                }, 500);
+            }, 250);
+        });
+        
+        // Tooltip functionality
+        const tooltip = document.getElementById('tooltip');
+        const tooltipHeader = document.getElementById('tooltip-header');
+        const tooltipContent = document.getElementById('tooltip-content');
+        const tooltipMeta = document.getElementById('tooltip-meta');
+        
+        function attachTooltips() {
+            console.log('Attaching tooltips...');
+            console.log('Available component data keys:', Object.keys(componentData));
+            console.log('Full component data:', componentData);
+            
+            // Wait a bit for Mermaid to fully render
+            const nodes = document.querySelectorAll('[id*="flowchart-"]');
+            console.log('Found nodes with flowchart IDs:', nodes.length);
+            nodes.forEach(n => console.log('  -', n.id));
+            
+            // Try different selectors - be more specific to avoid clusters
+            const allNodes = document.querySelectorAll('.node:not(.cluster):not(.subgraph), g.node:not(.cluster):not(.subgraph)');
+            console.log('All potential nodes found (excluding clusters):', allNodes.length);
+            
+            allNodes.forEach((node, index) => {
+                console.log(`Node ${index}:`, node.id, node.className);
+                
+                // Extract ID from various possible formats
+                let nodeId = null;
+                const nodeIdStr = node.id || '';
+                console.log('  Processing node ID:', nodeIdStr);
+                
+                // Skip certain nodes that aren't components
+                if (nodeIdStr.includes('Pipeline') || nodeIdStr.includes('CONTEXTS') || 
+                    nodeIdStr.includes('PROMPTS') || nodeIdStr.includes('RULES')) {
+                    console.log('  Skipping non-component node');
+                    return;
+                }
+                
+                // Also skip cluster/subgraph nodes
+                if (node.classList.contains('cluster') || node.classList.contains('subgraph') ||
+                    nodeIdStr.includes('subGraph') || nodeIdStr.includes('cluster')) {
+                    console.log('  Skipping cluster/subgraph node');
+                    return;
+                }
+                
+                // For IDs like "flowchart-C1-3", "flowchart-P1-7", "flowchart-R1-10"
+                // We want to extract C1, P1, R1
+                if (nodeIdStr.includes('flowchart-')) {
+                    // Match pattern like flowchart-XX-number
+                    const match = nodeIdStr.match(/flowchart-([CPR]\d+)-\d+/);
+                    if (match) {
+                        nodeId = match[1];
+                        console.log('  Extracted ID from flowchart pattern:', nodeId);
+                    }
+                } else {
+                    // Try other patterns
+                    const patterns = [
+                        /([CPR]\d+)/,           // Direct match
+                        /-([CPR]\d+)-/,         // Between dashes
+                    ];
+                    
+                    for (const pattern of patterns) {
+                        const match = nodeIdStr.match(pattern);
+                        if (match) {
+                            nodeId = match[1];
+                            console.log('  Extracted ID from pattern:', nodeId);
+                            break;
+                        }
+                    }
+                }
+                
+                // If no ID found, try to match by label content
+                if (!nodeId) {
+                    const textElements = node.querySelectorAll('text, span, .nodeLabel, foreignObject');
+                    for (const elem of textElements) {
+                        const text = elem.textContent || '';
+                        console.log('  Label text:', text);
+                        
+                        // Check each component data entry
+                        for (const [id, data] of Object.entries(componentData)) {
+                            if (text.includes(data.name)) {
+                                nodeId = id;
+                                console.log('  Matched by name:', nodeId);
+                                break;
+                            }
+                        }
+                        if (nodeId) break;
+                    }
+                }
+                
+                if (!nodeId) {
+                    console.log('  No node ID extracted');
+                    return;
+                }
+                
+                if (!componentData[nodeId]) {
+                    console.log('  No data found for node ID:', nodeId);
+                    console.log('  Available keys in componentData:', Object.keys(componentData));
+                    return;
+                }
+                
+                console.log('  Attaching tooltip for:', nodeId);
+                const data = componentData[nodeId];
+                
+                // Mark as processed
+                node.setAttribute('data-tooltip-attached', 'true');
+                
+                // Find the clickable area (might be a child element)
+                const clickableElements = [node];
+                clickableElements.push(...node.querySelectorAll('rect, polygon, path, g'));
+                
+                clickableElements.forEach(elem => {
+                    elem.style.cursor = 'pointer';
+                    elem.setAttribute('title', data.name); // Add native tooltip as fallback
+                    elem.setAttribute('data-tooltip-trigger', nodeId); // Mark as tooltip trigger
+                    
+                    // Only show tooltip on click
+                    elem.addEventListener('click', (e) => {
+                        console.log('Click:', nodeId);
+                        e.stopPropagation();
+                        e.preventDefault();
+                        
+                        // Hide any existing tooltip first
+                        hideTooltip();
+                        
+                        // Show new tooltip
+                        showTooltip(e, data, nodeId);
+                    });
+                });
+            });
+        }
+        
+        function showTooltip(event, data, nodeId) {
+            console.log('Showing tooltip for:', nodeId, data);
+            
+            // Track current tooltip
+            currentTooltipNode = nodeId;
+            
+            // Set content
+            tooltipHeader.textContent = `${data.type}: ${data.name}`;
+            
+            // Truncate content if too long
+            const maxLength = 1000;
+            let content = data.content || 'No content available';
+            if (content.length > maxLength) {
+                content = content.substring(0, maxLength) + '...';
+            }
+            tooltipContent.textContent = content;
+            
+            // Set metadata
+            const tags = data.tags?.length ? data.tags.join(', ') : 'No tags';
+            tooltipMeta.innerHTML = `
+                <span>~${data.tokens || 0} tokens</span>
+                <span>${tags}</span>
+            `;
+            
+            // Set color based on type
+            tooltip.className = 'tooltip show ' + data.type.toLowerCase();
+            
+            // Position tooltip - use mouse position for better accuracy
+            const mouseX = event.pageX || event.clientX;
+            const mouseY = event.pageY || event.clientY;
+            
+            // Initially position near mouse
+            tooltip.style.left = mouseX + 'px';
+            tooltip.style.top = mouseY + 'px';
+            
+            // Force layout recalculation
+            tooltip.offsetHeight;
+            
+            // Now get accurate dimensions and reposition
+            const tooltipRect = tooltip.getBoundingClientRect();
+            let left = mouseX - tooltipRect.width / 2;
+            let top = mouseY + 20;
+            
+            // Adjust if tooltip goes off screen
+            if (left < 10) left = 10;
+            if (left + tooltipRect.width > window.innerWidth - 10) {
+                left = window.innerWidth - tooltipRect.width - 10;
+            }
+            if (top + tooltipRect.height > window.innerHeight - 10) {
+                top = mouseY - tooltipRect.height - 20;
+            }
+            
+            tooltip.style.left = left + 'px';
+            tooltip.style.top = top + 'px';
+        }
+        
+        function hideTooltip() {
+            tooltip.classList.remove('show');
+            currentTooltipNode = null;
+        }
+        
+        // Track the currently open tooltip
+        let currentTooltipNode = null;
+        
+        // Hide tooltip on escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && tooltip.classList.contains('show')) {
+                console.log('Closing tooltip with Escape');
+                hideTooltip();
+            }
+        });
+        
+        // Hide tooltip on click outside (both tooltip and node)
+        document.addEventListener('click', (e) => {
+            // Check if click is outside the tooltip and not on a tooltip trigger
+            if (tooltip.classList.contains('show')) {
+                const clickedTooltip = tooltip.contains(e.target);
+                const clickedTrigger = e.target.closest('[data-tooltip-trigger]');
+                
+                if (!clickedTooltip && !clickedTrigger) {
+                    console.log('Closing tooltip - clicked outside');
+                    hideTooltip();
+                }
+            }
+        });
+        
+        // Prevent tooltip from closing when clicking inside it
+        tooltip.addEventListener('click', (e) => {
+            e.stopPropagation();
+        });
+    </script>
+</body>
+</html>

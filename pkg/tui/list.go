@@ -82,6 +82,10 @@ type MainListModel struct {
 	// scroll position between View() calls. Without this persistence, the scroll position
 	// would reset on each render, causing the viewport to jump back to the top.
 	componentTableRenderer *ComponentTableRenderer
+	
+	// Mermaid diagram generation
+	mermaidState    *MermaidState
+	mermaidOperator *MermaidOperator
 }
 
 func (m *MainListModel) performSearch() {
@@ -471,6 +475,16 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					return m, m.pipelineOperator.SetPipeline(pipelines[m.stateManager.PipelineCursor].path)
+				}
+			}
+		
+		case "M":
+			// Generate mermaid diagram for selected pipeline
+			if m.stateManager.ActivePane == pipelinesPane && !m.mermaidState.IsGenerating() {
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					pipeline := pipelines[m.stateManager.PipelineCursor]
+					return m, m.mermaidOperator.GeneratePipelineDiagram(pipeline)
 				}
 			}
 		
