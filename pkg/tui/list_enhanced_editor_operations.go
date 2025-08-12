@@ -38,11 +38,23 @@ func HandleEnhancedEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width
 // handleNormalEditorInput handles input in normal editing mode
 func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width int) (bool, tea.Cmd) {
 	switch msg.String() {
+	case "ctrl+z":
+		// Undo last action
+		return true, undoLastAction(state)
+	
+	case "ctrl+k":
+		// Clear all content
+		return true, clearAllContent(state)
+	
+	case "ctrl+shift+v", "ctrl+l":
+		// Clean current content (remove TUI borders, line numbers, etc)
+		return true, cleanCurrentContent(state)
+	
 	case "ctrl+s":
 		// Save component
 		return true, saveEnhancedComponent(state)
 	
-	case "ctrl+e":
+	case "ctrl+x":
 		// Open in external editor
 		return true, openInExternalEditor(state)
 	
@@ -106,6 +118,20 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 		}
 		return true, nil
 	
+	case "1", "2", "3", "4", "5":
+		// Quick select recent file by number
+		num := int(msg.String()[0] - '0')
+		if file, ok := state.RecentFiles.GetFileByNumber(num); ok {
+			// Insert the file reference
+			fileRef := ProcessFileSelection(file.Path)
+			insertCmd := InsertFileReference(state, fileRef)
+			state.RecentFiles.AddFile(file.Path) // Update access time
+			state.StopFilePicker()
+			return true, insertCmd
+		}
+		// Fall through if no recent file at this number
+		fallthrough
+	
 	default:
 		// Update file picker
 		cmd := state.UpdateFilePicker(msg)
@@ -115,6 +141,7 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 			// Insert the file reference
 			fileRef := ProcessFileSelection(selected)
 			insertCmd := InsertFileReference(state, fileRef)
+			state.RecentFiles.AddFile(selected) // Add to recent files
 			state.StopFilePicker()
 			return true, insertCmd
 		}
@@ -182,11 +209,73 @@ func InsertFileReference(state *EnhancedEditorState, reference string) tea.Cmd {
 	return nil
 }
 
+// undoLastAction undoes the last action
+func undoLastAction(state *EnhancedEditorState) tea.Cmd {
+	if state.Undo() {
+		state.ActionFeedback.RecordAction("✓ Undone")
+		return state.StatusManager.ShowSuccess("Undone")
+	}
+	return state.StatusManager.ShowInfo("Nothing to undo")
+}
+
+// clearAllContent clears all content from the editor
+func clearAllContent(state *EnhancedEditorState) tea.Cmd {
+	// Save current state for undo
+	if state.Content != "" {
+		state.SaveUndoState("Clear all")
+	}
+	
+	state.SetContent("")
+	state.Textarea.Reset()
+	state.Textarea.Focus()
+	state.ActionFeedback.RecordAction("✓ Cleared - ready for paste")
+	state.UpdateStats()
+	
+	// Return status feedback
+	return ShowClearedStatus()
+}
+
+// cleanCurrentContent cleans the current content in the editor
+func cleanCurrentContent(state *EnhancedEditorState) tea.Cmd {
+	// Get current content
+	currentContent := state.Textarea.Value()
+	if currentContent == "" {
+		return ShowNothingToPasteStatus()
+	}
+	
+	// Clean the content
+	cleanedContent := state.PasteHelper.CleanPastedContent(currentContent)
+	
+	// Check if anything was cleaned
+	if cleanedContent != currentContent {
+		// Save for undo
+		state.SaveUndoState("Clean content")
+		
+		// Update the content
+		state.SetContent(cleanedContent)
+		state.Textarea.SetValue(cleanedContent)
+		state.Textarea.Focus()
+		state.UpdateStats()
+		
+		// Show feedback
+		lineCount := CountLines(cleanedContent)
+		state.ActionFeedback.RecordAction(fmt.Sprintf("✓ Cleaned %d lines", lineCount))
+		return state.StatusManager.ShowSuccess(fmt.Sprintf("Cleaned %d lines", lineCount))
+	} else {
+		// Nothing to clean
+		state.ActionFeedback.RecordAction("Content already clean")
+		return state.StatusManager.ShowInfo("Content already clean")
+	}
+}
+
 // saveEnhancedComponent saves the component to disk
 func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 	return func() tea.Msg {
 		// Get content from textarea
 		content := state.Textarea.Value()
+		
+		// Auto-trim and clean content before saving
+		content = state.PasteHelper.CleanForSave(content)
 		
 		// Validate content
 		if err := ValidateComponentContent(content); err != nil {

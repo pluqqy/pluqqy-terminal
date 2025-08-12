@@ -57,7 +57,7 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 			// Row 1: Navigation & viewing
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter view", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "^e external", "t tag", "M diagram", "^d delete", "a archive/unarchive", "S set", "s settings", "^c quit"},
+			{"n new", "e edit", "^x external", "t tag", "M diagram", "^d delete", "a archive/unarchive", "S set", "s settings", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, r.Width - 8) // -8 for borders and padding
 	}

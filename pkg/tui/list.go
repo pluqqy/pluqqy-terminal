@@ -425,7 +425,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		
-		case "ctrl+e":
+		case "ctrl+x":
 			// Edit component in external editor
 			if m.stateManager.ActivePane == componentsPane {
 				components := m.getCurrentComponents()

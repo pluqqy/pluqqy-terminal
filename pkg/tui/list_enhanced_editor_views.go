@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
+	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
 // EnhancedEditorRenderer handles ALL rendering logic for the enhanced editor
@@ -39,48 +40,71 @@ func (r *EnhancedEditorRenderer) Render(state *EnhancedEditorState) string {
 // renderNormalMode renders the editor in normal editing mode
 func (r *EnhancedEditorRenderer) renderNormalMode(state *EnhancedEditorState) string {
 	// Calculate dimensions
+	// Now we have: editor pane + status pane (3 lines with border) + help pane (3 lines)
 	contentWidth := r.Width - 4 // Match help pane width
-	contentHeight := r.Height - 7 // Reserve space for help pane (3) + spacing (3) + status bar (1)
+	editorHeight := r.Height - 10 // Reserve: help pane (3) + status pane (3) + spacing (4)
 	
-	// Build main content
-	var mainContent strings.Builder
+	innerWidth := contentWidth - 2 // Account for borders
+	innerHeight := editorHeight - 2 // Account for borders
 	
-	// Add header
-	header := r.renderHeader(state)
-	mainContent.WriteString(header)
-	mainContent.WriteString("\n\n")
+	// Update stats before rendering
+	state.UpdateStats()
 	
-	// Add textarea
-	textarea := r.renderTextarea(state)
-	mainContent.WriteString(textarea)
+	// Build header with title and token count
+	header := r.renderHeaderWithTokens(state)
 	
-	// Add status bar with margin
-	statusBar := r.renderStatusBar(state)
-	mainContent.WriteString("\n\n")
-	mainContent.WriteString(statusBar)
+	// Calculate textarea height to fill the editor pane
+	// Leave room for header and one blank line after it
+	textareaHeight := innerHeight - 2 // -1 for header, -1 for blank line
+	if textareaHeight < 1 {
+		textareaHeight = 1
+	}
 	
-	// Apply border to main content
-	borderStyle := lipgloss.NewStyle().
+	// Build textarea
+	state.SetTextareaDimensions(innerWidth, textareaHeight)
+	textarea := state.Textarea.View()
+	
+	// Build editor content (without status bar)
+	editorContent := lipgloss.JoinVertical(
+		lipgloss.Left,
+		header,
+		"", // blank line after header
+		textarea,
+	)
+	
+	// Apply border to editor content
+	editorBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorActive))
-	
-	mainPane := borderStyle.
+		BorderForeground(lipgloss.Color(ColorActive)).
 		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
+		Height(editorHeight)
+	
+	editorPane := editorBorderStyle.Render(editorContent)
+	
+	// Build status bar content - use innerWidth for content inside border
+	statusContent := r.renderEnhancedStatusBar(state, innerWidth)
+	
+	// Apply border to status bar to create its own pane
+	statusBorderStyle := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("34")). // Green border for status pane
+		Width(contentWidth)
+	
+	statusPane := statusBorderStyle.Render(statusContent)
 	
 	// Render help as footer pane
 	helpPane := r.renderHelpPane(state.GetMode())
 	
-	// Add padding around the content to match help pane
+	// Add padding around the content
 	contentStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	// Combine main and help panes
+	// Combine all three panes: editor, status, help
 	return lipgloss.JoinVertical(
 		lipgloss.Left,
-		contentStyle.Render(mainPane),
+		contentStyle.Render(editorPane),
+		contentStyle.Render(statusPane), // Status bar in its own bordered pane
 		helpPane,
 	)
 }
@@ -93,24 +117,44 @@ func (r *EnhancedEditorRenderer) renderWithFilePicker(state *EnhancedEditorState
 }
 
 
-// renderHeader renders the editor header
+// renderHeader renders the editor header (kept for compatibility)
 func (r *EnhancedEditorRenderer) renderHeader(state *EnhancedEditorState) string {
-	// Header with colons (pane heading style)
+	return r.renderHeaderWithTokens(state)
+}
+
+// renderHeaderWithTokens renders the header with token count
+func (r *EnhancedEditorRenderer) renderHeaderWithTokens(state *EnhancedEditorState) string {
+	contentWidth := r.Width - 8 // Account for borders and padding
+	
+	// Left side: title
+	titleStyle := GetActiveHeaderStyle(true)
+	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(state.ComponentName))
+	
+	// Right side: token count
+	tokenCount := utils.EstimateTokens(state.Content)
+	tokenBadgeStyle := GetTokenBadgeStyle(tokenCount)
+	tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
+	
+	// Calculate spacing
+	titleLen := len(heading)
+	tokenLen := lipgloss.Width(tokenBadge)
+	colonLen := contentWidth - titleLen - tokenLen - 2 // -2 for spaces
+	if colonLen < 3 {
+		colonLen = 3
+	}
+	
+	colonStyle := GetActiveColonStyle(true)
+	
+	// Combine parts
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
-	
-	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(state.ComponentName))
-	contentWidth := r.Width - 8 // Account for borders and padding
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := GetActiveColonStyle(true) // Purple for active single pane
-	
-	return headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth)))
+	return headerPadding.Render(
+		titleStyle.Render(heading) + " " + 
+		colonStyle.Render(strings.Repeat(":", colonLen)) + " " +
+		tokenBadge,
+	)
 }
 
 // renderTextarea renders the textarea component
@@ -156,6 +200,38 @@ func (r *EnhancedEditorRenderer) renderFilePicker(state *EnhancedEditorState) st
 	header := headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth)))
 	mainContent.WriteString(header)
 	mainContent.WriteString("\n\n")
+	
+	// Show recent files if available
+	if state.RecentFiles.HasRecentFiles() {
+		recentStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color(ColorActive)).
+			PaddingLeft(2)
+		mainContent.WriteString(recentStyle.Render("RECENT FILES (press 1-5):"))
+		mainContent.WriteString("\n")
+		
+		recentFiles := state.RecentFiles.GetRecentFiles()
+		for i, rf := range recentFiles {
+			if i >= 5 {
+				break
+			}
+			numStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color(ColorActive)).
+				Bold(true)
+			fileStyle := DescriptionStyle
+			
+			entry := fmt.Sprintf("  %s  %s", 
+				numStyle.Render(fmt.Sprintf("%d.", i+1)),
+				fileStyle.Render(rf.Name))
+			mainContent.WriteString(entry)
+			mainContent.WriteString("\n")
+		}
+		mainContent.WriteString("\n")
+		mainContent.WriteString(lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240")).
+			PaddingLeft(2).
+			Render("──────────────────"))
+		mainContent.WriteString("\n\n")
+	}
 	
 	// Show current path from file picker
 	pathStyle := DescriptionStyle.PaddingLeft(2)
@@ -209,14 +285,17 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	switch mode {
 	case EditorModeNormal:
 		help = []string{
+			"^z undo",
+			"^k clear",
+			"^l clean",
 			"^s save",
-			"^e external",
+			"^x external",
 			"esc cancel",
-			"@ insert file ref",
-			"\\@ literal @",
+			"@ file ref",
 		}
 	case EditorModeFilePicking:
 		help = []string{
+			"1-5 recent files",
 			"↑/↓ navigate",
 			"enter select",
 			"esc cancel",
@@ -245,25 +324,82 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	return contentStyle.Render(helpBorderStyle.Render(alignedHelp))
 }
 
-// renderStatusBar renders the status bar with save indicator
+// renderStatusBar renders the status bar with save indicator and clipboard status (kept for compatibility)
 func (r *EnhancedEditorRenderer) renderStatusBar(state *EnhancedEditorState) string {
-	var status string
+	return r.renderEnhancedStatusBar(state, r.Width - 4)
+}
+
+// renderEnhancedStatusBar renders the enhanced status bar with stats
+func (r *EnhancedEditorRenderer) renderEnhancedStatusBar(state *EnhancedEditorState, width int) string {
+	var sb strings.Builder
 	
+	// Left side: save status and feedback
+	var leftParts []string
+	
+	// Save status
+	var saveStatus string
+	var statusColor string
 	if state.HasUnsavedChanges() {
-		status = "● Modified"
-		return lipgloss.NewStyle().
-			Foreground(lipgloss.Color(ColorWarning)).
-			Width(r.Width - 4).
-			Align(lipgloss.Left).
-			Render(status)
+		saveStatus = "● Modified"
+		statusColor = ColorWarning
+	} else {
+		saveStatus = "○ Saved"
+		statusColor = ColorSuccess
 	}
 	
-	status = "○ Saved"
-	return lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorSuccess)).
-		Width(r.Width - 4).
-		Align(lipgloss.Left).
-		Render(status)
+	// Style the save status with appropriate color
+	saveStatusStyled := lipgloss.NewStyle().
+		Foreground(lipgloss.Color(statusColor)).
+		Render(saveStatus)
+	leftParts = append(leftParts, saveStatusStyled)
+	
+	// Action feedback (temporary status messages)
+	if feedback, ok := state.ActionFeedback.GetActionFeedback(); ok {
+		leftParts = append(leftParts, feedback)
+	} else if status, ok := state.StatusManager.GetStatus(); ok {
+		leftParts = append(leftParts, status)
+	}
+	
+	// Right side: stats
+	var rightParts []string
+	
+	// Line and word count
+	rightParts = append(rightParts, fmt.Sprintf("L:%d W:%d", state.LineCount, state.WordCount))
+	
+	// Cursor position (if available)
+	if state.CurrentLine > 0 {
+		rightParts = append(rightParts, fmt.Sprintf("%d:%d", state.CurrentLine, state.CurrentColumn))
+	}
+	
+	// Undo stack indicator
+	if len(state.UndoStack) > 0 {
+		rightParts = append(rightParts, fmt.Sprintf("↶%d", len(state.UndoStack)))
+	}
+	
+	leftStr := strings.Join(leftParts, "  ")
+	rightStr := strings.Join(rightParts, "  ")
+	
+	// Style the right side with a subtle color
+	rightStyled := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("240")).
+		Render(rightStr)
+	
+	// Calculate padding (accounting for 4 spaces of left padding and 2 right)
+	leftLen := lipgloss.Width(leftStr)
+	rightLen := lipgloss.Width(rightStr)
+	padding := width - leftLen - rightLen - 6 // -4 for left padding, -2 for right
+	if padding < 1 {
+		padding = 1
+	}
+	
+	// Build status content efficiently with strings.Builder
+	sb.WriteString("    ") // Left padding
+	sb.WriteString(leftStr)
+	sb.WriteString(strings.Repeat(" ", padding))
+	sb.WriteString(rightStyled)
+	sb.WriteString("  ") // Right padding
+	
+	return sb.String()
 }
 
 // renderLineNumbers renders line numbers for content

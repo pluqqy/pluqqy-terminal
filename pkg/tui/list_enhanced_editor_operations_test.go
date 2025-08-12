@@ -456,6 +456,51 @@ func TestHandleNormalEditorInputKeyHandling(t *testing.T) {
 		validateFunc func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
 	}{
 		{
+			name:   "ctrl+k clears all content",
+			keyMsg: tea.KeyMsg{Type: tea.KeyCtrlK},
+			setup: func(state *EnhancedEditorState) {
+				state.StartEditing("test.md", "test", "prompt", "existing content here", []string{})
+			},
+			width:         80,
+			expectHandled: true,
+			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
+				if state.Content != "" {
+					t.Error("Expected content to be cleared after Ctrl+K")
+				}
+				if cmd == nil {
+					t.Error("Expected clear status command to be returned")
+				}
+				feedback := state.ActionFeedback.LastAction
+				if !strings.Contains(feedback, "Cleared") {
+					t.Errorf("Expected action feedback to contain 'Cleared', got '%s'", feedback)
+				}
+			},
+		},
+		{
+			name:   "ctrl+l cleans pasted content",
+			keyMsg: tea.KeyMsg{Type: tea.KeyCtrlL},
+			setup: func(state *EnhancedEditorState) {
+				// Start with content that has TUI borders
+				content := "│ Some content │\n│ More content │"
+				state.StartEditing("test.md", "test", "prompt", content, []string{})
+			},
+			width:         80,
+			expectHandled: true,
+			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
+				if strings.Contains(state.Content, "│") {
+					t.Error("Expected TUI borders to be removed after Ctrl+L")
+				}
+				if cmd == nil {
+					t.Error("Expected clean status command to be returned")
+				}
+				// Content should be cleaned
+				expected := "Some content\nMore content"
+				if state.Content != expected {
+					t.Errorf("Expected cleaned content '%s', got '%s'", expected, state.Content)
+				}
+			},
+		},
+		{
 			name:   "ctrl+s triggers save",
 			keyMsg: tea.KeyMsg{Type: tea.KeyCtrlS},
 			setup: func(state *EnhancedEditorState) {
@@ -555,6 +600,40 @@ func TestHandleFilePickerInputKeys(t *testing.T) {
 		expectHandled bool
 		validateFunc func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
 	}{
+		{
+			name:   "number key selects recent file",
+			keyMsg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("1")},
+			setup: func(state *EnhancedEditorState) {
+				state.StartEditing("test.md", "test", "prompt", "content@", []string{})
+				state.RecentFiles.AddFile("/recent/file1.go")
+				state.RecentFiles.AddFile("/recent/file2.go") 
+				state.StartFilePicker()
+			},
+			expectHandled: true,
+			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
+				if state.IsFilePicking() {
+					t.Error("Expected file picker to close after selecting recent file")
+				}
+				if !strings.Contains(state.Content, "@/recent/file2.go") {
+					t.Errorf("Expected content to contain recent file reference, got: %s", state.Content)
+				}
+			},
+		},
+		{
+			name:   "invalid number key falls through",
+			keyMsg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("9")},
+			setup: func(state *EnhancedEditorState) {
+				state.StartEditing("test.md", "test", "prompt", "content@", []string{})
+				state.RecentFiles.AddFile("/recent/file1.go")
+				state.StartFilePicker()
+			},
+			expectHandled: true,
+			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
+				if !state.IsFilePicking() {
+					t.Error("Expected to still be in file picker mode for invalid number")
+				}
+			},
+		},
 		{
 			name:   "esc cancels file picking",
 			keyMsg: tea.KeyMsg{Type: tea.KeyEsc},
