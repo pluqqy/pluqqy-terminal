@@ -54,9 +54,9 @@ func (r *EnhancedEditorRenderer) renderNormalMode(state *EnhancedEditorState) st
 	textarea := r.renderTextarea(state)
 	mainContent.WriteString(textarea)
 	
-	// Add status bar
+	// Add status bar with margin
 	statusBar := r.renderStatusBar(state)
-	mainContent.WriteString("\n")
+	mainContent.WriteString("\n\n")
 	mainContent.WriteString(statusBar)
 	
 	// Apply border to main content

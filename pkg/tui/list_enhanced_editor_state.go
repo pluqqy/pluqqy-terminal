@@ -50,6 +50,7 @@ type EnhancedEditorState struct {
 func NewEnhancedEditorState() *EnhancedEditorState {
 	ta := textarea.New()
 	ta.ShowLineNumbers = true
+	ta.Prompt = "  " // Use spaces instead of vertical line
 	ta.CharLimit = 0 // No limit
 	ta.SetWidth(80)
 	ta.SetHeight(20)
