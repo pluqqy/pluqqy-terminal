@@ -844,7 +844,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		
-		case "E":
+		case "ctrl+e":
 			// Edit component in external editor
 			if m.activeColumn == leftColumn {
 				components := m.getAllAvailableComponents()
@@ -1565,7 +1565,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "E external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
+			{"n new", "e edit", "^e external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
@@ -3135,7 +3135,7 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 	case "ctrl+s":
 		// Save component but don't exit yet
 		return m, m.saveEditedComponent()
-	case "E":
+	case "ctrl+e":
 		// Save current content and open in external editor
 		// First save any unsaved changes
 		if m.componentContent != m.originalContent {

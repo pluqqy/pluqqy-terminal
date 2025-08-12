@@ -73,7 +73,7 @@ func (e *ComponentEditor) HandleInput(msg tea.KeyMsg, width, height int) (tea.Mo
 	case "ctrl+s":
 		// Save component and exit
 		return nil, e.saveComponent()
-	case "E":
+	case "ctrl+e":
 		// Save current content and open in external editor
 		// First save any unsaved changes
 		if e.Content != e.OriginalContent {

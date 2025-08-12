@@ -42,6 +42,10 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		// Save component
 		return true, saveEnhancedComponent(state)
 	
+	case "ctrl+e":
+		// Open in external editor
+		return true, openInExternalEditor(state)
+	
 	case "esc":
 		// Handle exit with unsaved changes check
 		if state.HasUnsavedChanges() {
