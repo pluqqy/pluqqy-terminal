@@ -436,7 +436,7 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			name:         "renders normal mode help",
 			width:        80,
 			mode:         EditorModeNormal,
-			expectedHelp: []string{"^s save", "esc cancel", "@ insert file ref", "\\@ literal @"},
+			expectedHelp: []string{"^s save", "^e external", "esc cancel", "@ insert file ref", "\\@ literal @"},
 			unexpectedHelp: []string{"enter select", "↑/↓ navigate"},
 		},
 		{
@@ -450,7 +450,7 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			name:         "renders help with small width",
 			width:        40,
 			mode:         EditorModeNormal,
-			expectedHelp: []string{"^s save", "esc cancel"},
+			expectedHelp: []string{"^s save", "^e external", "esc", "cancel"},
 			unexpectedHelp: []string{},
 		},
 		{
