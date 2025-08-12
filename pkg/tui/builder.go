@@ -79,6 +79,20 @@ type PipelineBuilderModel struct {
 	editingComponentName  string
 	editSaveMessage       string
 	
+	// Enhanced editor for component editing
+	// The enhanced editor provides advanced text editing features including:
+	// - Multi-line editing with proper cursor movement
+	// - File reference insertion via Ctrl+R
+	// - Syntax highlighting and better text manipulation
+	// - Consistent with the Main List view editing experience
+	enhancedEditor        *EnhancedEditorState
+	
+	// Feature flag to enable/disable the enhanced editor
+	// When true: Uses the enhanced editor with advanced features
+	// When false: Falls back to the legacy simple text editor
+	// Default: true (can be changed in NewPipelineBuilderModel)
+	useEnhancedEditor     bool
+	
 	// Tag editing state
 	editingTags           bool
 	editingTagsPath       string
@@ -130,35 +144,10 @@ type componentItem struct {
 
 type clearEditSaveMsg struct{}
 
+// NewPipelineBuilderModel creates a new Pipeline Builder with default configuration
+// For custom configuration, use NewPipelineBuilderModelWithConfig
 func NewPipelineBuilderModel() *PipelineBuilderModel {
-	m := &PipelineBuilderModel{
-		activeColumn: leftColumn,
-		showPreview:  true, // Show preview by default in builder for immediate feedback
-		editingName:  true,
-		nameInput:    "",
-		pipeline: &models.Pipeline{
-			Name:       "",
-			Components: []models.ComponentRef{},
-		},
-		originalComponents: []models.ComponentRef{}, // Initialize to empty slice for new pipelines
-		previewViewport:    viewport.New(80, 20),    // Default size, will be resized
-		leftTableRenderer:  NewComponentTableRenderer(40, 20, true), // Default size, will be resized, true for showUsageColumn
-		rightViewport:      viewport.New(40, 20),    // Default size, will be resized
-		searchBar:          NewSearchBar(),
-		exitConfirm:        NewConfirmation(),
-		tagDeleteConfirm:   NewConfirmation(),
-		deleteConfirm:      NewConfirmation(),
-		archiveConfirm:     NewConfirmation(),
-	}
-	
-	// Initialize search engine
-	m.searchEngine = search.NewEngine()
-	
-	// Configure table renderer for pipeline builder
-	m.leftTableRenderer.ShowAddedIndicator = true
-	
-	m.loadAvailableComponents()
-	return m
+	return NewPipelineBuilderModelWithConfig(DefaultPipelineBuilderConfig())
 }
 
 func (m *PipelineBuilderModel) loadAvailableComponents() {
@@ -829,63 +818,135 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		
 		case "e":
-			// Edit component in TUI editor
-			if m.activeColumn == leftColumn {
-				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
-					// Read the component content
-					content, err := files.ReadComponent(comp.path)
-					if err != nil {
-						m.err = err
+			// Edit component in the TUI editor
+			// This integration point determines whether to use the enhanced editor
+			// or fall back to the legacy editor based on the useEnhancedEditor flag
+			if m.useEnhancedEditor {
+				// Enhanced editor path: provides advanced editing features
+				if m.activeColumn == leftColumn {
+					components := m.getAllAvailableComponents()
+					if m.leftCursor >= 0 && m.leftCursor < len(components) {
+						comp := components[m.leftCursor]
+						// Read the component content
+						content, err := files.ReadComponent(comp.path)
+						if err != nil {
+							m.err = err
+							return m, nil
+						}
+						
+						// Start enhanced editor
+						m.enhancedEditor.StartEditing(
+							comp.path,
+							comp.name,
+							comp.compType,
+							content.Content,
+							comp.tags,
+						)
+						m.editingComponent = true
 						return m, nil
 					}
-					// Enter editing mode
-					m.editingComponent = true
-					m.editingComponentPath = comp.path
-					m.editingComponentName = comp.name
-					m.componentContent = content.Content
-					m.originalContent = content.Content // Store original for change detection
-					
-					// Initialize edit viewport
-					m.editViewport = viewport.New(m.width-8, m.height-10)
-					m.editViewport.SetContent(content.Content)
-					
-					return m, nil
+				} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+					// Edit component from right column
+					if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
+						selected := m.selectedComponents[m.rightCursor]
+						// Convert path from relative to component path
+						componentPath := strings.TrimPrefix(selected.Path, "../")
+						
+						// Read the component content
+						content, err := files.ReadComponent(componentPath)
+						if err != nil {
+							m.err = err
+							return m, nil
+						}
+						
+						// Extract component name from path
+						parts := strings.Split(componentPath, "/")
+						componentName := ""
+						if len(parts) >= 2 {
+							componentName = strings.TrimSuffix(parts[1], ".md")
+						}
+						
+						// Determine component type
+						compType := ""
+						if strings.Contains(componentPath, "/prompts/") {
+							compType = models.ComponentTypePrompt
+						} else if strings.Contains(componentPath, "/contexts/") {
+							compType = models.ComponentTypeContext
+						} else if strings.Contains(componentPath, "/rules/") {
+							compType = models.ComponentTypeRules
+						}
+						
+						// Start enhanced editor
+						m.enhancedEditor.StartEditing(
+							componentPath,
+							componentName,
+							compType,
+							content.Content,
+							content.Tags,
+						)
+						m.editingComponent = true
+						return m, nil
+					}
 				}
-			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
-				// Edit component in TUI editor from right column
-				if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
-					selected := m.selectedComponents[m.rightCursor]
-					// Convert path from relative to component path
-					componentPath := strings.TrimPrefix(selected.Path, "../")
-					
-					// Read the component content
-					content, err := files.ReadComponent(componentPath)
-					if err != nil {
-						m.err = err
+			} else {
+				// Legacy editor code (kept for backward compatibility)
+				if m.activeColumn == leftColumn {
+					components := m.getAllAvailableComponents()
+					if m.leftCursor >= 0 && m.leftCursor < len(components) {
+						comp := components[m.leftCursor]
+						// Read the component content
+						content, err := files.ReadComponent(comp.path)
+						if err != nil {
+							m.err = err
+							return m, nil
+						}
+						// Enter editing mode
+						m.editingComponent = true
+						m.editingComponentPath = comp.path
+						m.editingComponentName = comp.name
+						m.componentContent = content.Content
+						m.originalContent = content.Content // Store original for change detection
+						
+						// Initialize edit viewport
+						m.editViewport = viewport.New(m.width-8, m.height-10)
+						m.editViewport.SetContent(content.Content)
+						
 						return m, nil
 					}
-					
-					// Extract component name from path
-					parts := strings.Split(componentPath, "/")
-					componentName := ""
-					if len(parts) >= 2 {
-						componentName = strings.TrimSuffix(parts[1], ".md")
+				} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+					// Edit component in TUI editor from right column
+					if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
+						selected := m.selectedComponents[m.rightCursor]
+						// Convert path from relative to component path
+						componentPath := strings.TrimPrefix(selected.Path, "../")
+						
+						// Read the component content
+						content, err := files.ReadComponent(componentPath)
+						if err != nil {
+							m.err = err
+							return m, nil
+						}
+						
+						// Extract component name from path
+						parts := strings.Split(componentPath, "/")
+						componentName := ""
+						if len(parts) >= 2 {
+							componentName = strings.TrimSuffix(parts[1], ".md")
+						}
+						
+						// Enter editing mode
+						m.editingComponent = true
+						m.editingComponentPath = componentPath
+						m.editingComponentName = componentName
+						m.componentContent = content.Content
+						m.originalContent = content.Content // Store original for change detection
+						
+						// Initialize edit viewport
+						m.editViewport = viewport.New(m.width-8, m.height-10)
+						m.editViewport.SetContent(content.Content)
+						
+						return m, nil
 					}
-					
-					// Enter editing mode
-					m.editingComponent = true
-					m.editingComponentPath = componentPath
-					m.editingComponentName = componentName
-					m.componentContent = content.Content
-					m.originalContent = content.Content // Store original for change detection
-					
-					// Initialize edit viewport
-					m.editViewport = viewport.New(m.width-8, m.height-10)
-					m.editViewport.SetContent(content.Content)
-					
-					return m, nil
 				}
 			}
 		}
@@ -915,6 +976,18 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Don't forward key messages - they're already handled
 	default:
+		// Handle enhanced editor for non-KeyMsg message types
+		// This is crucial for filepicker which needs to process internal messages like directory reads
+		if m.useEnhancedEditor && m.enhancedEditor.IsActive() && m.editingComponent {
+			if m.enhancedEditor.IsFilePicking() {
+				// Filepicker needs to process internal messages for directory reading
+				cmd := m.enhancedEditor.UpdateFilePicker(msg)
+				if cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+			}
+		}
+		
 		// Forward other messages to viewports
 		if m.showPreview {
 			m.previewViewport, cmd = m.previewViewport.Update(msg)
@@ -951,8 +1024,26 @@ func (m *PipelineBuilderModel) View() string {
 		return m.componentCreationView()
 	}
 	
-	// If editing component, show edit view
-	if m.editingComponent {
+	// Integration point: Render the appropriate editor view based on configuration
+	// If enhanced editor is enabled and active, use the enhanced editor renderer
+	// which provides a richer editing experience with file browsing and better text manipulation
+	if m.editingComponent && m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+		// Handle exit confirmation dialog
+		if m.enhancedEditor.ExitConfirmActive {
+			// Add padding to match other views
+			contentStyle := lipgloss.NewStyle().
+				PaddingLeft(1).
+				PaddingRight(1)
+			return contentStyle.Render(m.enhancedEditor.ExitConfirm.View())
+		}
+		
+		// Render enhanced editor view
+		renderer := NewEnhancedEditorRenderer(m.width, m.height)
+		return renderer.Render(m.enhancedEditor)
+	}
+	
+	// If editing component with legacy editor, show legacy edit view
+	if m.editingComponent && !m.useEnhancedEditor {
 		return m.componentEditView()
 	}
 	
@@ -2970,7 +3061,28 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 	}
 }
 
+// handleComponentEditing handles keyboard input when editing a component
+// This is a key integration point that routes input to either the enhanced
+// editor or the legacy editor based on configuration
 func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	// Integration point: Check if enhanced editor is enabled and active
+	// The enhanced editor handles its own input processing through HandleEnhancedEditorInput
+	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+		handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
+		if handled {
+			// Check if editor is still active after handling input
+			if !m.enhancedEditor.IsActive() {
+				// Editor was closed, exit editing mode
+				m.editingComponent = false
+				// Reload components to reflect any changes
+				m.loadAvailableComponents()
+			}
+			return m, cmd
+		}
+		return m, nil
+	}
+	
+	// Legacy editor handling (kept for backward compatibility)
 	var cmd tea.Cmd
 	
 	// Handle viewport scrolling
