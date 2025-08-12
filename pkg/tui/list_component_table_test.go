@@ -424,7 +424,7 @@ func TestComponentTableRenderer_buildTableContent(t *testing.T) {
 			},
 			isActive:        true,
 			showUsageColumn: true,
-			wantContent:     []string{"📦", "ARCHIVED"},
+			wantContent:     []string{"[A] archived_comp"},
 		},
 		{
 			name: "shows added indicator",

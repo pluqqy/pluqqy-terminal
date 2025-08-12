@@ -343,6 +343,8 @@ func IsTextFile(filename string) bool {
 	textFiles := []string{
 		"README", "LICENSE", "CHANGELOG", "Makefile", "Dockerfile",
 		"Vagrantfile", "Gemfile", "Rakefile", "Procfile",
+		".gitignore", ".dockerignore", ".eslintrc", ".prettierrc",
+		".editorconfig", ".npmignore", ".gitattributes",
 	}
 
 	for _, textFile := range textFiles {

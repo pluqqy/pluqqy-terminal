@@ -152,7 +152,7 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 				if !strings.Contains(output, "○ Saved") {
 					t.Error("Expected status bar to show saved status")
 				}
-				if !strings.Contains(output, "ctrl+s save") {
+				if !strings.Contains(output, "^s save") {
 					t.Error("Expected help text to contain save shortcut")
 				}
 				if !strings.Contains(output, "@ insert file ref") {
@@ -436,7 +436,7 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			name:         "renders normal mode help",
 			width:        80,
 			mode:         EditorModeNormal,
-			expectedHelp: []string{"ctrl+s save", "esc cancel", "@ insert file ref", "\\@ literal @"},
+			expectedHelp: []string{"^s save", "esc cancel", "@ insert file ref", "\\@ literal @"},
 			unexpectedHelp: []string{"enter select", "↑/↓ navigate"},
 		},
 		{
@@ -444,13 +444,13 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			width:          80,
 			mode:           EditorModeFilePicking,
 			expectedHelp:   []string{"↑/↓ navigate", "enter select", "esc cancel", "tab toggle hidden"},
-			unexpectedHelp: []string{"ctrl+s save", "@ insert file ref"},
+			unexpectedHelp: []string{"^s save", "@ insert file ref"},
 		},
 		{
 			name:         "renders help with small width",
 			width:        40,
 			mode:         EditorModeNormal,
-			expectedHelp: []string{"ctrl+s save", "esc cancel"},
+			expectedHelp: []string{"^s save", "esc cancel"},
 			unexpectedHelp: []string{},
 		},
 		{

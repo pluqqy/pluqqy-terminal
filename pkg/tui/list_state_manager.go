@@ -1,8 +1,12 @@
 package tui
 
+import "sync"
+
 // StateManager handles all state management for the list view including
 // cursor positions, pane navigation, and selection state
 type StateManager struct {
+	// Mutex for thread-safe access
+	mu sync.RWMutex
 	// Cursor positions
 	ComponentCursor int
 	PipelineCursor  int
@@ -36,6 +40,8 @@ func NewStateManager() *StateManager {
 
 // UpdateCounts updates the item counts for bounds checking
 func (sm *StateManager) UpdateCounts(componentCount, pipelineCount int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.componentCount = componentCount
 	sm.pipelineCount = pipelineCount
 	
@@ -55,6 +61,8 @@ func (sm *StateManager) UpdateCounts(componentCount, pipelineCount int) {
 
 // MoveCursorUp moves the cursor up in the active pane
 func (sm *StateManager) MoveCursorUp() bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	switch sm.ActivePane {
 	case componentsPane:
 		if sm.ComponentCursor > 0 {
@@ -72,6 +80,8 @@ func (sm *StateManager) MoveCursorUp() bool {
 
 // MoveCursorDown moves the cursor down in the active pane
 func (sm *StateManager) MoveCursorDown() bool {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	switch sm.ActivePane {
 	case componentsPane:
 		if sm.ComponentCursor < sm.componentCount-1 {
@@ -89,6 +99,8 @@ func (sm *StateManager) MoveCursorDown() bool {
 
 // HandleTabNavigation handles tab/shift+tab navigation between panes
 func (sm *StateManager) HandleTabNavigation(reverse bool) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	if reverse {
 		sm.navigateBackward()
 	} else {
@@ -162,16 +174,22 @@ func (sm *StateManager) navigateBackward() {
 
 // SwitchToSearch switches to the search pane
 func (sm *StateManager) SwitchToSearch() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.ActivePane = searchPane
 }
 
 // ExitSearch exits search mode and returns to components pane
 func (sm *StateManager) ExitSearch() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.ActivePane = componentsPane
 }
 
 // GetPreviewPane returns the pane to show in preview
 func (sm *StateManager) GetPreviewPane() pane {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
 	if sm.ActivePane == previewPane {
 		// If we're on the preview pane, use the last data pane
 		return sm.LastDataPane
@@ -181,36 +199,50 @@ func (sm *StateManager) GetPreviewPane() pane {
 
 // IsInPreviewPane returns true if the preview pane is active
 func (sm *StateManager) IsInPreviewPane() bool {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
 	return sm.ActivePane == previewPane
 }
 
 // IsInSearchPane returns true if the search pane is active
 func (sm *StateManager) IsInSearchPane() bool {
+	sm.mu.RLock()
+	defer sm.mu.RUnlock()
 	return sm.ActivePane == searchPane
 }
 
 // SetDeletingFromPane sets the pane from which deletion is happening
 func (sm *StateManager) SetDeletingFromPane(p pane) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.DeletingFromPane = p
 }
 
 // SetArchivingFromPane sets the pane from which archiving is happening
 func (sm *StateManager) SetArchivingFromPane(p pane) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.ArchivingFromPane = p
 }
 
 // ClearDeletionState clears the deletion state
 func (sm *StateManager) ClearDeletionState() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.DeletingFromPane = nonePane
 }
 
 // ClearArchiveState clears the archive state
 func (sm *StateManager) ClearArchiveState() {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	sm.ArchivingFromPane = nonePane
 }
 
 // ResetCursorsAfterSearch resets cursors after search results change
 func (sm *StateManager) ResetCursorsAfterSearch(filteredComponentCount, filteredPipelineCount int) {
+	sm.mu.Lock()
+	defer sm.mu.Unlock()
 	// Reset cursors if they're out of bounds
 	if sm.PipelineCursor >= filteredPipelineCount {
 		sm.PipelineCursor = 0
@@ -224,24 +256,34 @@ func (sm *StateManager) ResetCursorsAfterSearch(filteredComponentCount, filtered
 func (sm *StateManager) HandleKeyNavigation(key string) (handled bool, updatePreview bool) {
 	switch key {
 	case "up", "k":
-		if sm.ActivePane == componentsPane || sm.ActivePane == pipelinesPane {
+		sm.mu.RLock()
+		activePane := sm.ActivePane
+		sm.mu.RUnlock()
+		if activePane == componentsPane || activePane == pipelinesPane {
 			moved := sm.MoveCursorUp()
 			return true, moved
 		}
 	case "down", "j":
-		if sm.ActivePane == componentsPane || sm.ActivePane == pipelinesPane {
+		sm.mu.RLock()
+		activePane := sm.ActivePane
+		sm.mu.RUnlock()
+		if activePane == componentsPane || activePane == pipelinesPane {
 			moved := sm.MoveCursorDown()
 			return true, moved
 		}
 	case "tab":
 		sm.HandleTabNavigation(false)
 		// Update preview when switching to non-preview pane
+		sm.mu.RLock()
 		updatePreview = sm.ActivePane != previewPane && sm.ActivePane != searchPane
+		sm.mu.RUnlock()
 		return true, updatePreview
 	case "shift+tab":
 		sm.HandleTabNavigation(true)
 		// Update preview when switching to non-preview pane
+		sm.mu.RLock()
 		updatePreview = sm.ActivePane != previewPane && sm.ActivePane != searchPane
+		sm.mu.RUnlock()
 		return true, updatePreview
 	}
 	
