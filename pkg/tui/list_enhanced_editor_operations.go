@@ -41,7 +41,7 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		// Undo last action
 		return true, undoLastAction(state)
 	
-	case "ctrl+k":
+	case "ctrl+d":
 		// Clear all content
 		return true, clearAllContent(state)
 	

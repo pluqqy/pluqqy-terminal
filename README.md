@@ -153,7 +153,7 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | Type directly | Enter content in the editor                     |
 | `↑/↓`         | Navigate through content                        |
 | `^z`          | Undo last change                                |
-| `^k`          | Clear all content                               |
+| `^d`          | Clear all content                               |
 | `^l`          | Clean pasted content (removes TUI artifacts)    |
 | `^s`          | Save component                                  |
 | `^x`          | Open in external editor (for extensive editing) |

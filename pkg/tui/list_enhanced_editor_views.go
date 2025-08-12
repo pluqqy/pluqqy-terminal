@@ -286,7 +286,7 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	case EditorModeNormal:
 		help = []string{
 			"^z undo",
-			"^k clear",
+			"^d clear",
 			"^l clean",
 			"^s save",
 			"^x external",
