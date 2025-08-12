@@ -593,6 +593,45 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.activeColumn = leftColumn
 				}
 			}
+
+		case "shift+tab", "backtab":
+			// Reverse cycle through columns
+			if m.showPreview {
+				// When preview is shown, reverse cycle through content panes
+				switch m.activeColumn {
+				case searchColumn:
+					// If in search, exit to preview column
+					m.activeColumn = previewColumn
+					m.searchBar.SetActive(false)
+				case leftColumn:
+					m.activeColumn = previewColumn
+				case rightColumn:
+					m.activeColumn = leftColumn
+				case previewColumn:
+					m.activeColumn = rightColumn
+					// Reset right cursor and viewport when entering right column
+					m.rightCursor = 0
+					m.rightViewport.GotoTop()
+				}
+			} else {
+				// When preview is hidden, reverse cycle between left and right
+				switch m.activeColumn {
+				case searchColumn:
+					// If in search, exit to right column
+					m.activeColumn = rightColumn
+					m.searchBar.SetActive(false)
+					// Reset right cursor and viewport when entering right column
+					m.rightCursor = 0
+					m.rightViewport.GotoTop()
+				case leftColumn:
+					m.activeColumn = rightColumn
+					// Reset right cursor and viewport when entering right column
+					m.rightCursor = 0
+					m.rightViewport.GotoTop()
+				case rightColumn:
+					m.activeColumn = leftColumn
+				}
+			}
 			// Update preview when switching to non-preview column
 			if m.activeColumn != previewColumn {
 				m.updatePreview()
