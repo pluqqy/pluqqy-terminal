@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
@@ -3076,13 +3075,9 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 			return StatusMsg("Error: $EDITOR environment variable not set. Please set it to your preferred editor.")
 		}
 
-		// Validate editor path to prevent command injection
-		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
-			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
-		}
-
 		fullPath := filepath.Join(files.PluqqyDir, path)
-		cmd := exec.Command(editor, fullPath)
+		// Create command with proper argument parsing for editors with flags
+		cmd := createEditorCommand(editor, fullPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

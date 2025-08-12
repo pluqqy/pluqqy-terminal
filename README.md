@@ -144,7 +144,7 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | **Undo Support**    | `^z` to undo recent changes (maintains history of last 10 changes)                       |
 | **Token Counter**   | Token guestimation displayed in the header                                               |
 | **Status Bar**      | Shows save status, line/word count, and cursor position                                  |
-| **File References** | Insert references to other components with `@` key                                       |
+| **File References** | Insert references to other files with `@` key                                            |
 
 **Keyboard Shortcuts:**
 
@@ -314,7 +314,7 @@ Changes take effect immediately upon saving with `S`.
 
 ### External Editor
 
-Pluqqy uses your system's `$EDITOR` environment variable to determine which external editor to use. Set it in your shell configuration:
+Pluqqy uses your system's `$EDITOR` environment variable to determine which external editor to use. Set it in your shell configuration (`.bashrc`, `.zshrc`, etc.):
 
 ```bash
 # For vim users
@@ -333,8 +333,18 @@ export EDITOR="cursor --wait"
 export EDITOR="windsurf --wait"
 
 # For Zed users
-export EDITOR="zed --wait"
+export EDITOR="zed -w"
+
+# For Sublime Text users
+export EDITOR="subl -w"
 ```
+
+**Important notes:**
+
+- GUI editors (VS Code, Cursor, Windsurf, Zed, Sublime) require a "wait" flag to block until the file is closed
+- Different editors use different wait flags: `--wait` for VS Code/Cursor/Windsurf, `-w` for Zed/Sublime
+- After setting `$EDITOR`, reload your shell config: `source ~/.zshrc` (or `~/.bashrc`)
+- Test your setting by running: `echo $EDITOR`
 
 ## Requirements
 

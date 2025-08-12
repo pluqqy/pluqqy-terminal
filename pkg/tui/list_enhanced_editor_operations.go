@@ -3,7 +3,6 @@ package tui
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -316,16 +315,11 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 			return StatusMsg("Error: $EDITOR environment variable not set")
 		}
 		
-		// Validate editor path to prevent command injection
-		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
-			return StatusMsg("Invalid EDITOR value: contains shell metacharacters")
-		}
-		
 		// Construct full path
 		fullPath := filepath.Join(files.PluqqyDir, state.ComponentPath)
 		
-		// Execute editor
-		cmd := exec.Command(editor, fullPath)
+		// Create command with proper argument parsing for editors with flags
+		cmd := createEditorCommand(editor, fullPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr

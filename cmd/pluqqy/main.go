@@ -105,13 +105,16 @@ var settingsCmd = &cobra.Command{
 			editor = "vi"
 		}
 
-		// Validate editor path to prevent command injection
-		if strings.ContainsAny(editor, "&|;<>()$`\\\"'") {
-			fmt.Fprintf(os.Stderr, "Error: Invalid EDITOR value: contains shell metacharacters\n")
-			os.Exit(1)
+		// Parse editor command to handle arguments like "--wait" or "-w"
+		parts := strings.Fields(editor)
+		var editorCmd *exec.Cmd
+		if len(parts) > 1 {
+			// Editor has arguments (e.g., "code --wait")
+			editorCmd = exec.Command(parts[0], append(parts[1:], settingsPath)...)
+		} else {
+			// Simple editor command (e.g., "vim")
+			editorCmd = exec.Command(editor, settingsPath)
 		}
-
-		editorCmd := exec.Command(editor, settingsPath)
 		editorCmd.Stdin = os.Stdin
 		editorCmd.Stdout = os.Stdout
 		editorCmd.Stderr = os.Stderr
