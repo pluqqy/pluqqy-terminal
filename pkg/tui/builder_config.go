@@ -51,6 +51,9 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		archiveConfirm:     NewConfirmation(),
 		enhancedEditor:     NewEnhancedEditorState(),
 		useEnhancedEditor:  config.UseEnhancedEditor,
+		renameState:        NewRenameState(),
+		renameRenderer:     NewRenameRenderer(),
+		renameOperator:     NewRenameOperator(),
 	}
 	
 	// Initialize search engine

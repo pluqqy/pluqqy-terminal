@@ -1,0 +1,159 @@
+package tui
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+)
+
+// RenameRenderer handles the visual rendering of the rename dialog
+type RenameRenderer struct {
+	Width  int
+	Height int
+}
+
+// NewRenameRenderer creates a new rename renderer
+func NewRenameRenderer() *RenameRenderer {
+	return &RenameRenderer{}
+}
+
+// SetSize updates the renderer dimensions
+func (rr *RenameRenderer) SetSize(width, height int) {
+	rr.Width = width
+	rr.Height = height
+}
+
+// Render creates the visual representation of the rename dialog
+func (rr *RenameRenderer) Render(state *RenameState) string {
+	if !state.Active {
+		return ""
+	}
+
+	var b strings.Builder
+
+	// Title based on item type
+	title := fmt.Sprintf("RENAME %s", strings.ToUpper(state.ItemType))
+	if state.IsArchived {
+		title = fmt.Sprintf("RENAME ARCHIVED %s", strings.ToUpper(state.ItemType))
+	}
+
+	// Title with style
+	b.WriteString(TypeHeaderStyle.Render(title))
+	b.WriteString("\n\n")
+
+	// Current name display
+	b.WriteString(HeaderStyle.Render("Current:"))
+	b.WriteString(" ")
+	b.WriteString(state.OriginalName)
+	b.WriteString("\n\n")
+
+	// Input field
+	b.WriteString(HeaderStyle.Render("New name:"))
+	b.WriteString(" ")
+	
+	if state.NewName == "" {
+		// Show placeholder
+		placeholder := DescriptionStyle.Render("Enter new display name...")
+		b.WriteString(placeholder)
+	} else {
+		// Show input with cursor
+		b.WriteString(state.NewName)
+		b.WriteString(CursorStyle.Render("█"))
+	}
+	b.WriteString("\n")
+
+	// Show what filename this will become
+	if state.NewName != "" && state.NewName != state.OriginalName {
+		b.WriteString("\n")
+		slugified := state.GetSlugifiedName()
+		ext := ".md"
+		if state.ItemType == "pipeline" {
+			ext = ".yaml"
+		}
+		preview := fmt.Sprintf("Will save as: %s%s", slugified, ext)
+		b.WriteString(DescriptionStyle.Render(preview))
+		b.WriteString("\n")
+	}
+
+	// Validation error
+	if state.ValidationError != "" {
+		b.WriteString("\n")
+		b.WriteString(ErrorStyle.Render("⚠ " + state.ValidationError))
+		b.WriteString("\n")
+	}
+
+	// Affected pipelines (only for components)
+	if state.ItemType == "component" && state.HasAffectedPipelines() {
+		b.WriteString("\n")
+		b.WriteString(HeaderStyle.Render("This will update references in:"))
+		b.WriteString("\n")
+
+		if len(state.AffectedActive) > 0 {
+			b.WriteString("\n")
+			b.WriteString(DescriptionStyle.Render("Active pipelines:"))
+			b.WriteString("\n")
+			for _, p := range state.AffectedActive {
+				b.WriteString(fmt.Sprintf("  • %s\n", p))
+			}
+		}
+
+		if len(state.AffectedArchive) > 0 {
+			b.WriteString("\n")
+			b.WriteString(DescriptionStyle.Render("Archived pipelines:"))
+			b.WriteString("\n")
+			for _, p := range state.AffectedArchive {
+				b.WriteString(fmt.Sprintf("  • %s\n", p))
+			}
+		}
+	}
+
+	// Help text
+	b.WriteString("\n")
+	helpText := ""
+	if state.IsValid() {
+		helpText = "[Enter] Save  [Esc] Cancel"
+	} else if state.ValidationError != "" {
+		helpText = "[Esc] Cancel"
+	} else if state.NewName == state.OriginalName {
+		helpText = "[Esc] Cancel  (no changes)"
+	} else {
+		helpText = "[Enter] Save  [Esc] Cancel"
+	}
+	b.WriteString(DescriptionStyle.Render(helpText))
+
+	// Calculate dialog dimensions
+	dialogWidth := rr.Width / 2
+	if dialogWidth < 50 {
+		dialogWidth = 50
+	}
+	if dialogWidth > 80 {
+		dialogWidth = 80
+	}
+
+	// Apply border and center the dialog
+	dialogStyle := ActiveBorderStyle.
+		Width(dialogWidth).
+		Padding(1, 2)
+
+	// Center the dialog on screen
+	centeredStyle := lipgloss.NewStyle().
+		Width(rr.Width).
+		Height(rr.Height).
+		Align(lipgloss.Center, lipgloss.Center)
+
+	return centeredStyle.Render(dialogStyle.Render(b.String()))
+}
+
+// RenderOverlay creates an overlay view for the rename dialog
+func (rr *RenameRenderer) RenderOverlay(baseView string, state *RenameState) string {
+	if !state.Active {
+		return baseView
+	}
+
+	// Create the rename dialog
+	renameView := rr.Render(state)
+
+	// Overlay the dialog on the base view
+	return overlayViews(baseView, renameView)
+}

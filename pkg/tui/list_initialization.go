@@ -38,6 +38,9 @@ func NewMainListModel() *MainListModel {
 		componentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
 		mermaidState:       mermaidState,
 		mermaidOperator:    NewMermaidOperator(mermaidState),
+		renameState:        NewRenameState(),
+		renameRenderer:     NewRenameRenderer(),
+		renameOperator:     NewRenameOperator(),
 	}
 	// Enable enhanced editor by default (can be configured later)
 	m.useEnhancedEditor = true
@@ -234,11 +237,16 @@ func (m *MainListModel) loadComponentsOfType(compType, subDir, modelType string,
 			usage = count
 		}
 		
-		// Read component content for token estimation
+		// Read component content for token estimation and display name
 		component, _ := files.ReadComponent(componentPath)
 		tokenCount := 0
+		displayName := c // Default to filename
 		if component != nil {
 			tokenCount = utils.EstimateTokens(component.Content)
+			// Use display name from component (from frontmatter or filename)
+			if component.Name != "" {
+				displayName = component.Name
+			}
 		}
 		
 		tags := []string{}
@@ -247,7 +255,7 @@ func (m *MainListModel) loadComponentsOfType(compType, subDir, modelType string,
 		}
 		
 		items = append(items, componentItem{
-			name:         c,
+			name:         displayName,
 			path:         componentPath,
 			compType:     modelType,
 			lastModified: modTime,
@@ -274,10 +282,15 @@ func (m *MainListModel) loadComponentsOfType(compType, subDir, modelType string,
 			// Calculate usage count (archived components typically have 0 usage)
 			usage := 0
 			
-			// Get token count
+			// Get token count and display name
 			tokenCount := 0
+			displayName := c // Default to filename
 			if component != nil {
 				tokenCount = utils.EstimateTokens(component.Content)
+				// Use display name from component (from frontmatter or filename)
+				if component.Name != "" {
+					displayName = component.Name
+				}
 			}
 			
 			tags := []string{}
@@ -286,7 +299,7 @@ func (m *MainListModel) loadComponentsOfType(compType, subDir, modelType string,
 			}
 			
 			items = append(items, componentItem{
-				name:         c,
+				name:         displayName,
 				path:         componentPath,
 				compType:     modelType,
 				lastModified: modTime,

@@ -113,6 +113,7 @@ func InitProjectStructure() error {
 
 // componentFrontmatter represents the YAML frontmatter in component files
 type componentFrontmatter struct {
+	Name string   `yaml:"name,omitempty"`
 	Tags []string `yaml:"tags,omitempty"`
 }
 
@@ -178,10 +179,18 @@ func ReadComponent(path string) (*models.Component, error) {
 
 	componentType := getComponentType(path)
 	
-	// Extract frontmatter to get tags and content without frontmatter
+	// Extract frontmatter to get name, tags and content without frontmatter
 	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(content)
 	
+	// If no name in frontmatter, extract from filename
+	name := frontmatter.Name
+	if name == "" {
+		// Extract display name from filename as fallback
+		name = ExtractDisplayNameFromFilename(filepath.Base(path))
+	}
+	
 	return &models.Component{
+		Name:     name,
 		Path:     path,
 		Type:     componentType,
 		Content:  string(contentWithoutFrontmatter), // Use content without frontmatter
@@ -250,6 +259,44 @@ func WriteComponent(path string, content string) error {
 func WriteComponentWithTags(path string, content string, tags []string) error {
 	formattedContent := formatComponentContent(content, tags)
 	return WriteComponent(path, formattedContent)
+}
+
+// WriteComponentWithNameAndTags writes a component with name and tags in frontmatter
+func WriteComponentWithNameAndTags(path string, content string, name string, tags []string) error {
+	formattedContent := formatComponentContentWithName(content, name, tags)
+	return WriteComponent(path, formattedContent)
+}
+
+// formatComponentContentWithName adds or updates frontmatter with name and tags
+func formatComponentContentWithName(content string, name string, tags []string) string {
+	contentBytes := []byte(content)
+	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(contentBytes)
+	
+	// Update name if provided
+	if name != "" {
+		frontmatter.Name = name
+	}
+	
+	// Update tags if provided
+	if tags != nil {
+		frontmatter.Tags = tags
+	}
+	
+	// Build new content with frontmatter
+	var buf bytes.Buffer
+	
+	// Always write frontmatter if we have name or tags
+	if frontmatter.Name != "" || len(frontmatter.Tags) > 0 {
+		buf.WriteString("---\n")
+		frontmatterBytes, _ := yaml.Marshal(frontmatter)
+		buf.Write(frontmatterBytes)
+		buf.WriteString("---\n\n")
+	}
+	
+	// Write the content
+	buf.Write(contentWithoutFrontmatter)
+	
+	return buf.String()
 }
 
 func ReadPipeline(path string) (*models.Pipeline, error) {
@@ -500,10 +547,18 @@ func ReadArchivedComponent(path string) (*models.Component, error) {
 		return nil, fmt.Errorf("failed to read archived component file '%s': %w", path, err)
 	}
 	
-	// Extract frontmatter to get tags and content without frontmatter
+	// Extract frontmatter to get name, tags and content without frontmatter
 	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(data)
 	
+	// If no name in frontmatter, extract from filename
+	name := frontmatter.Name
+	if name == "" {
+		// Extract display name from filename as fallback
+		name = ExtractDisplayNameFromFilename(filepath.Base(path))
+	}
+	
 	comp := &models.Component{
+		Name:        name,
 		Content:     string(contentWithoutFrontmatter), // Use content without frontmatter
 		Path:        path,
 		Type:        getComponentType(path),
@@ -904,4 +959,42 @@ func UnarchiveComponent(path string) error {
 	}
 	
 	return nil
+}
+
+// ExtractDisplayNameFromFilename extracts a display name from a filename
+// Examples:
+//   "auth-context.md" → "Auth Context"
+//   "users-profile.yaml" → "Users Profile"
+func ExtractDisplayNameFromFilename(filename string) string {
+	// Remove extension
+	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+	
+	// Split by hyphens
+	parts := strings.Split(name, "-")
+	
+	// Capitalize each part
+	for i, part := range parts {
+		if len(part) > 0 {
+			parts[i] = strings.ToUpper(string(part[0])) + part[1:]
+		}
+	}
+	
+	// Join with spaces
+	return strings.Join(parts, " ")
+}
+
+// ReadFileContent reads raw file content (helper for backup/restore)
+func ReadFileContent(path string) ([]byte, error) {
+	if err := validatePath(path); err != nil {
+		return nil, err
+	}
+	return os.ReadFile(path)
+}
+
+// WriteFileContent writes raw file content (helper for backup/restore)
+func WriteFileContent(path string, content []byte) error {
+	if err := validatePath(path); err != nil {
+		return err
+	}
+	return os.WriteFile(path, content, 0644)
 }

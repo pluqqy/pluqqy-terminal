@@ -117,6 +117,11 @@ type PipelineBuilderModel struct {
 	// Archive confirmation
 	archiveConfirm       *ConfirmationModel
 	
+	// Rename functionality
+	renameState    *RenameState
+	renameRenderer *RenameRenderer
+	renameOperator *RenameOperator
+	
 	// Change tracking
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
 	originalContent       string                // Original content for component editing
@@ -229,8 +234,13 @@ func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType 
 		// Read component content for token estimation
 		component, _ := files.ReadComponent(componentPath)
 		tokenCount := 0
+		displayName := c // Default to filename
 		if component != nil {
 			tokenCount = utils.EstimateTokens(component.Content)
+			// Use display name from component (from frontmatter or filename)
+			if component.Name != "" {
+				displayName = component.Name
+			}
 		}
 		
 		tags := []string{}
@@ -239,7 +249,7 @@ func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType 
 		}
 		
 		items = append(items, componentItem{
-			name:         c,
+			name:         displayName,
 			path:         componentPath,
 			compType:     modelType,
 			lastModified: modTime,
@@ -259,8 +269,13 @@ func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType 
 			// Read archived component
 			component, _ := files.ReadArchivedComponent(componentPath)
 			modTime := time.Time{}
+			displayName := c // Default to filename
 			if component != nil {
 				modTime = component.Modified
+				// Use display name from component (from frontmatter or filename)
+				if component.Name != "" {
+					displayName = component.Name
+				}
 			}
 			
 			// Calculate usage count (archived components typically have 0 usage)
@@ -278,7 +293,7 @@ func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType 
 			}
 			
 			items = append(items, componentItem{
-				name:         c,
+				name:         displayName,
 				path:         componentPath,
 				compType:     modelType,
 				lastModified: modTime,
@@ -418,6 +433,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// Update rename renderer size
+		if m.renameRenderer != nil {
+			m.renameRenderer.SetSize(msg.Width, msg.Height)
+		}
 		m.updateViewportSizes()
 		
 
@@ -435,6 +454,24 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.originalContent = ""
 		// Force a redraw to ensure layout is recalculated
 		return m, tea.ClearScreen
+	
+	case RenameSuccessMsg:
+		// Handle successful rename (same as Main List view)
+		m.renameState.Reset()
+		// Reload components to show new names
+		m.loadAvailableComponents()
+		// If a pipeline was renamed, update the pipeline path
+		if msg.ItemType == "pipeline" && m.pipeline != nil {
+			m.pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(msg.NewName)+".yaml")
+			m.pipeline.Name = msg.NewName
+			m.nameInput = msg.NewName
+		}
+		return m, nil
+	
+	case RenameErrorMsg:
+		// Handle rename error (same as Main List view)
+		m.renameState.ValidationError = msg.Error.Error()
+		return m, nil
 
 
 	case tea.KeyMsg:
@@ -451,6 +488,27 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle archive confirmation
 		if m.archiveConfirm.Active() {
 			return m, m.archiveConfirm.Update(msg)
+		}
+		
+		// Handle rename mode
+		if m.renameState.IsActive() {
+			handled, cmd := m.renameState.HandleInput(msg)
+			if handled {
+				// Check if rename was completed
+				if !m.renameState.IsActive() {
+					// Rename completed, refresh the components list
+					m.loadAvailableComponents()
+					// If a pipeline was renamed, update the pipeline path
+					if m.renameState.GetItemType() == "pipeline" && m.pipeline != nil {
+						// Update the pipeline path with the new name
+						newName := m.renameState.GetNewName()
+						m.pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(newName)+".yaml")
+						m.pipeline.Name = newName
+						m.nameInput = newName
+					}
+				}
+				return m, cmd
+			}
 		}
 		
 		// Handle component creation mode
@@ -790,6 +848,30 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 			
+		case "R":
+			// Rename - context aware based on active column
+			if m.renameState.IsActive() {
+				// Already in rename mode, ignore
+				return m, nil
+			}
+			
+			if m.activeColumn == leftColumn {
+				// Rename component
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					// Start rename for component
+					m.renameState.StartRename(comp.path, comp.name, "component")
+				}
+			} else if m.activeColumn == rightColumn {
+				// Rename the pipeline being edited
+				if m.pipeline != nil && m.pipeline.Path != "" {
+					// Use the pipeline's display name from the Name field
+					m.renameState.StartRename(m.pipeline.Path, m.pipeline.Name, "pipeline")
+				}
+			}
+			return m, nil
+			
 		case "/":
 			// Jump to search
 			m.activeColumn = searchColumn
@@ -1046,6 +1128,15 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *PipelineBuilderModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'Esc' to return", m.err)
+	}
+
+	// If rename is active, show only the rename dialog (same as Main List view)
+	if m.renameState != nil && m.renameState.IsActive() && m.renameRenderer != nil {
+		// Ensure renderer has correct dimensions
+		if m.renameRenderer.Width == 0 || m.renameRenderer.Height == 0 {
+			m.renameRenderer.SetSize(m.width, m.height)
+		}
+		return m.renameRenderer.Render(m.renameState)
 	}
 
 	// If showing exit confirmation, display dialog
@@ -1564,7 +1655,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
+			{"n new", "e edit", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
@@ -1601,6 +1692,10 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.height = height
 	// Update search bar width
 	m.searchBar.SetWidth(width)
+	// Update rename renderer size
+	if m.renameRenderer != nil {
+		m.renameRenderer.SetSize(width, height)
+	}
 	m.updateViewportSizes()
 }
 

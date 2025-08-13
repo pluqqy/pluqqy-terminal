@@ -13,6 +13,7 @@ const (
 )
 
 type Component struct {
+	Name     string
 	Path     string
 	Type     string
 	Content  string

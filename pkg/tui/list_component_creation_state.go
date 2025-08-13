@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
@@ -169,40 +170,46 @@ func (c *ComponentCreator) HandleContentEdit(msg tea.KeyMsg) (bool, error) {
 
 // SaveComponent saves the component to disk
 func (c *ComponentCreator) SaveComponent() error {
-	// Ensure directory exists
-	var dir string
+	// Determine the component subdirectory
+	var subDir string
 	switch c.componentCreationType {
 	case models.ComponentTypeContext:
-		dir = ".pluqqy/components/contexts"
+		subDir = models.ComponentTypeContext
 	case models.ComponentTypePrompt:
-		dir = ".pluqqy/components/prompts"
+		subDir = models.ComponentTypePrompt
 	case models.ComponentTypeRules:
-		dir = ".pluqqy/components/rules"
+		subDir = models.ComponentTypeRules
 	default:
 		return fmt.Errorf("unknown component type: %s", c.componentCreationType)
 	}
 	
+	// Ensure directory exists
+	dir := filepath.Join(files.PluqqyDir, files.ComponentsDir, subDir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
 	
 	// Generate filename
 	filename := sanitizeFileName(c.componentName) + ".md"
-	fullPath := filepath.Join(dir, filename)
+	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
+	fullPath := filepath.Join(files.PluqqyDir, relativePath)
 	
 	// Check if file already exists
 	if _, err := os.Stat(fullPath); err == nil {
 		return fmt.Errorf("component already exists: %s", filename)
 	}
 	
-	// Write the file
+	// Prepare content
 	content := c.componentContent
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
 	
-	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-		return fmt.Errorf("failed to write file: %w", err)
+	// Use the files package to write with name in frontmatter
+	// The display name is the component name provided by the user
+	err := files.WriteComponentWithNameAndTags(relativePath, content, c.componentName, nil)
+	if err != nil {
+		return fmt.Errorf("failed to write component: %w", err)
 	}
 	
 	return nil

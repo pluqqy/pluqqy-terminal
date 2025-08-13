@@ -86,6 +86,11 @@ type MainListModel struct {
 	// Mermaid diagram generation
 	mermaidState    *MermaidState
 	mermaidOperator *MermaidOperator
+	
+	// Rename functionality
+	renameState    *RenameState
+	renameRenderer *RenameRenderer
+	renameOperator *RenameOperator
 }
 
 func (m *MainListModel) performSearch() {
@@ -209,8 +214,16 @@ func (m *MainListModel) getEditingItemName() string {
 func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
+		// Handle rename mode input first if active
+		if m.renameState.Active {
+			handled, cmd := m.renameState.HandleInput(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		
 		// Handle search input when search pane is active
-		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() {
+		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() && !m.renameState.Active {
 			var cmd tea.Cmd
 			m.searchBar, cmd = m.searchBar.Update(msg)
 			
@@ -612,7 +625,53 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
+		
+		case "R": // Uppercase R for rename (destructive operation)
+			// Handle rename mode input first if active
+			if m.renameState.Active {
+				handled, cmd := m.renameState.HandleInput(msg)
+				if handled {
+					return m, cmd
+				}
+			} else {
+				// Start rename mode
+				if m.stateManager.ActivePane == componentsPane {
+					components := m.getCurrentComponents()
+					if len(components) > 0 && m.stateManager.ComponentCursor < len(components) {
+						comp := components[m.stateManager.ComponentCursor]
+						// Prepare component for renaming
+						displayName, path, isArchived := m.renameOperator.PrepareRenameComponent(comp)
+						m.renameState.Start(displayName, "component", path, isArchived)
+					}
+				} else if m.stateManager.ActivePane == pipelinesPane {
+					pipelines := m.getCurrentPipelines()
+					if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+						pipeline := pipelines[m.stateManager.PipelineCursor]
+						// Prepare pipeline for renaming
+						displayName, path, isArchived := m.renameOperator.PrepareRenamePipeline(pipeline)
+						m.renameState.Start(displayName, "pipeline", path, isArchived)
+					}
+				}
+			}
 		}
+	
+	case RenameSuccessMsg:
+		// Handle successful rename
+		m.renameState.Reset()
+		// Reload data
+		m.reloadComponents()
+		m.loadPipelines()
+		// Re-run search if active
+		if m.searchQuery != "" {
+			m.performSearch()
+		}
+		// Show success message (could be shown in status bar if available)
+		return m, nil
+	
+	case RenameErrorMsg:
+		// Handle rename error
+		m.renameState.ValidationError = msg.Error.Error()
+		return m, nil
 	
 	case ReloadMsg:
 		// Reload data after tag editing
@@ -891,6 +950,11 @@ func (m *MainListModel) View() string {
 
 	finalView := s.String()
 	
+	// Overlay rename dialog if active
+	if m.renameState != nil && m.renameState.Active && m.renameRenderer != nil {
+		finalView = m.renameRenderer.RenderOverlay(finalView, m.renameState)
+	}
+	
 	// Overlay tag reload status if active
 	if m.tagReloader != nil && m.tagReloader.IsActive() && m.tagReloadRenderer != nil {
 		overlay := m.tagReloadRenderer.RenderStatus(m.tagReloader)
@@ -911,6 +975,10 @@ func (m *MainListModel) SetSize(width, height int) {
 	// Update tag reload renderer size
 	if m.tagReloadRenderer != nil {
 		m.tagReloadRenderer.SetSize(width, height)
+	}
+	// Update rename renderer size
+	if m.renameRenderer != nil {
+		m.renameRenderer.SetSize(width, height)
 	}
 	m.updateViewportSizes()
 }
