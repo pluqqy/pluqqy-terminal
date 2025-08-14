@@ -40,6 +40,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 	// Track which types we've seen and their components
 	typeGroups := make(map[string][]componentWithContent)
 	typeOrder := []string{}
+	var missingComponents []string
 
 	// Load all components and group by type
 	for _, compRef := range sortedComponents {
@@ -50,7 +51,9 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		
 		component, err := files.ReadComponent(componentPath)
 		if err != nil {
-			return "", fmt.Errorf("failed to read component '%s' for pipeline '%s': %w", compRef.Path, pipeline.Name, err)
+			// Track missing components instead of failing immediately
+			missingComponents = append(missingComponents, compRef.Path)
+			continue
 		}
 
 		if _, exists := typeGroups[compRef.Type]; !exists {
@@ -61,6 +64,17 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 			ref:     compRef,
 			content: component.Content,
 		})
+	}
+
+	// If there are missing components, add a warning section
+	if len(missingComponents) > 0 {
+		output.WriteString("⚠️ **Warning: Missing Components**\n\n")
+		output.WriteString("The following components could not be found:\n")
+		for _, path := range missingComponents {
+			output.WriteString(fmt.Sprintf("- %s\n", path))
+		}
+		output.WriteString("\nThese components may have been deleted or moved. Consider updating this pipeline.\n\n")
+		output.WriteString("---\n\n")
 	}
 
 	// Write components grouped by type, ordered by settings.Sections

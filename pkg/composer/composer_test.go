@@ -129,16 +129,22 @@ func TestComposePipelineErrors(t *testing.T) {
 		t.Error("Expected error for pipeline with no components")
 	}
 
-	// Test missing component file
+	// Test missing component file - should now succeed with warning
 	pipeline = &models.Pipeline{
 		Name: "missing-component",
 		Components: []models.ComponentRef{
 			{Type: models.ComponentTypePrompt, Path: "nonexistent.md", Order: 1},
 		},
 	}
-	_, err = ComposePipeline(pipeline)
-	if err == nil {
-		t.Error("Expected error for missing component file")
+	output, err := ComposePipeline(pipeline)
+	if err != nil {
+		t.Errorf("Should not error for missing component file, got: %v", err)
+	}
+	if !strings.Contains(output, "Warning: Missing Components") {
+		t.Error("Expected warning about missing components in output")
+	}
+	if !strings.Contains(output, "nonexistent.md") {
+		t.Error("Expected missing component path in warning")
 	}
 }
 

@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 
@@ -250,6 +251,146 @@ func makeRelativePath(componentPath, pipelinePath string) string {
 	
 	// Default to relative path with "../"
 	return "../" + componentPath
+}
+
+// RemoveComponentReferences removes all references to a deleted component from pipelines
+func RemoveComponentReferences(componentPath string) error {
+	// Normalize path for comparison
+	componentPath = filepath.Clean(componentPath)
+	
+	// Track updated pipelines for potential rollback
+	updatedPipelines := []struct {
+		path     string
+		original []byte
+	}{}
+	
+	// Update active pipelines
+	activePipelines, err := ListPipelines()
+	if err != nil {
+		return fmt.Errorf("failed to list active pipelines: %w", err)
+	}
+	
+	for _, pipelineName := range activePipelines {
+		// Read the pipeline
+		pipeline, err := ReadPipeline(pipelineName)
+		if err != nil {
+			continue // Skip pipelines that can't be read
+		}
+		
+		// Check if this pipeline references the component
+		modified := false
+		newComponents := []models.ComponentRef{}
+		
+		for _, comp := range pipeline.Components {
+			// Normalize component path for comparison
+			compPath := filepath.Clean(comp.Path)
+			
+			// Keep components that don't match the deleted one
+			if !matchesPath(compPath, componentPath) {
+				newComponents = append(newComponents, comp)
+			} else {
+				modified = true
+			}
+		}
+		
+		// Save if modified
+		if modified {
+			pipelinePath := filepath.Join(PluqqyDir, PipelinesDir, pipelineName)
+			
+			// Store original for rollback
+			original, _ := readRawFile(pipelinePath)
+			updatedPipelines = append(updatedPipelines, struct {
+				path     string
+				original []byte
+			}{pipelinePath, original})
+			
+			// Update pipeline components
+			pipeline.Components = newComponents
+			
+			// If pipeline has no components left, write directly without validation
+			if len(newComponents) == 0 {
+				// Marshal and write directly to bypass validation
+				pipelineData, err := yaml.Marshal(pipeline)
+				if err != nil {
+					rollbackPipelines(updatedPipelines)
+					return fmt.Errorf("failed to marshal pipeline %s: %w", pipelineName, err)
+				}
+				
+				if err := os.WriteFile(pipelinePath, pipelineData, 0644); err != nil {
+					rollbackPipelines(updatedPipelines)
+					return fmt.Errorf("failed to update pipeline %s: %w", pipelineName, err)
+				}
+			} else {
+				// Write updated pipeline normally with validation
+				if err := WritePipeline(pipeline); err != nil {
+					// Rollback all changes
+					rollbackPipelines(updatedPipelines)
+					return fmt.Errorf("failed to update pipeline %s: %w", pipelineName, err)
+				}
+			}
+		}
+	}
+	
+	// Update archived pipelines
+	archivedPipelines, err := ListArchivedPipelines()
+	if err != nil {
+		// Don't fail if we can't access archived pipelines
+		return nil
+	}
+	
+	for _, pipelineName := range archivedPipelines {
+		// Read the archived pipeline
+		pipeline, err := ReadArchivedPipeline(pipelineName)
+		if err != nil {
+			continue // Skip pipelines that can't be read
+		}
+		
+		// Check if this pipeline references the component
+		modified := false
+		newComponents := []models.ComponentRef{}
+		
+		for _, comp := range pipeline.Components {
+			// Normalize component path for comparison
+			compPath := filepath.Clean(comp.Path)
+			
+			// Keep components that don't match the deleted one
+			if !matchesPath(compPath, componentPath) {
+				newComponents = append(newComponents, comp)
+			} else {
+				modified = true
+			}
+		}
+		
+		// Save if modified
+		if modified {
+			pipelinePath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, pipelineName)
+			
+			// Store original for rollback
+			original, _ := readRawFile(pipelinePath)
+			updatedPipelines = append(updatedPipelines, struct {
+				path     string
+				original []byte
+			}{pipelinePath, original})
+			
+			// Update pipeline components
+			pipeline.Components = newComponents
+			
+			// Write updated pipeline directly to archive
+			pipelineData, err := yaml.Marshal(pipeline)
+			if err != nil {
+				rollbackPipelines(updatedPipelines)
+				return fmt.Errorf("failed to marshal archived pipeline %s: %w", pipelineName, err)
+			}
+			
+			if err := os.WriteFile(pipelinePath, pipelineData, 0644); err != nil {
+				// Rollback all changes
+				rollbackPipelines(updatedPipelines)
+				return fmt.Errorf("failed to update archived pipeline %s: %w", pipelineName, err)
+			}
+		}
+	}
+	
+	return nil
 }
 
 // rollbackPipelines restores pipelines to their original state

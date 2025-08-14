@@ -662,7 +662,7 @@ func DeletePipeline(path string) error {
 	return nil
 }
 
-// DeleteComponent removes a component file
+// DeleteComponent removes a component file and updates all pipeline references
 func DeleteComponent(path string) error {
 	if err := validatePath(path); err != nil {
 		return fmt.Errorf("invalid component path: %w", err)
@@ -673,6 +673,11 @@ func DeleteComponent(path string) error {
 	// Check if file exists
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		return fmt.Errorf("component not found at path '%s'", path)
+	}
+	
+	// First, remove references from all pipelines
+	if err := RemoveComponentReferences(path); err != nil {
+		return fmt.Errorf("failed to remove component references from pipelines: %w", err)
 	}
 	
 	// Remove the file
