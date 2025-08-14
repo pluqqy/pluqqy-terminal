@@ -41,6 +41,9 @@ func NewMainListModel() *MainListModel {
 		renameState:        NewRenameState(),
 		renameRenderer:     NewRenameRenderer(),
 		renameOperator:     NewRenameOperator(),
+		cloneState:         NewCloneState(),
+		cloneRenderer:      NewCloneRenderer(),
+		cloneOperator:      NewCloneOperator(),
 	}
 	// Enable enhanced editor by default (can be configured later)
 	m.useEnhancedEditor = true

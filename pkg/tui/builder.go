@@ -78,6 +78,9 @@ type PipelineBuilderModel struct {
 	editingComponentName  string
 	editSaveMessage       string
 	
+	// General status message (for clone, rename, etc.)
+	statusMessage         string
+	
 	// Enhanced editor for component editing
 	// The enhanced editor provides advanced text editing features including:
 	// - Multi-line editing with proper cursor movement
@@ -121,6 +124,11 @@ type PipelineBuilderModel struct {
 	renameState    *RenameState
 	renameRenderer *RenameRenderer
 	renameOperator *RenameOperator
+	
+	// Clone functionality
+	cloneState    *CloneState
+	cloneRenderer *CloneRenderer
+	cloneOperator *CloneOperator
 	
 	// Mermaid diagram generation
 	mermaidState    *MermaidState
@@ -437,6 +445,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		// Update clone renderer size
+		if m.cloneRenderer != nil {
+			m.cloneRenderer.SetSize(msg.Width, msg.Height)
+		}
 		// Update rename renderer size
 		if m.renameRenderer != nil {
 			m.renameRenderer.SetSize(msg.Width, msg.Height)
@@ -458,6 +470,28 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.originalContent = ""
 		// Force a redraw to ensure layout is recalculated
 		return m, tea.ClearScreen
+	
+	case CloneSuccessMsg:
+		// Handle successful clone
+		m.cloneState.Reset()
+		// Reload components to show new items
+		m.loadAvailableComponents()
+		// Set success message using StatusMsg
+		statusText := fmt.Sprintf("✓ Cloned %s '%s' to '%s'", msg.ItemType, msg.OriginalName, msg.NewName)
+		if msg.ClonedToArchive {
+			statusText += " (in archive)"
+		}
+		return m, func() tea.Msg {
+			return StatusMsg(statusText)
+		}
+	
+	case CloneErrorMsg:
+		// Handle clone error
+		m.cloneState.ValidationError = msg.Error.Error()
+		// Set error message using StatusMsg
+		return m, func() tea.Msg {
+			return StatusMsg(fmt.Sprintf("✗ Clone failed: %v", msg.Error))
+		}
 	
 	case RenameSuccessMsg:
 		// Handle successful rename (same as Main List view)
@@ -492,6 +526,14 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle archive confirmation
 		if m.archiveConfirm.Active() {
 			return m, m.archiveConfirm.Update(msg)
+		}
+		
+		// Handle clone mode
+		if m.cloneState.IsActive() {
+			handled, cmd := m.cloneState.HandleInput(msg)
+			if handled {
+				return m, cmd
+			}
 		}
 		
 		// Handle rename mode
@@ -852,6 +894,37 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 			
+		case "C":
+			// Clone - context aware based on active column
+			if m.cloneState.IsActive() {
+				// Already in clone mode, ignore
+				return m, nil
+			}
+			
+			if m.activeColumn == leftColumn {
+				// Clone component
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					// Start clone for component
+					displayName, path, isArchived := m.cloneOperator.PrepareCloneComponent(comp)
+					m.cloneState.Start(displayName, "component", path, isArchived)
+				}
+			} else if m.activeColumn == rightColumn {
+				// Clone the pipeline being edited
+				if m.pipeline != nil && m.pipeline.Path != "" {
+					// Use the pipeline's display name from the Name field
+					pipelineItem := pipelineItem{
+						name: m.pipeline.Name,
+						path: m.pipeline.Path,
+						isArchived: false, // Builder only works with active pipelines
+					}
+					displayName, path, isArchived := m.cloneOperator.PrepareClonePipeline(pipelineItem)
+					m.cloneState.Start(displayName, "pipeline", path, isArchived)
+				}
+			}
+			return m, nil
+			
 		case "R":
 			// Rename - context aware based on active column
 			if m.renameState.IsActive() {
@@ -1149,15 +1222,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 func (m *PipelineBuilderModel) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("Error: %v\n\nPress 'Esc' to return", m.err)
-	}
-
-	// If rename is active, show only the rename dialog (same as Main List view)
-	if m.renameState != nil && m.renameState.IsActive() && m.renameRenderer != nil {
-		// Ensure renderer has correct dimensions
-		if m.renameRenderer.Width == 0 || m.renameRenderer.Height == 0 {
-			m.renameRenderer.SetSize(m.width, m.height)
-		}
-		return m.renameRenderer.Render(m.renameState)
 	}
 
 	// If showing exit confirmation, display dialog
@@ -1682,7 +1746,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "M mermaid", "esc back", "^c quit"},
+			{"n new", "e edit", "C clone", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "M mermaid", "esc back", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
@@ -1711,7 +1775,21 @@ func (m *PipelineBuilderModel) View() string {
 	
 	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
 
-	return s.String()
+	finalView := s.String()
+	
+	// Overlay clone dialog if active
+	if m.cloneState != nil && m.cloneState.Active && m.cloneRenderer != nil {
+		m.cloneRenderer.SetSize(m.width, m.height)
+		finalView = m.cloneRenderer.RenderOverlay(finalView, m.cloneState)
+	}
+	
+	// Overlay rename dialog if active
+	if m.renameState != nil && m.renameState.Active && m.renameRenderer != nil {
+		m.renameRenderer.SetSize(m.width, m.height)
+		finalView = m.renameRenderer.RenderOverlay(finalView, m.renameState)
+	}
+
+	return finalView
 }
 
 func (m *PipelineBuilderModel) SetSize(width, height int) {
@@ -1719,6 +1797,10 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 	m.height = height
 	// Update search bar width
 	m.searchBar.SetWidth(width)
+	// Update clone renderer size
+	if m.cloneRenderer != nil {
+		m.cloneRenderer.SetSize(width, height)
+	}
 	// Update rename renderer size
 	if m.renameRenderer != nil {
 		m.renameRenderer.SetSize(width, height)

@@ -91,6 +91,11 @@ type MainListModel struct {
 	renameState    *RenameState
 	renameRenderer *RenameRenderer
 	renameOperator *RenameOperator
+	
+	// Clone functionality
+	cloneState    *CloneState
+	cloneRenderer *CloneRenderer
+	cloneOperator *CloneOperator
 }
 
 func (m *MainListModel) performSearch() {
@@ -214,7 +219,15 @@ func (m *MainListModel) getEditingItemName() string {
 func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
-		// Handle rename mode input first if active
+		// Handle clone mode input first if active
+		if m.cloneState.Active {
+			handled, cmd := m.cloneState.HandleInput(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		
+		// Handle rename mode input if active
 		if m.renameState.Active {
 			handled, cmd := m.renameState.HandleInput(msg)
 			if handled {
@@ -223,7 +236,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle search input when search pane is active
-		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() && !m.renameState.Active {
+		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() && !m.renameState.Active && !m.cloneState.Active {
 			var cmd tea.Cmd
 			m.searchBar, cmd = m.searchBar.Update(msg)
 			
@@ -626,6 +639,26 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		
+		case "C": // Uppercase C for clone/duplicate
+			// Start clone mode
+			if m.stateManager.ActivePane == componentsPane {
+				components := m.getCurrentComponents()
+				if len(components) > 0 && m.stateManager.ComponentCursor < len(components) {
+					comp := components[m.stateManager.ComponentCursor]
+					// Prepare component for cloning
+					displayName, path, isArchived := m.cloneOperator.PrepareCloneComponent(comp)
+					m.cloneState.Start(displayName, "component", path, isArchived)
+				}
+			} else if m.stateManager.ActivePane == pipelinesPane {
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					pipeline := pipelines[m.stateManager.PipelineCursor]
+					// Prepare pipeline for cloning
+					displayName, path, isArchived := m.cloneOperator.PrepareClonePipeline(pipeline)
+					m.cloneState.Start(displayName, "pipeline", path, isArchived)
+				}
+			}
+		
 		case "R": // Uppercase R for rename (destructive operation)
 			// Handle rename mode input first if active
 			if m.renameState.Active {
@@ -672,6 +705,33 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Handle rename error
 		m.renameState.ValidationError = msg.Error.Error()
 		return m, nil
+	
+	case CloneSuccessMsg:
+		// Handle successful clone
+		m.cloneState.Reset()
+		// Reload data
+		m.reloadComponents()
+		m.loadPipelines()
+		// Re-run search if active
+		if m.searchQuery != "" {
+			m.performSearch()
+		}
+		// Show success message
+		statusText := fmt.Sprintf("✓ Cloned %s '%s' to '%s'", msg.ItemType, msg.OriginalName, msg.NewName)
+		if msg.ClonedToArchive {
+			statusText += " (in archive)"
+		}
+		return m, func() tea.Msg {
+			return StatusMsg(statusText)
+		}
+	
+	case CloneErrorMsg:
+		// Handle clone error
+		m.cloneState.ValidationError = msg.Error.Error()
+		// Show error message
+		return m, func() tea.Msg {
+			return StatusMsg(fmt.Sprintf("✗ Clone failed: %v", msg.Error))
+		}
 	
 	case ReloadMsg:
 		// Reload data after tag editing
@@ -949,6 +1009,12 @@ func (m *MainListModel) View() string {
 	s.WriteString(mainRenderer.RenderHelpPane(m.stateManager.IsInSearchPane()))
 
 	finalView := s.String()
+	
+	// Overlay clone dialog if active
+	if m.cloneState != nil && m.cloneState.Active && m.cloneRenderer != nil {
+		m.cloneRenderer.SetSize(m.width, m.height)
+		finalView = m.cloneRenderer.RenderOverlay(finalView, m.cloneState)
+	}
 	
 	// Overlay rename dialog if active
 	if m.renameState != nil && m.renameState.Active && m.renameRenderer != nil {

@@ -54,6 +54,9 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		renameState:        NewRenameState(),
 		renameRenderer:     NewRenameRenderer(),
 		renameOperator:     NewRenameOperator(),
+		cloneState:         NewCloneState(),
+		cloneRenderer:      NewCloneRenderer(),
+		cloneOperator:      NewCloneOperator(),
 	}
 	
 	// Initialize mermaid state and operator

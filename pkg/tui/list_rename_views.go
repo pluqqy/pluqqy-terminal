@@ -108,19 +108,36 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 		}
 	}
 
-	// Help text
+	// Help text with colored key backgrounds
 	b.WriteString("\n")
-	helpText := ""
+	
+	// Create styles for the keys
+	enterKeyStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(ColorSuccess)).
+		Foreground(lipgloss.Color(ColorWhite)).
+		Padding(0, 1).
+		Bold(true)
+	
+	escKeyStyle := lipgloss.NewStyle().
+		Background(lipgloss.Color(ColorDanger)).
+		Foreground(lipgloss.Color(ColorWhite)).
+		Padding(0, 1).
+		Bold(true)
+	
+	// Build help text with colored keys
+	var helpParts []string
+	
 	if state.IsValid() {
-		helpText = "[Enter] Save  [Esc] Cancel"
-	} else if state.ValidationError != "" {
-		helpText = "[Esc] Cancel"
+		helpParts = append(helpParts, enterKeyStyle.Render("Enter")+" Save")
+		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
 	} else if state.NewName == state.OriginalName {
-		helpText = "[Esc] Cancel  (no changes)"
+		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
+		helpParts = append(helpParts, DescriptionStyle.Render("(no changes)"))
 	} else {
-		helpText = "[Enter] Save  [Esc] Cancel"
+		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
 	}
-	b.WriteString(DescriptionStyle.Render(helpText))
+	
+	b.WriteString(strings.Join(helpParts, "  "))
 
 	// Calculate dialog dimensions
 	dialogWidth := rr.Width / 2
