@@ -1570,7 +1570,9 @@ func (m *PipelineBuilderModel) View() string {
 			components := m.getAllAvailableComponents()
 			if m.leftCursor >= 0 && m.leftCursor < len(components) {
 				comp := components[m.leftCursor]
-				previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", comp.name)
+				// Use the actual filename from the path
+				componentFilename := filepath.Base(comp.path)
+				previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", componentFilename)
 			} else {
 				previewHeading = "COMPONENT PREVIEW"
 			}

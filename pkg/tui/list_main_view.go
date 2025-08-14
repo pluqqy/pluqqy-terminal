@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"path/filepath"
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
@@ -104,7 +105,9 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 		previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 	} else if r.LastDataPane == componentsPane && len(components) > 0 && componentCursor >= 0 && componentCursor < len(components) {
 		comp := components[componentCursor]
-		previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", comp.name)
+		// Use the actual filename from the path
+		componentFilename := filepath.Base(comp.path)
+		previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", componentFilename)
 	} else {
 		previewHeading = "PREVIEW"
 	}
