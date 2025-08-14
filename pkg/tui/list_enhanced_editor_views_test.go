@@ -140,14 +140,14 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 			name:          "renders normal editing mode",
 			width:         80,
 			height:        24,
-			componentName: "test.md",
+			componentName: "Test Component",
 			componentType: "prompt",
 			content:       "# Test Component\nSome content here",
 			tags:          []string{"tag1", "tag2"},
 			hasUnsaved:    false,
 			validateOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "EDITING: TEST.MD") {
-					t.Error("Expected header to contain 'EDITING: TEST.MD'")
+				if !strings.Contains(output, "EDITING: Test Component") {
+					t.Error("Expected header to contain 'EDITING: Test Component'")
 				}
 				if !strings.Contains(output, "○ Saved") {
 					t.Error("Expected status bar to show saved status")
@@ -164,14 +164,14 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 			name:          "renders with unsaved changes",
 			width:         80,
 			height:        24,
-			componentName: "modified.yaml",
+			componentName: "Modified Config",
 			componentType: "context",
 			content:       "modified content",
 			tags:          []string{},
 			hasUnsaved:    true,
 			validateOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "EDITING: MODIFIED.YAML") {
-					t.Error("Expected header to contain 'EDITING: MODIFIED.YAML'")
+				if !strings.Contains(output, "EDITING: Modified Config") {
+					t.Error("Expected header to contain 'EDITING: Modified Config'")
 				}
 				if !strings.Contains(output, "● Modified") {
 					t.Error("Expected status bar to show modified status")
@@ -182,14 +182,14 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 			name:          "renders with long component name",
 			width:         80,
 			height:        24,
-			componentName: "very-long-component-name-that-might-overflow.md",
+			componentName: "Very Long Component Name That Might Overflow",
 			componentType: "rule",
 			content:       "",
 			tags:          []string{"long", "name", "test"},
 			hasUnsaved:    false,
 			validateOutput: func(t *testing.T, output string) {
-				if !strings.Contains(strings.ToUpper(output), "VERY-LONG-COMPONENT-NAME-THAT-MIGHT-OVERFLOW.MD") {
-					t.Error("Expected header to contain full component name in uppercase")
+				if !strings.Contains(output, "Very Long Component Name That Might Overflow") {
+					t.Error("Expected header to contain full component name")
 				}
 			},
 		},
@@ -197,13 +197,13 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 			name:          "renders with small dimensions",
 			width:         40,
 			height:        10,
-			componentName: "small.md",
+			componentName: "Small Component",
 			componentType: "prompt",
 			content:       "small",
 			tags:          []string{},
 			hasUnsaved:    false,
 			validateOutput: func(t *testing.T, output string) {
-				if !strings.Contains(output, "EDITING: SMALL.MD") {
+				if !strings.Contains(output, "EDITING: Small Component") {
 					t.Error("Expected header to contain component name even with small dimensions")
 				}
 			},
@@ -245,7 +245,7 @@ func TestEnhancedEditorRenderer_Render_FilePickerMode(t *testing.T) {
 			name:          "renders file picker mode",
 			width:         80,
 			height:        24,
-			componentName: "test.md",
+			componentName: "Test Component",
 			validateOutput: func(t *testing.T, output string) {
 				if !strings.Contains(output, "SELECT FILE REFERENCE") {
 					t.Error("Expected header to contain 'SELECT FILE REFERENCE'")
@@ -321,21 +321,21 @@ func TestEnhancedEditorRenderer_renderHeader(t *testing.T) {
 			name:          "renders basic header",
 			width:         80,
 			componentName: "test.md",
-			expected:      []string{"EDITING:", "TEST.MD"},
+			expected:      []string{"EDITING:", "test.md"},
 			notExpected:   []string{},
 		},
 		{
 			name:          "renders header with special characters",
 			width:         80,
-			componentName: "test-file_with.special@chars.md",
-			expected:      []string{"EDITING:", "TEST-FILE_WITH.SPECIAL@CHARS.MD"},
+			componentName: "Test File With Special@Chars",
+			expected:      []string{"EDITING:", "Test File With Special@Chars"},
 			notExpected:   []string{},
 		},
 		{
 			name:          "renders header with short name",
 			width:         120,
-			componentName: "a.md",
-			expected:      []string{"EDITING:", "A.MD", ":"},
+			componentName: "A",
+			expected:      []string{"EDITING:", "A", ":"},
 			notExpected:   []string{},
 		},
 		{
@@ -793,12 +793,12 @@ func TestEnhancedEditorRenderer_Consistency(t *testing.T) {
 			t.Error("Expected different output for different states")
 		}
 		
-		// Verify they contain their respective component names (in uppercase)
-		if !strings.Contains(result1, "TEST1") {
-			t.Errorf("Expected result1 to contain TEST1, got: %q", result1[:min(200, len(result1))])
+		// Verify they contain their respective component names
+		if !strings.Contains(result1, "test1") {
+			t.Errorf("Expected result1 to contain test1, got: %q", result1[:min(200, len(result1))])
 		}
-		if !strings.Contains(result2, "TEST2") {
-			t.Errorf("Expected result2 to contain TEST2, got: %q", result2[:min(200, len(result2))])
+		if !strings.Contains(result2, "test2") {
+			t.Errorf("Expected result2 to contain test2, got: %q", result2[:min(200, len(result2))])
 		}
 	})
 }

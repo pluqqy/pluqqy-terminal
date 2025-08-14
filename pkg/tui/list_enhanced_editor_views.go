@@ -128,7 +128,7 @@ func (r *EnhancedEditorRenderer) renderHeaderWithTokens(state *EnhancedEditorSta
 	
 	// Left side: title
 	titleStyle := GetActiveHeaderStyle(true)
-	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(state.ComponentName))
+	heading := fmt.Sprintf("EDITING: %s", state.ComponentName)
 	
 	// Right side: token count
 	tokenCount := utils.EstimateTokens(state.Content)

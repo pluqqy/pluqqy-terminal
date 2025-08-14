@@ -44,7 +44,7 @@ func (r *ComponentEditingViewRenderer) RenderEditView(componentName, content str
 	
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
-	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(componentName))
+	heading := fmt.Sprintf("EDITING: %s", componentName)
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0

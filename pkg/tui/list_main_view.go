@@ -100,7 +100,7 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 	
 	// Determine what we're previewing based on lastDataPane
 	if r.LastDataPane == pipelinesPane && len(pipelines) > 0 && pipelineCursor >= 0 && pipelineCursor < len(pipelines) {
-		pipelineName := pipelines[pipelineCursor].name
+		pipelineName := pipelines[pipelineCursor].path // Use path which contains the filename
 		previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 	} else if r.LastDataPane == componentsPane && len(components) > 0 && componentCursor >= 0 && componentCursor < len(components) {
 		comp := components[componentCursor]

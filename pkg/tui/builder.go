@@ -1576,8 +1576,12 @@ func (m *PipelineBuilderModel) View() string {
 			}
 		} else {
 			pipelineName := "PLUQQY.md"
-			if m.pipeline != nil && m.pipeline.Name != "" {
-				pipelineName = m.pipeline.Name + ".yaml"
+			if m.pipeline != nil && m.pipeline.Path != "" {
+				// Use the actual filename from the path
+				pipelineName = filepath.Base(m.pipeline.Path)
+			} else if m.pipeline != nil && m.pipeline.Name != "" {
+				// For new unsaved pipelines, use the name with .yaml extension
+				pipelineName = files.SanitizeFileName(m.pipeline.Name) + ".yaml"
 			}
 			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 		}
@@ -3558,7 +3562,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	heading := fmt.Sprintf("EDITING: %s", strings.ToUpper(m.editingComponentName))
+	heading := fmt.Sprintf("EDITING: %s", m.editingComponentName)
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
