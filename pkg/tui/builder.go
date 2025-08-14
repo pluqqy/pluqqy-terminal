@@ -122,6 +122,10 @@ type PipelineBuilderModel struct {
 	renameRenderer *RenameRenderer
 	renameOperator *RenameOperator
 	
+	// Mermaid diagram generation
+	mermaidState    *MermaidState
+	mermaidOperator *MermaidOperator
+	
 	// Change tracking
 	originalComponents    []models.ComponentRef // Original components for existing pipelines
 	originalContent       string                // Original content for component editing
@@ -869,6 +873,23 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					// Use the pipeline's display name from the Name field
 					m.renameState.StartRename(m.pipeline.Path, m.pipeline.Name, "pipeline")
 				}
+			}
+			return m, nil
+			
+		case "M":
+			// Generate mermaid diagram for current pipeline
+			if !m.mermaidState.IsGenerating() && m.pipeline != nil {
+				// Create a pipelineItem from the current pipeline
+				pipelineItem := pipelineItem{
+					name: m.pipeline.Name,
+					path: m.pipeline.Path,
+					tags: m.pipeline.Tags,
+				}
+				// If path is empty (new pipeline), use the name
+				if pipelineItem.path == "" {
+					pipelineItem.path = files.SanitizeFileName(m.pipeline.Name) + ".yaml"
+				}
+				return m, m.mermaidOperator.GeneratePipelineDiagram(pipelineItem)
 			}
 			return m, nil
 			
@@ -1661,7 +1682,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Row 1: Navigation & selection
 			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
 			// Row 2: CRUD operations & system
-			{"n new", "e edit", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "esc back", "^c quit"},
+			{"n new", "e edit", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "M mermaid", "esc back", "^c quit"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}

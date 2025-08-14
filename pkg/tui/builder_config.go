@@ -56,6 +56,11 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		renameOperator:     NewRenameOperator(),
 	}
 	
+	// Initialize mermaid state and operator
+	mermaidState := NewMermaidState()
+	m.mermaidState = mermaidState
+	m.mermaidOperator = NewMermaidOperator(mermaidState)
+	
 	// Initialize search engine
 	m.searchEngine = search.NewEngine()
 	
