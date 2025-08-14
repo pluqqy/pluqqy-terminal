@@ -86,7 +86,7 @@ func (r *ComponentTableRenderer) SetActive(active bool) {
 
 // MarkAsAdded marks a component as already added to the current selection.
 // This is primarily used by the Pipeline Builder to show which components
-// are already in the pipeline. Added components display a checkmark (✓).
+// are already in the pipeline. Added components display a checkmark (✓) prefix.
 //
 // The componentPath should match the path format used in componentItem.
 func (r *ComponentTableRenderer) MarkAsAdded(componentPath string) {
@@ -213,7 +213,7 @@ func (r *ComponentTableRenderer) buildTableContent(nameWidth, tagsWidth, tokenWi
 			nameStr = "[A] " + nameStr
 		}
 		if isAdded {
-			nameStr = nameStr + " ✓"
+			nameStr = "✓ " + nameStr
 		}
 		nameStr = truncateName(nameStr, nameWidth)
 
