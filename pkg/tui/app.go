@@ -13,7 +13,6 @@ type sessionState int
 const (
 	mainListView sessionState = iota
 	pipelineBuilderView
-	pipelineViewerView
 	settingsEditorView
 )
 
@@ -21,7 +20,6 @@ type App struct {
 	state          sessionState
 	mainList       *MainListModel
 	builder        *PipelineBuilderModel
-	viewer         *PipelineViewerModel
 	settingsEditor *SettingsEditorModel
 	width          int
 	height         int
@@ -57,9 +55,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		if a.builder != nil {
 			a.builder.SetSize(msg.Width, availableHeight)
-		}
-		if a.viewer != nil {
-			a.viewer.SetSize(msg.Width, availableHeight)
 		}
 		if a.settingsEditor != nil {
 			a.settingsEditor.SetSize(msg.Width, availableHeight)
@@ -205,19 +200,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.builder.SetSize(a.width, a.height-headerHeight-1) // -1 for status bar
 			}
 			return a, a.builder.Init()
-		case pipelineViewerView:
-			a.state = pipelineViewerView
-			if a.viewer == nil {
-				a.viewer = NewPipelineViewerModel()
-			}
-			// Set size if we have dimensions (header height already accounted for in WindowSizeMsg)
-			if a.width > 0 && a.height > 0 {
-				header := renderHeader(a.width, "")
-				headerHeight := lipgloss.Height(header)
-				a.viewer.SetSize(a.width, a.height-headerHeight-1) // -1 for status bar
-			}
-			a.viewer.SetPipeline(msg.pipeline)
-			return a, a.viewer.Init()
 		case settingsEditorView:
 			a.state = settingsEditorView
 			if a.settingsEditor == nil {
@@ -262,12 +244,6 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if pb, ok := m.(*PipelineBuilderModel); ok {
 			a.builder = pb
 		}
-	case pipelineViewerView:
-		var m tea.Model
-		m, cmd = a.viewer.Update(msg)
-		if pv, ok := m.(*PipelineViewerModel); ok {
-			a.viewer = pv
-		}
 	case settingsEditorView:
 		var m tea.Model
 		m, cmd = a.settingsEditor.Update(msg)
@@ -296,8 +272,6 @@ func (a *App) View() string {
 		content = a.mainList.View()
 	case pipelineBuilderView:
 		content = a.builder.View()
-	case pipelineViewerView:
-		content = a.viewer.View()
 	case settingsEditorView:
 		content = a.settingsEditor.View()
 	default:
@@ -424,7 +398,7 @@ func formatConfirmOptions(destructive bool) string {
 		Padding(0, 1).
 		Bold(true)
 
-	return yesStyle.Render("[Y]es") + "  /  " + noStyle.Render("[N]o")
+	return yesStyle.Render("Y") + " / " + noStyle.Render("N")
 }
 
 // Messages for communication between views

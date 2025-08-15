@@ -465,7 +465,7 @@ func (m *SettingsEditorModel) View() string {
 		
 	// Group help items logically
 	help := []string{
-		"↑/↓ navigate",
+		"↑↓ navigate",
 		"J/K move section",
 		"space toggle",
 		"enter edit",

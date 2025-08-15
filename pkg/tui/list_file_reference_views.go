@@ -211,7 +211,7 @@ func (r *FileReferenceRenderer) renderStatusBar(state *FileReferenceState) strin
 
 // renderHelp renders the help text
 func (r *FileReferenceRenderer) renderHelp() string {
-	help := "↑/↓: Navigate • Enter: Select • Esc: Cancel • Tab: Hidden • /: Filter"
+	help := "↑↓: Navigate • Enter: Select • Esc: Cancel • Tab: Hidden • /: Filter"
 
 	styled := DescriptionStyle.
 		Width(r.Width - 4).

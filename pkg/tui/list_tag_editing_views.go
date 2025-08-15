@@ -298,7 +298,7 @@ func (r *TagEditingViewRenderer) renderHelpSection() string {
 			"tab switch pane",
 			"enter add tag",
 			"←/→ select tag",
-			"↑/↓ navigate suggestions",
+			"↑↓ navigate suggestions",
 			"^d delete tag",
 			"^t reload tags",
 			"^s save",

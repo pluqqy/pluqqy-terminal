@@ -100,7 +100,7 @@ func (r *ComponentCreationViewRenderer) RenderTypeSelection(typeCursor int) stri
 	// Help section
 	help := []string{
 		"enter select",
-		"↑/↓ navigate",
+		"↑↓ navigate",
 		"esc cancel",
 	}
 

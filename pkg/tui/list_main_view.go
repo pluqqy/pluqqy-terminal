@@ -48,18 +48,37 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 	if searchActive {
 		// Show search syntax help when search is active
 		helpRows := [][]string{
-			{"esc clear+exit search", "enter search"},
+			{"tab switch pane", "esc clear+exit search"},
 			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
 		}
 		helpContent = formatHelpTextRows(helpRows, r.Width - 8) // -8 for borders and padding
 	} else {
 		// Show normal navigation help - grouped by function
-		helpRows := [][]string{
-			// Row 1: Navigation & viewing
-			{"/ search", "tab switch pane", "↑/↓ nav", "enter view", "p preview"},
-			// Row 2: CRUD operations & system
-			{"n new", "e edit", "C clone", "R rename", "^x external", "t tag", "M diagram", "^d delete", "a archive/unarchive", "S set", "s settings", "^c quit"},
+		var helpRows [][]string
+		
+		if r.ActivePane == previewPane {
+			// Preview pane active - minimal help
+			helpRows = [][]string{
+				{"/ search", "tab switch pane", "↑↓ nav", "p preview", "s settings", "^c quit"},
+			}
+		} else if r.ActivePane == pipelinesPane {
+			// Pipelines pane active - show M diagram and S set, hide ^x external
+			helpRows = [][]string{
+				// Row 1: Navigation & system
+				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "M diagram", "S set", "^c quit"},
+				// Row 2: Component operations
+				{"n new", "e edit", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive"},
+			}
+		} else {
+			// Components pane active - show ^x external, hide M diagram and S set
+			helpRows = [][]string{
+				// Row 1: Navigation & system
+				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "^c quit"},
+				// Row 2: Component operations
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive"},
+			}
 		}
+		
 		helpContent = formatHelpTextRows(helpRows, r.Width - 8) // -8 for borders and padding
 	}
 	

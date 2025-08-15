@@ -89,8 +89,7 @@ pluqqy
 | Key            | Action                                                             |
 | -------------- | ------------------------------------------------------------------ |
 | `Tab`          | Switch between pipelines and components panes                      |
-| `↑/↓` or `j/k` | Navigate items                                                     |
-| `Enter`        | View/edit pipeline or component                                    |
+| `↑↓` or `j/k` | Navigate items                                                     |
 | `e`            | Edit component in built-in editor / Edit pipeline in builder       |
 | `^x`           | Edit component with external editor (components pane only)         |
 | `t`            | Edit tags for selected component or pipeline                       |
@@ -109,28 +108,18 @@ pluqqy
 | Key                     | Action                                                                    |
 | ----------------------- | ------------------------------------------------------------------------- |
 | `Tab`                   | Switch between panes (available components, pipeline components, preview) |
-| `↑/↓`                   | Navigate items                                                            |
+| `↑↓`                   | Navigate items                                                            |
 | `Enter`                 | Add/remove component (toggles)                                            |
 | `n`                     | Create new component                                                      |
 | `e`                     | Edit component in built-in editor                                         |
 | `^x`                    | Edit component with external editor                                       |
 | `Del`, `d`, `Backspace` | Remove component from pipeline (right pane)                               |
-| `K/J` or `^↑/↓`         | Reorder pipeline components (move up/down)                                |
+| `K/J` or `^↑↓`         | Reorder pipeline components (move up/down)                                |
 | `p`                     | Toggle preview pane                                                       |
 | `^s`                    | Save pipeline                                                             |
 | `S`                     | Save and set as active pipeline                                           |
 | `Esc`                   | Back to main list (with unsaved changes confirmation)                     |
 
-#### Pipeline Viewer
-
-| Key   | Action                                      |
-| ----- | ------------------------------------------- |
-| `Tab` | Switch between components and preview panes |
-| `↑/↓` | Scroll in active pane                       |
-| `S`   | Set as active pipeline                      |
-| `e`   | Edit pipeline                               |
-| `Esc` | Back to pipeline list                       |
-| `^C`  | Quit                                        |
 
 #### Component Editor (Built-in Minimal Editor)
 
@@ -151,7 +140,7 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | Key           | Action                                          |
 | ------------- | ----------------------------------------------- |
 | Type directly | Enter content in the editor                     |
-| `↑/↓`         | Navigate through content                        |
+| `↑↓`         | Navigate through content                        |
 | `^z`          | Undo last change                                |
 | `^d`          | Clear all content                               |
 | `^l`          | Clean pasted content (removes TUI artifacts)    |

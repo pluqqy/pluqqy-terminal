@@ -281,7 +281,7 @@ func TestEnhancedEditorRenderer_Render_FilePickerMode(t *testing.T) {
 				if !strings.Contains(output, "SELECT FILE REFERENCE") {
 					t.Error("Expected header with large dimensions")
 				}
-				if !strings.Contains(output, "↑/↓ navigate") {
+				if !strings.Contains(output, "↑↓ navigate") {
 					t.Error("Expected navigation help text")
 				}
 			},
@@ -437,13 +437,13 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			width:        80,
 			mode:         EditorModeNormal,
 			expectedHelp: []string{"^s save", "^x external", "esc cancel", "@ insert file ref", "\\@ literal @"},
-			unexpectedHelp: []string{"enter select", "↑/↓ navigate"},
+			unexpectedHelp: []string{"enter select", "↑↓ navigate"},
 		},
 		{
 			name:           "renders file picker mode help",
 			width:          80,
 			mode:           EditorModeFilePicking,
-			expectedHelp:   []string{"↑/↓ navigate", "enter select", "esc cancel", "tab toggle hidden"},
+			expectedHelp:   []string{"↑↓ navigate", "enter select", "esc cancel", "tab toggle hidden"},
 			unexpectedHelp: []string{"^s save", "@ insert file ref"},
 		},
 		{
@@ -457,7 +457,7 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			name:         "renders help with large width",
 			width:        120,
 			mode:         EditorModeFilePicking,
-			expectedHelp: []string{"↑/↓ navigate", "enter select", "esc cancel"},
+			expectedHelp: []string{"↑↓ navigate", "enter select", "esc cancel"},
 			unexpectedHelp: []string{},
 		},
 	}

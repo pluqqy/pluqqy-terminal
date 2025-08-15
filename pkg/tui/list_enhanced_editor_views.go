@@ -296,7 +296,7 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	case EditorModeFilePicking:
 		help = []string{
 			"1-5 recent files",
-			"↑/↓ navigate",
+			"↑↓ navigate",
 			"enter select",
 			"esc cancel",
 			"tab toggle hidden",

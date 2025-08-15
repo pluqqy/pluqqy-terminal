@@ -409,21 +409,6 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.searchBar.SetActive(true)
 			return m, nil
 		
-		case "enter":
-			if m.stateManager.ActivePane == pipelinesPane {
-				pipelines := m.getCurrentPipelines()
-				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
-					// View the selected pipeline
-					return m, func() tea.Msg {
-						return SwitchViewMsg{
-							view:     pipelineViewerView,
-							pipeline: pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
-						}
-					}
-				}
-			} else if m.stateManager.ActivePane == componentsPane {
-				// Could add component viewing/editing functionality here
-			}
 		
 		case "e":
 			if m.stateManager.ActivePane == pipelinesPane {

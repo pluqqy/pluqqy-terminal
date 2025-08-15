@@ -816,10 +816,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.removeSelectedComponent()
 			}
 
-		case "delete", "backspace", "d":
-			if m.activeColumn == rightColumn {
-				m.removeSelectedComponent()
-			}
 
 		case "p":
 			m.showPreview = !m.showPreview
@@ -977,8 +973,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.savePipeline()
 			
 		case "ctrl+d":
-			// Delete pipeline with confirmation
-			if m.pipeline != nil && m.pipeline.Path != "" {
+			// Delete pipeline with confirmation (not in preview pane)
+			if m.activeColumn != previewColumn && m.pipeline != nil && m.pipeline.Path != "" {
 				pipelineName := filepath.Base(m.pipeline.Path)
 				m.deleteConfirm.ShowInline(
 					fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
@@ -1008,8 +1004,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		
 		case "n":
-			// Create new component
-			if m.activeColumn == leftColumn {
+			// Create new component (not in preview pane)
+			if m.activeColumn != previewColumn {
 				m.creatingComponent = true
 				m.creationStep = 0
 				m.typeCursor = 0
@@ -1766,18 +1762,37 @@ func (m *PipelineBuilderModel) View() string {
 	if m.activeColumn == searchColumn {
 		// Show search syntax help when search is active
 		helpRows := [][]string{
-			{"esc clear+exit search", "enter search"},
+			{"tab switch pane", "esc clear+exit search"},
 			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
 		}
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	} else {
 		// Show normal navigation help - grouped by function
-		helpRows := [][]string{
-			// Row 1: Navigation & selection
-			{"/ search", "tab switch pane", "↑/↓ nav", "enter add/remove", "K/J reorder", "p preview"},
-			// Row 2: CRUD operations & system
-			{"n new", "e edit", "C clone", "R rename", "^x external", "t tag", "a archive/unarchive", "del remove", "^s save", "^d delete", "S save+set", "M mermaid", "esc back", "^c quit"},
+		var helpRows [][]string
+		
+		if m.activeColumn == previewColumn {
+			// Preview pane - only show first row
+			helpRows = [][]string{
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+			}
+		} else if m.activeColumn == leftColumn {
+			// Available Components pane - no K/J reorder
+			helpRows = [][]string{
+				// Row 1: System & navigation
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+				// Row 2: Component operations (no K/J reorder)
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "enter +/-"},
+			}
+		} else {
+			// Pipeline Components pane - includes K/J reorder
+			helpRows = [][]string{
+				// Row 1: System & navigation
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+				// Row 2: Component operations with K/J reorder
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "K/J reorder", "enter +/-"},
+			}
 		}
+		
 		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
 	
@@ -2969,7 +2984,7 @@ func (m *PipelineBuilderModel) componentTypeSelectionView() string {
 
 	// Help section
 	help := []string{
-		"↑/↓ navigate",
+		"↑↓ navigate",
 		"enter select",
 		"esc cancel",
 	}
@@ -3749,7 +3764,7 @@ func (m *PipelineBuilderModel) componentEditView() string {
 
 	// Help section
 	help := []string{
-		"↑/↓ scroll",
+		"↑↓ scroll",
 		"^s save",
 		"E edit external",
 		"esc cancel",
