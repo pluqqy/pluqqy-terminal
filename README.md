@@ -12,6 +12,8 @@ This approach keeps your context minimal and focused - only including what's rel
 
 ![Pipeline Builder View](./assets/images/terminal2.png)
 
+<br>
+
 ## Features
 
 | Feature                 | Description                                                                  |
@@ -21,7 +23,9 @@ This approach keeps your context minimal and focused - only including what's rel
 | **Search**              | Search engine with field-based queries (tag:api, type:prompt)                |
 | **Built-in Editor**     | Minimal editor for quick edits with undo, paste cleaning, and token counting |
 | **Live Preview**        | See your composed pipeline as you build                                      |
-| **Pipeline Visualizer** | Generate HTML interactive Mermaid diagrams of your pipelines                 |
+| **Pipeline Visualizer** | Generate HTML-based interactive Mermaid diagrams of your pipelines           |
+
+<br>
 
 ## Installation
 
@@ -32,6 +36,8 @@ make install
 ```
 
 This will build and install `pluqqy` to `$GOPATH/bin` or `$HOME/go/bin` (if GOPATH is not set).
+
+<br>
 
 ### Updating
 
@@ -48,6 +54,8 @@ Or manually:
 git pull
 make install
 ```
+
+<br>
 
 ## Usage
 
@@ -76,54 +84,73 @@ This creates the following structure:
 └── .gitignore        # Ignores tmp directory
 ```
 
+<br>
+
 ### Launch the TUI
 
 ```bash
 pluqqy
 ```
 
+<br>
+
 ### TUI Commands
 
 #### Main List View
 
-| Key            | Action                                                             |
-| -------------- | ------------------------------------------------------------------ |
-| `Tab`          | Switch between pipelines and components panes                      |
+| Key           | Action                                                             |
+| ------------- | ------------------------------------------------------------------ |
+| `Tab`         | Switch between pipelines and components panes                      |
 | `↑↓` or `j/k` | Navigate items                                                     |
-| `e`            | Edit component in built-in editor / Edit pipeline in builder       |
-| `^x`           | Edit component with external editor (components pane only)         |
-| `t`            | Edit tags for selected component or pipeline                       |
-| `n`            | Create new pipeline/component                                      |
-| `a`            | Archive pipeline/component (with confirmation)                     |
-| `d`            | Delete pipeline/component (with confirmation)                      |
-| `M`            | Generate interactive Mermaid diagram for selected pipeline         |
-| `S`            | Set selected pipeline (generates PLUQQY.md, customizable filename) |
-| `s`            | Open settings editor                                               |
-| `p`            | Toggle preview pane                                                |
-| `r`            | Refresh pipeline list                                              |
-| `^c`           | Quit (double ^c to confirm)                                        |
+| `e`           | Edit component in built-in editor / Edit pipeline in builder       |
+| `^x`          | Edit component with external editor (components pane only)         |
+| `t`           | Edit tags for selected component or pipeline                       |
+| `n`           | Create new pipeline/component (uses enhanced editor for content)   |
+| `a`           | Archive pipeline/component (with confirmation)                     |
+| `^d`          | Delete pipeline/component (with confirmation)                      |
+| `M`           | Generate interactive Mermaid diagram for selected pipeline         |
+| `S`           | Set selected pipeline (generates PLUQQY.md, customizable filename) |
+| `s`           | Open settings editor                                               |
+| `p`           | Toggle preview pane                                                |
+| `^c`          | Quit (double ^c to confirm)                                        |
+
+<br>
 
 #### Pipeline Builder
 
-| Key                     | Action                                                                    |
-| ----------------------- | ------------------------------------------------------------------------- |
-| `Tab`                   | Switch between panes (available components, pipeline components, preview) |
-| `↑↓`                   | Navigate items                                                            |
-| `Enter`                 | Add/remove component (toggles)                                            |
-| `n`                     | Create new component                                                      |
-| `e`                     | Edit component in built-in editor                                         |
-| `^x`                    | Edit component with external editor                                       |
-| `Del`, `d`, `Backspace` | Remove component from pipeline (right pane)                               |
-| `K/J` or `^↑↓`         | Reorder pipeline components (move up/down)                                |
-| `p`                     | Toggle preview pane                                                       |
-| `^s`                    | Save pipeline                                                             |
-| `S`                     | Save and set as active pipeline                                           |
-| `Esc`                   | Back to main list (with unsaved changes confirmation)                     |
+| Key            | Action                                                                    |
+| -------------- | ------------------------------------------------------------------------- |
+| `Tab`          | Switch between panes (available components, pipeline components, preview) |
+| `↑↓`           | Navigate items                                                            |
+| `Enter`        | Add/remove component (toggles)                                            |
+| `n`            | Create new component                                                      |
+| `e`            | Edit component in built-in editor                                         |
+| `^x`           | Edit component with external editor                                       |
+| `K/J` or `^↑↓` | Reorder pipeline components (move up/down)                                |
+| `p`            | Toggle preview pane                                                       |
+| `^s`           | Save pipeline                                                             |
+| `S`            | Save and set as active pipeline                                           |
+| `Esc`          | Back to main list (with unsaved changes confirmation)                     |
 
+<br>
 
-#### Component Editor (Built-in Minimal Editor)
+#### Creating New Components
 
-The built-in editor is designed for **quick edits and minor changes**. For extensive authoring or major content creation, use your preferred external editor with `^x`.
+When creating a new component (press `n` in the components pane):
+1. **Select Type**: Choose between Context, Prompt, or Rules
+2. **Enter Name**: Provide a descriptive name for your component
+3. **Edit Content**: Opens the enhanced editor with all features available:
+   - Multi-line editing with line numbers
+   - File references (`@` to insert)
+   - Undo/Redo support (`^z`)
+   - External editor integration (`^x`)
+   - Save (`^s`) or cancel (`Esc`)
+
+#### Component Editor (Enhanced Editor)
+
+The enhanced editor provides a full-featured editing experience for both creating new components and editing existing ones.
+
+<br>
 
 **Editor Features:**
 
@@ -135,12 +162,14 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | **Status Bar**      | Shows save status, line/word count, and cursor position                                  |
 | **File References** | Insert references to other files with `@` key                                            |
 
+<br>
+
 **Keyboard Shortcuts:**
 
 | Key           | Action                                          |
 | ------------- | ----------------------------------------------- |
 | Type directly | Enter content in the editor                     |
-| `↑↓`         | Navigate through content                        |
+| `↑↓`          | Navigate through content                        |
 | `^z`          | Undo last change                                |
 | `^d`          | Clear all content                               |
 | `^l`          | Clean pasted content (removes TUI artifacts)    |
@@ -150,6 +179,8 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | `Esc`         | Cancel (with unsaved changes confirmation)      |
 
 **Note:** This editor is intentionally minimal. For writing new components from scratch or making substantial edits, press `^x` to use your configured external editor (vim, VS Code, etc.)
+
+<br>
 
 #### Tag Editor
 
@@ -164,6 +195,8 @@ The built-in editor is designed for **quick edits and minor changes**. For exten
 | `Esc`         | Cancel without saving                                                                          |
 | Type directly | Add new tags with autocomplete suggestions                                                     |
 
+<br>
+
 ## Pipeline Visualizer
 
 Pluqqy can generate interactive HTML-based Mermaid diagrams to visualize your pipeline structure:
@@ -176,6 +209,8 @@ Pluqqy can generate interactive HTML-based Mermaid diagrams to visualize your pi
 2. Press `M` to generate an interactive diagram
 3. The diagram opens automatically in your default browser
 
+<br>
+
 ### Features
 
 | Feature                  | Description                                                 |
@@ -185,6 +220,8 @@ Pluqqy can generate interactive HTML-based Mermaid diagrams to visualize your pi
 | **Responsive Design**    | Diagrams scale to fit your browser window                   |
 | **Export Ready**         | Save or print diagrams for documentation                    |
 
+<br>
+
 ### Diagram Structure
 
 The visualizer creates a flowchart showing:
@@ -193,13 +230,19 @@ The visualizer creates a flowchart showing:
 - Components organized into subgraphs by type
 - Color coding: Contexts (blue), Prompts (green), Rules (red)
 
+<br>
+
 ### Storage
 
 Generated diagrams are saved in `.pluqqy/tmp/diagrams/` with timestamped filenames for easy reference.
 
+<br>
+
 ## Tagging System
 
 Pluqqy includes a tagging system to help organize and find your components and pipelines:
+
+<br>
 
 ### Tag Features
 
@@ -211,6 +254,8 @@ Pluqqy includes a tagging system to help organize and find your components and p
 | **Usage Tracking**   | See how many components/pipelines use each tag before deletion |
 | **Autocomplete**     | Smart suggestions as you type based on existing tags           |
 
+<br>
+
 ### Tag Storage
 
 | Location       | Description                                                        |
@@ -218,6 +263,8 @@ Pluqqy includes a tagging system to help organize and find your components and p
 | **Components** | Tags stored in YAML frontmatter at the top of markdown files       |
 | **Pipelines**  | Tags stored in the `tags` field of the YAML file                   |
 | **Registry**   | Optional tag descriptions and custom colors in `.pluqqy/tags.yaml` |
+
+<br>
 
 ### Search Capabilities
 
@@ -234,6 +281,8 @@ The built-in search engine supports queries:
 | `tag:api AND type:context` | Combine filters               |
 | `content:"error handling"` | Full-text search in content   |
 
+<br>
+
 ## UI Features
 
 | Feature               | Description                                                                                |
@@ -243,6 +292,8 @@ The built-in search engine supports queries:
 | **Scrollable Panes**  | All panes support smooth scrolling for long content                                        |
 | **Help Footer**       | Context-sensitive help text at the bottom of each screen                                   |
 | **Responsive Layout** | Adapts to terminal size with proper content wrapping                                       |
+
+<br>
 
 ## Output
 
@@ -270,6 +321,8 @@ git update-index --skip-worktree PLUQQY.md
 
 This lets each developer use different pipelines without creating commit noise.
 
+<br>
+
 ## Example
 
 1. Initialize project: `pluqqy init`
@@ -282,6 +335,8 @@ This lets each developer use different pipelines without creating commit noise.
 8. Check `PLUQQY.md` for the composed output
 
 ![Workflow](./assets/images/pluqqy-terminal.png)
+
+<br>
 
 ## Configuration
 
@@ -300,6 +355,8 @@ Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` fr
   - Edit section types and headings
 
 Changes take effect immediately upon saving with `S`.
+
+<br>
 
 ### External Editor
 
@@ -335,10 +392,24 @@ export EDITOR="subl -w"
 - After setting `$EDITOR`, reload your shell config: `source ~/.zshrc` (or `~/.bashrc`)
 - Test your setting by running: `echo $EDITOR`
 
+**How External Editing Works:**
+
+1. Press `^x` in the enhanced editor to open your external editor
+2. A status message appears: "Editing in external editor - save your changes and close the editor window/tab to return here and continue"
+3. Make your changes and save the file in the external editor
+4. Close the editor window/tab to return to Pluqqy:
+   - **Terminal editors** (vim, nano): Exit normally and you'll return immediately
+   - **GUI editors** (VS Code, Zed, etc.): Close the specific tab or window to return
+5. Your changes will be automatically reloaded in Pluqqy
+
+<br>
+
 ## Requirements
 
 - Go 1.19 or higher (for building)
 - Terminal with UTF-8 support
+
+<br>
 
 ## License
 

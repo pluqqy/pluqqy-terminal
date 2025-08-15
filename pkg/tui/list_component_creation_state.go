@@ -20,11 +20,18 @@ type ComponentCreator struct {
 	componentContent      string
 	creationStep          int // 0: type, 1: name, 2: content
 	typeCursor           int
+	
+	// Enhanced editor integration
+	enhancedEditor        *EnhancedEditorState
+	useEnhancedEditor     bool
 }
 
 // NewComponentCreator creates a new component creator instance
 func NewComponentCreator() *ComponentCreator {
-	return &ComponentCreator{}
+	return &ComponentCreator{
+		enhancedEditor:    NewEnhancedEditorState(),
+		useEnhancedEditor: true, // Enable enhanced editor by default
+	}
 }
 
 // Reset resets the component creator state
@@ -112,6 +119,10 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 	case "enter":
 		if c.componentName != "" {
 			c.creationStep = 2
+			// Initialize enhanced editor for content editing
+			if c.useEnhancedEditor {
+				c.initializeEnhancedEditor()
+			}
 		}
 		return true
 	case "backspace":
@@ -219,4 +230,86 @@ func (c *ComponentCreator) SaveComponent() error {
 func (c *ComponentCreator) GetStatusMessage() string {
 	filename := sanitizeFileName(c.componentName) + ".md"
 	return fmt.Sprintf("✓ Created %s: %s", c.componentCreationType, filename)
+}
+
+// initializeEnhancedEditor sets up the enhanced editor for component creation
+func (c *ComponentCreator) initializeEnhancedEditor() {
+	if c.enhancedEditor == nil {
+		c.enhancedEditor = NewEnhancedEditorState()
+	}
+	
+	// Generate the component path that will be used when saving
+	var subDir string
+	switch c.componentCreationType {
+	case models.ComponentTypeContext:
+		subDir = models.ComponentTypeContext
+	case models.ComponentTypePrompt:
+		subDir = models.ComponentTypePrompt
+	case models.ComponentTypeRules:
+		subDir = models.ComponentTypeRules
+	}
+	
+	// Generate filename and path
+	filename := sanitizeFileName(c.componentName) + ".md"
+	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
+	
+	// Configure enhanced editor for creation mode
+	c.enhancedEditor.Active = true
+	c.enhancedEditor.Mode = EditorModeNormal
+	c.enhancedEditor.ComponentPath = relativePath // Set the path for external editor
+	c.enhancedEditor.ComponentName = c.componentName
+	c.enhancedEditor.ComponentType = c.componentCreationType
+	c.enhancedEditor.Content = ""
+	c.enhancedEditor.OriginalContent = ""
+	c.enhancedEditor.UnsavedChanges = false
+	
+	// Mark this as a new component (not yet saved to disk)
+	c.enhancedEditor.IsNewComponent = true
+	
+	// Clear and setup the textarea
+	c.enhancedEditor.Textarea.SetValue("")
+	c.enhancedEditor.Textarea.Focus()
+	
+	// Set reasonable size for the textarea
+	c.enhancedEditor.Textarea.SetWidth(80)
+	c.enhancedEditor.Textarea.SetHeight(20)
+}
+
+// HandleEnhancedEditorInput handles input when enhanced editor is active
+func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) (bool, tea.Cmd) {
+	if !c.useEnhancedEditor || c.enhancedEditor == nil || !c.enhancedEditor.Active {
+		return false, nil
+	}
+	
+	// Let the enhanced editor handle the input
+	handled, cmd := HandleEnhancedEditorInput(c.enhancedEditor, msg, width)
+	
+	// Check if save was requested (Ctrl+S pressed)
+	if msg.String() == "ctrl+s" && c.enhancedEditor.Active {
+		c.componentContent = c.enhancedEditor.GetContent()
+		if err := c.SaveComponent(); err == nil {
+			c.enhancedEditor.Active = false
+			c.Reset()
+			return true, cmd
+		}
+	}
+	
+	// Check if editor was closed (ESC or similar)
+	if !c.enhancedEditor.IsActive() {
+		c.creationStep = 1 // Go back to name input
+		c.componentContent = ""
+		return true, cmd
+	}
+	
+	return handled, cmd
+}
+
+// IsEnhancedEditorActive returns true if the enhanced editor is currently active
+func (c *ComponentCreator) IsEnhancedEditorActive() bool {
+	return c.useEnhancedEditor && c.enhancedEditor != nil && c.enhancedEditor.Active && c.creationStep == 2
+}
+
+// GetEnhancedEditor returns the enhanced editor instance
+func (c *ComponentCreator) GetEnhancedEditor() *EnhancedEditorState {
+	return c.enhancedEditor
 }

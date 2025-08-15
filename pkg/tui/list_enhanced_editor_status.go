@@ -29,6 +29,8 @@ const (
 type StatusManager struct {
 	CurrentStatus *StatusFeedback
 	DefaultDuration time.Duration
+	PersistentMessage string
+	PersistentType StatusType
 }
 
 // NewStatusManager creates a new status manager
@@ -73,6 +75,17 @@ func (sm *StatusManager) ShowInfo(message string) tea.Cmd {
 	return sm.ShowFeedback("ℹ", message, StatusTypeInfo)
 }
 
+// SetPersistentMessage sets a message that persists until cleared
+func (sm *StatusManager) SetPersistentMessage(message string, statusType StatusType) {
+	sm.PersistentMessage = message
+	sm.PersistentType = statusType
+}
+
+// ClearPersistentMessage clears the persistent message
+func (sm *StatusManager) ClearPersistentMessage() {
+	sm.PersistentMessage = ""
+}
+
 // Clear removes the current status
 func (sm *StatusManager) Clear() {
 	sm.CurrentStatus = nil
@@ -95,11 +108,28 @@ func (sm *StatusManager) IsActive() bool {
 
 // GetStatus returns the current status message if active
 func (sm *StatusManager) GetStatus() (string, bool) {
-	if !sm.IsActive() {
-		return "", false
+	// First check for active temporary status
+	if sm.IsActive() {
+		return fmt.Sprintf("%s %s", sm.CurrentStatus.Icon, sm.CurrentStatus.Message), true
 	}
 	
-	return fmt.Sprintf("%s %s", sm.CurrentStatus.Icon, sm.CurrentStatus.Message), true
+	// If no temporary status, check for persistent message
+	if sm.PersistentMessage != "" {
+		icon := "ℹ"
+		switch sm.PersistentType {
+		case StatusTypeSuccess:
+			icon = "✓"
+		case StatusTypeWarning:
+			icon = "⚠"
+		case StatusTypeError:
+			icon = "×"
+		case StatusTypeInfo:
+			icon = "ℹ"
+		}
+		return fmt.Sprintf("%s %s", icon, sm.PersistentMessage), true
+	}
+	
+	return "", false
 }
 
 // ClearStatusMsg is sent to clear the status

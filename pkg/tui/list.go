@@ -809,6 +809,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Don't forward key messages - they're already handled
 	default:
+		// Handle component creation mode for non-key messages (textarea updates, etc.)
+		if m.componentCreator.IsActive() && m.componentCreator.IsEnhancedEditorActive() {
+			if editor := m.componentCreator.GetEnhancedEditor(); editor != nil {
+				var cmd tea.Cmd
+				editor.Textarea, cmd = editor.Textarea.Update(msg)
+				if cmd != nil {
+					cmds = append(cmds, cmd)
+				}
+			}
+		}
+		
 		// Forward other messages to viewports
 		if m.stateManager.ShowPreview {
 			m.previewViewport, cmd = m.previewViewport.Update(msg)
@@ -1114,20 +1125,37 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 			return m, nil
 		}
 		
-		// Let component creator handle the input
-		handled, err := m.componentCreator.HandleContentEdit(msg)
-		if err != nil {
-			return m, func() tea.Msg { return StatusMsg(fmt.Sprintf("✗ %s", err.Error())) }
-		}
-		
-		if handled {
-			// Check if component was saved (creator will be reset)
-			if !m.componentCreator.IsActive() {
-				// Component was saved, reload components
-				m.reloadComponents()
-				return m, func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) }
+		// Check if enhanced editor is active for component creation
+		if m.componentCreator.IsEnhancedEditorActive() {
+			handled, cmd := m.componentCreator.HandleEnhancedEditorInput(msg, m.width)
+			if handled {
+				// Check if component was saved
+				if !m.componentCreator.IsActive() {
+					// Component was saved, reload components
+					m.reloadComponents()
+					return m, tea.Batch(
+						cmd,
+						func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) },
+					)
+				}
+				return m, cmd
 			}
-			return m, nil
+		} else {
+			// Fallback to simple editor
+			handled, err := m.componentCreator.HandleContentEdit(msg)
+			if err != nil {
+				return m, func() tea.Msg { return StatusMsg(fmt.Sprintf("✗ %s", err.Error())) }
+			}
+			
+			if handled {
+				// Check if component was saved (creator will be reset)
+				if !m.componentCreator.IsActive() {
+					// Component was saved, reload components
+					m.reloadComponents()
+					return m, func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) }
+				}
+				return m, nil
+			}
 		}
 	}
 	
@@ -1143,6 +1171,15 @@ func (m *MainListModel) componentCreationView() string {
 	case 1:
 		return renderer.RenderNameInput(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName())
 	case 2:
+		// Use enhanced editor if available
+		if m.componentCreator.IsEnhancedEditorActive() {
+			return renderer.RenderWithEnhancedEditor(
+				m.componentCreator.GetEnhancedEditor(),
+				m.componentCreator.GetComponentType(),
+				m.componentCreator.GetComponentName(),
+			)
+		}
+		// Fallback to simple editor
 		return renderer.RenderContentEdit(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName(), m.componentCreator.GetComponentContent())
 	}
 	

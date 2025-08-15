@@ -116,7 +116,6 @@ func (r *EnhancedEditorRenderer) renderWithFilePicker(state *EnhancedEditorState
 	return r.renderFilePicker(state)
 }
 
-
 // renderHeader renders the editor header (kept for compatibility)
 func (r *EnhancedEditorRenderer) renderHeader(state *EnhancedEditorState) string {
 	return r.renderHeaderWithTokens(state)

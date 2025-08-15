@@ -71,6 +71,11 @@ type EnhancedEditorState struct {
 	WordCount         int
 	CurrentLine       int
 	CurrentColumn     int
+	
+	// Component creation callbacks
+	SaveRequested     bool
+	CancelRequested   bool
+	IsNewComponent    bool  // True when creating a new component (not yet on disk)
 }
 
 // NewEnhancedEditorState creates a new enhanced editor state
@@ -125,6 +130,14 @@ func (e *EnhancedEditorState) SetContent(content string) {
 // IsActive checks if the editor is active
 func (e *EnhancedEditorState) IsActive() bool {
 	return e.Active
+}
+
+// GetContent returns the current content from the textarea
+func (e *EnhancedEditorState) GetContent() string {
+	if e.Textarea.Value() != "" {
+		return e.Textarea.Value()
+	}
+	return e.Content
 }
 
 // HasUnsavedChanges checks for unsaved changes

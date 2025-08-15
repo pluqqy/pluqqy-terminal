@@ -1,0 +1,221 @@
+package tui
+
+import (
+	"testing"
+	
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
+)
+
+func TestComponentCreator_EnhancedEditorIntegration(t *testing.T) {
+	tests := []struct {
+		name           string
+		componentType  string
+		componentName  string
+		expectActive   bool
+	}{
+		{
+			name:          "Context component with enhanced editor",
+			componentType: models.ComponentTypeContext,
+			componentName: "Test Context",
+			expectActive:  true,
+		},
+		{
+			name:          "Prompt component with enhanced editor",
+			componentType: models.ComponentTypePrompt,
+			componentName: "Test Prompt",
+			expectActive:  true,
+		},
+		{
+			name:          "Rules component with enhanced editor",
+			componentType: models.ComponentTypeRules,
+			componentName: "Test Rules",
+			expectActive:  true,
+		},
+	}
+	
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Create component creator
+			creator := NewComponentCreator()
+			
+			// Start creation process
+			creator.Start()
+			if !creator.IsActive() {
+				t.Error("Creator should be active after Start()")
+			}
+			
+			// Select component type
+			creator.componentCreationType = tt.componentType
+			creator.creationStep = 1
+			
+			// Enter name and proceed to content
+			creator.componentName = tt.componentName
+			enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+			creator.HandleNameInput(enterKey)
+			
+			// Check that we're at content step with enhanced editor
+			if creator.creationStep != 2 {
+				t.Errorf("Expected to be at step 2 (content), got %d", creator.creationStep)
+			}
+			
+			if !creator.IsEnhancedEditorActive() {
+				t.Error("Enhanced editor should be active for content editing")
+			}
+			
+			if creator.enhancedEditor == nil {
+				t.Fatal("Enhanced editor should be initialized")
+			}
+			
+			if !creator.enhancedEditor.Active {
+				t.Error("Enhanced editor state should be active")
+			}
+			
+			if creator.enhancedEditor.ComponentName != tt.componentName {
+				t.Errorf("Expected component name %s, got %s", 
+					tt.componentName, creator.enhancedEditor.ComponentName)
+			}
+			
+			if creator.enhancedEditor.ComponentType != tt.componentType {
+				t.Errorf("Expected component type %s, got %s",
+					tt.componentType, creator.enhancedEditor.ComponentType)
+			}
+		})
+	}
+}
+
+func TestComponentCreator_EnhancedEditorSave(t *testing.T) {
+	// Create component creator
+	creator := NewComponentCreator()
+	
+	// Setup component creation
+	creator.Start()
+	creator.componentCreationType = models.ComponentTypeContext
+	creator.creationStep = 1
+	creator.componentName = "Test Save"
+	
+	// Enter name and proceed to content
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	creator.HandleNameInput(enterKey)
+	
+	// Verify enhanced editor is active
+	if !creator.IsEnhancedEditorActive() {
+		t.Fatal("Enhanced editor should be active")
+	}
+	
+	// Set some content
+	creator.enhancedEditor.Textarea.SetValue("Test content for saving")
+	
+	// Simulate Ctrl+S
+	saveKey := tea.KeyMsg{Type: tea.KeyCtrlS}
+	handled, _ := creator.HandleEnhancedEditorInput(saveKey, 80)
+	
+	if !handled {
+		t.Error("Save key should be handled")
+	}
+	
+	// Note: Actual file saving would fail in tests without proper setup
+	// This test verifies the integration and handling
+}
+
+func TestComponentCreator_EnhancedEditorCancel(t *testing.T) {
+	// Create component creator
+	creator := NewComponentCreator()
+	
+	// Setup component creation
+	creator.Start()
+	creator.componentCreationType = models.ComponentTypePrompt
+	creator.creationStep = 1
+	creator.componentName = "Test Cancel"
+	
+	// Enter name and proceed to content
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	creator.HandleNameInput(enterKey)
+	
+	// Verify enhanced editor is active
+	if !creator.IsEnhancedEditorActive() {
+		t.Fatal("Enhanced editor should be active")
+	}
+	
+	// Set some content
+	creator.enhancedEditor.Textarea.SetValue("Test content")
+	
+	// Simulate ESC to cancel
+	escKey := tea.KeyMsg{Type: tea.KeyEscape}
+	handled, _ := HandleEnhancedEditorInput(creator.enhancedEditor, escKey, 80)
+	
+	if !handled {
+		t.Error("ESC key should be handled")
+	}
+	
+	// Editor should have exited
+	if creator.enhancedEditor.IsActive() {
+		t.Error("Enhanced editor should not be active after ESC")
+	}
+}
+
+func TestComponentCreator_FallbackToSimpleEditor(t *testing.T) {
+	// Create component creator with enhanced editor disabled
+	creator := NewComponentCreator()
+	creator.useEnhancedEditor = false
+	
+	// Start creation process
+	creator.Start()
+	creator.componentCreationType = models.ComponentTypeRules
+	creator.creationStep = 2 // Jump to content step
+	creator.componentName = "Test Fallback"
+	
+	// Should not be using enhanced editor
+	if creator.IsEnhancedEditorActive() {
+		t.Error("Enhanced editor should not be active when disabled")
+	}
+	
+	// Test simple editor input
+	creator.componentContent = ""
+	keyA := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
+	handled, _ := creator.HandleContentEdit(keyA)
+	
+	if !handled {
+		t.Error("Simple editor should handle key input")
+	}
+	
+	if creator.componentContent != "a" {
+		t.Errorf("Expected content 'a', got '%s'", creator.componentContent)
+	}
+}
+
+func TestComponentCreator_ExternalEditorPath(t *testing.T) {
+	// Create component creator
+	creator := NewComponentCreator()
+	
+	// Setup component creation
+	creator.Start()
+	creator.componentCreationType = models.ComponentTypeContext
+	creator.creationStep = 1
+	creator.componentName = "Test External Editor"
+	
+	// Enter name and proceed to content
+	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
+	creator.HandleNameInput(enterKey)
+	
+	// Verify enhanced editor is active
+	if !creator.IsEnhancedEditorActive() {
+		t.Fatal("Enhanced editor should be active")
+	}
+	
+	// Check that component path is set
+	if creator.enhancedEditor.ComponentPath == "" {
+		t.Error("Component path should be set for external editor")
+	}
+	
+	// Verify path contains correct component type directory
+	expectedPath := "components/contexts/test-external-editor.md"
+	if creator.enhancedEditor.ComponentPath != expectedPath {
+		t.Errorf("Expected path %s, got %s", expectedPath, creator.enhancedEditor.ComponentPath)
+	}
+	
+	// Verify IsNewComponent flag is set
+	if !creator.enhancedEditor.IsNewComponent {
+		t.Error("IsNewComponent flag should be true for new components")
+	}
+}

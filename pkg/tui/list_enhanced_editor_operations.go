@@ -54,6 +54,8 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		return true, saveEnhancedComponent(state)
 	
 	case "ctrl+x":
+		// Show persistent status message
+		state.StatusManager.SetPersistentMessage("Editing in external editor - save your changes and close the editor window/tab to return here and continue", StatusTypeInfo)
 		// Open in external editor
 		return true, openInExternalEditor(state)
 	
@@ -281,8 +283,17 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("× Validation failed: %v", err))
 		}
 		
-		// Write component with tags preserved
-		err := files.WriteComponentWithTags(state.ComponentPath, content, state.ComponentTags)
+		// Write component - handle new vs existing components
+		var err error
+		if state.IsNewComponent {
+			// Use WriteComponentWithNameAndTags for new components
+			err = files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
+			// After first save, it's no longer a new component
+			state.IsNewComponent = false
+		} else {
+			// Use WriteComponentWithTags to preserve tags for existing components
+			err = files.WriteComponentWithTags(state.ComponentPath, content, state.ComponentTags)
+		}
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
 		}
@@ -301,8 +312,19 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 // openInExternalEditor opens the component in the user's external editor
 func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 	return func() tea.Msg {
-		// First save any unsaved changes
-		if state.HasUnsavedChanges() {
+		// For new components (creation mode), save with name in frontmatter
+		// For existing components, save normally
+		if state.IsNewComponent {
+			content := state.Textarea.Value()
+			// Use WriteComponentWithNameAndTags for new components
+			err := files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
+			if err != nil {
+				return StatusMsg(fmt.Sprintf("× Failed to save before external edit: %v", err))
+			}
+			// After first save, it's no longer a new component
+			state.IsNewComponent = false
+		} else if state.HasUnsavedChanges() {
+			// For existing components, save normally
 			content := state.Textarea.Value()
 			err := files.WriteComponentWithTags(state.ComponentPath, content, state.ComponentTags)
 			if err != nil {
@@ -329,10 +351,35 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
 		}
 		
-		// Return a reload message to refresh data
-		return ReloadMsg{
-			Message: fmt.Sprintf("Edited: %s", filepath.Base(state.ComponentPath)),
+		// Reload the content from the file after external editing
+		content, err := files.ReadComponent(state.ComponentPath)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("Failed to reload content after editing: %v", err))
 		}
+		
+		// Update the textarea with the new content
+		state.Textarea.SetValue(content.Content)
+		
+		// Update the original content to match what's now in the file
+		state.OriginalContent = content.Content
+		state.Content = content.Content
+		
+		// Update tags if they were changed in the external editor
+		if content.Tags != nil {
+			state.ComponentTags = content.Tags
+		}
+		
+		// Clear unsaved changes flag since we just loaded from disk
+		state.UnsavedChanges = false
+		
+		// Clear the persistent message about external editor
+		state.StatusManager.ClearPersistentMessage()
+		
+		// Show temporary success message
+		state.StatusManager.ShowSuccess("Content reloaded from external editor")
+		
+		// Return a status message
+		return StatusMsg(fmt.Sprintf("✓ Reloaded: %s", filepath.Base(state.ComponentPath)))
 	}
 }
 

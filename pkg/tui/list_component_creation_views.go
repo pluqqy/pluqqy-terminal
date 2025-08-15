@@ -264,7 +264,7 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 	return s.String()
 }
 
-// RenderContentEdit renders the component content editing view
+// RenderContentEdit renders the component content editing view (for fallback when enhanced editor is not used)
 func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, componentName, componentContent string) string {
 	// Styles
 	borderStyle := lipgloss.NewStyle().
@@ -357,3 +357,30 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 	return s.String()
 }
 
+// RenderWithEnhancedEditor renders the component creation view with the enhanced editor
+func (r *ComponentCreationViewRenderer) RenderWithEnhancedEditor(enhancedEditor *EnhancedEditorState, componentType, componentName string) string {
+	if enhancedEditor == nil || !enhancedEditor.IsActive() {
+		// Fallback to simple editor
+		return r.RenderContentEdit(componentType, componentName, enhancedEditor.GetContent())
+	}
+	
+	// Update the editor's component name to show in the title
+	// This is temporary for rendering purposes
+	originalName := enhancedEditor.ComponentName
+	singularType := componentType
+	if strings.HasSuffix(strings.ToLower(componentType), "s") {
+		singularType = componentType[:len(componentType)-1]
+	}
+	enhancedEditor.ComponentName = fmt.Sprintf("NEW %s: %s", strings.ToUpper(singularType), componentName)
+	
+	// Create enhanced editor renderer
+	editorRenderer := NewEnhancedEditorRenderer(r.width, r.height)
+	
+	// Use the enhanced editor's render method
+	result := editorRenderer.Render(enhancedEditor)
+	
+	// Restore original name
+	enhancedEditor.ComponentName = originalName
+	
+	return result
+}
