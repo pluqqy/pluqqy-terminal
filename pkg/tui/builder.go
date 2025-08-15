@@ -1359,7 +1359,22 @@ func (m *PipelineBuilderModel) View() string {
 			return "240" // Gray when inactive
 		}()))
 	leftContent.WriteString(headerPadding.Render(leftHeaderStyle.Render(heading) + " " + leftColonStyle.Render(strings.Repeat(":", remainingWidth))))
-	leftContent.WriteString("\n\n")
+	leftContent.WriteString("\n")
+	
+	// Add empty row to match pipeline name row height on the right
+	if m.pipeline != nil && m.pipeline.Name != "" {
+		// Match the exact spacing of the pipeline name row
+		emptyRowStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1).
+			PaddingTop(1).
+			Height(2) // Match height of pipeline name row
+		leftContent.WriteString(emptyRowStyle.Render(""))
+		leftContent.WriteString("\n")
+	} else {
+		// Add empty space if no pipeline name
+		leftContent.WriteString("\n\n")
+	}
 
 	// Render table header
 	leftContent.WriteString(headerPadding.Render(m.leftTableRenderer.RenderHeader()))
