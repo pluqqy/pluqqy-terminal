@@ -284,80 +284,10 @@ func (a *App) View() string {
 		return "Loading..."
 	}
 
-	// Determine the title based on current view
+	// No titles - only show logo
 	var title string
-	switch a.state {
-	case mainListView:
-		if a.mainList != nil {
-			if a.mainList.componentCreator.IsActive() {
-				// During component creation
-				if a.mainList.componentCreator.GetCurrentStep() == 2 && a.mainList.componentCreator.GetComponentName() != "" {
-					// Step 2: Content editing - show the name
-					title = "Component: " + a.mainList.componentCreator.GetComponentName()
-				} else {
-					// Steps 0-1: Type selection and name input
-					title = "Component: New"
-				}
-			} else if a.mainList.componentEditor.IsActive() && a.mainList.componentEditor.ComponentName != "" {
-				// Editing existing component
-				title = "Component: " + a.mainList.componentEditor.ComponentName
-			} else if a.mainList.tagEditor.Active {
-				title = "Tag Editor"
-			} else if a.mainList.stateManager.ShowPreview && (a.mainList.stateManager.ActivePane == componentsPane || a.mainList.stateManager.ActivePane == pipelinesPane) {
-				// Normal viewing mode - show selected item
-				if a.mainList.stateManager.ActivePane == componentsPane {
-					// Get selected component
-					components := a.mainList.getVisibleComponents()
-					if len(components) > 0 && a.mainList.stateManager.ComponentCursor < len(components) {
-						comp := components[a.mainList.stateManager.ComponentCursor]
-						title = "Component: " + comp.name
-					}
-				} else if a.mainList.stateManager.ActivePane == pipelinesPane {
-					// Get selected pipeline
-					pipelines := a.mainList.getFilteredPipelines()
-					if len(pipelines) > 0 && a.mainList.stateManager.PipelineCursor < len(pipelines) {
-						pipe := pipelines[a.mainList.stateManager.PipelineCursor]
-						title = "Pipeline: " + pipe.name
-					}
-				}
-			}
-			// If no title set, don't show one (just logo)
-		}
-	case pipelineBuilderView:
-		if a.builder != nil {
-			if a.builder.editingTags {
-				title = "Tag Editor"
-			} else if a.builder.creatingComponent {
-				// During component creation in pipeline builder
-				if a.builder.creationStep == 2 && a.builder.componentName != "" {
-					// Step 2: Content editing - show the name
-					title = "Component: " + a.builder.componentName
-				} else {
-					// Steps 0-1: Type selection and name input
-					title = "Component: New"
-				}
-			} else if a.builder.pipeline != nil {
-				if a.builder.pipeline.Name == "" {
-					title = "Pipeline: New"
-				} else {
-					title = "Pipeline: " + a.builder.pipeline.Name
-				}
-			} else {
-				title = "Pipeline: New"
-			}
-		}
-	case pipelineViewerView:
-		if a.viewer != nil && a.viewer.pipeline != nil {
-			title = "Pipeline: " + a.viewer.pipeline.Name
-		}
-	case settingsEditorView:
-		title = "Settings"
-		if a.settingsEditor != nil && a.settingsEditor.hasChanges {
-			title = "Settings (modified)"
-		}
-	}
-
-	// Render the header with title
+	
+	// Render the header (logo only, no title)
 	header := renderHeader(a.width, title)
 
 	var content string
