@@ -279,7 +279,7 @@ func TestPipelineBuilderModel_DeleteKeyHandling(t *testing.T) {
 				m := makeTestBuilderModel()
 				m.pipeline = makeTestPipelineModel("test", "test.yaml")
 				m.editingName = false
-				m.creatingComponent = false
+				// Component creator is not active by default
 				m.editingComponent = false
 				return m
 			},
@@ -302,7 +302,7 @@ func TestPipelineBuilderModel_DeleteKeyHandling(t *testing.T) {
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
 				m.pipeline = makeTestPipelineModel("test", "test.yaml")
-				m.creatingComponent = true
+				m.componentCreator.Start()
 				return m
 			},
 			keyString:   "ctrl+d",
@@ -327,7 +327,7 @@ func TestPipelineBuilderModel_DeleteKeyHandling(t *testing.T) {
 
 			// Check if the key would be handled based on model state
 			handled := false
-			if !m.editingName && !m.creatingComponent && !m.editingComponent {
+			if !m.editingName && !(m.componentCreator != nil && m.componentCreator.IsActive()) && !m.editingComponent {
 				// In normal mode, ctrl+d would be handled
 				if tt.keyString == "ctrl+d" && m.pipeline != nil && m.pipeline.Path != "" {
 					handled = true

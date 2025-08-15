@@ -49,6 +49,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		tagDeleteConfirm:   NewConfirmation(),
 		deleteConfirm:      NewConfirmation(),
 		archiveConfirm:     NewConfirmation(),
+		componentCreator:   NewComponentCreator(),
 		enhancedEditor:     NewEnhancedEditorState(),
 		useEnhancedEditor:  config.UseEnhancedEditor,
 		renameState:        NewRenameState(),

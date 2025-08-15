@@ -64,18 +64,14 @@ type PipelineBuilderModel struct {
 	editingName bool
 	nameInput   string
 	
-	// Component creation state
-	creatingComponent     bool
-	componentCreationType string
-	componentName         string
-	componentContent      string
-	creationStep          int // 0: type, 1: name, 2: content
-	typeCursor           int
+	// Component creation state - uses ComponentCreator for consistency with Main List view
+	componentCreator      *ComponentCreator
 	
-	// Component editing state
+	// Component editing state (for editing existing components)
 	editingComponent      bool
 	editingComponentPath  string
 	editingComponentName  string
+	componentContent      string  // Content being edited
 	editSaveMessage       string
 	
 	// General status message (for clone, rename, etc.)
@@ -558,7 +554,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle component creation mode
-		if m.creatingComponent {
+		if m.componentCreator != nil && m.componentCreator.IsActive() {
 			return m.handleComponentCreation(msg)
 		}
 		
@@ -602,7 +598,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle search input when search column is active
-		if m.activeColumn == searchColumn && !m.editingName && !m.creatingComponent && !m.editingComponent {
+		if m.activeColumn == searchColumn && !m.editingName && !(m.componentCreator != nil && m.componentCreator.IsActive()) && !m.editingComponent {
 			// Handle special keys in search first
 			switch msg.String() {
 			case "esc":
@@ -1006,12 +1002,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "n":
 			// Create new component (not in preview pane)
 			if m.activeColumn != previewColumn {
-				m.creatingComponent = true
-				m.creationStep = 0
-				m.typeCursor = 0
-				m.componentName = ""
-				m.componentContent = ""
-				m.componentCreationType = ""
+				m.componentCreator.Start()
 				return m, nil
 			}
 		
@@ -1230,7 +1221,7 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// If creating component, show creation wizard
-	if m.creatingComponent {
+	if m.componentCreator != nil && m.componentCreator.IsActive() {
 		return m.componentCreationView()
 	}
 	
@@ -2798,89 +2789,69 @@ func (m *PipelineBuilderModel) exitConfirmationView() string {
 */
 
 func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.creationStep {
+	switch m.componentCreator.GetCurrentStep() {
 	case 0: // Type selection
-		switch msg.String() {
-		case "esc":
-			m.creatingComponent = false
+		if m.componentCreator.HandleTypeSelection(msg) {
+			if !m.componentCreator.IsActive() {
+				// Component creation was cancelled
+				return m, nil
+			}
 			return m, nil
-		case "up", "k":
-			if m.typeCursor > 0 {
-				m.typeCursor--
-			}
-		case "down", "j":
-			if m.typeCursor < 2 {
-				m.typeCursor++
-			}
-		case "enter":
-			types := []string{models.ComponentTypeContext, models.ComponentTypePrompt, models.ComponentTypeRules}
-			m.componentCreationType = types[m.typeCursor]
-			m.creationStep = 1
 		}
 		
 	case 1: // Name input
-		switch msg.String() {
-		case "esc":
-			m.creationStep = 0
-			m.componentName = ""
-		case "enter":
-			if strings.TrimSpace(m.componentName) != "" {
-				m.creationStep = 2
+		if m.componentCreator.HandleNameInput(msg) {
+			if !m.componentCreator.IsActive() {
+				// Component creation was cancelled
+				return m, nil
 			}
-		case "backspace":
-			if len(m.componentName) > 0 {
-				m.componentName = m.componentName[:len(m.componentName)-1]
-			}
-		case " ":
-			m.componentName += " "
-		default:
-			if msg.Type == tea.KeyRunes {
-				m.componentName += string(msg.Runes)
-			}
+			return m, nil
 		}
 		
 	case 2: // Content input
-		switch msg.String() {
-		case "ctrl+s":
-			// Save component
-			return m, m.saveNewComponent()
-		case "esc":
-			// If content has been entered, show confirmation
-			if strings.TrimSpace(m.componentContent) != "" {
-				m.exitConfirmationType = "component"
-				m.exitConfirm.ShowDialog(
-					"⚠️  Unsaved Changes",
-					"You have unsaved content in this component.",
-					"Exit without saving?",
-					true, // destructive
-					m.width - 4,
-					10,
-					func() tea.Cmd {
-						// Go back to name input
-						m.creationStep = 1
-						m.componentContent = ""
-						return nil
-					},
-					nil, // onCancel
-				)
-			} else {
-				m.creationStep = 1
-				m.componentContent = ""
+		// Use enhanced editor if enabled and active
+		if m.componentCreator.IsEnhancedEditorActive() {
+			editor := m.componentCreator.GetEnhancedEditor()
+			handled, cmd := HandleEnhancedEditorInput(editor, msg, m.width)
+			if handled {
+				// Check if content was saved
+				if !editor.IsActive() {
+					// Editor was closed, check if saved or cancelled
+					if editor.Content != "" {
+						// Content exists, save was likely successful
+						m.componentCreator.Reset()
+						m.loadAvailableComponents()
+						return m, tea.Batch(
+							cmd,
+							func() tea.Msg {
+								return StatusMsg("✓ Component created successfully")
+							},
+						)
+					} else {
+						// Editor was cancelled, go back to name input
+						m.componentCreator.creationStep = 1
+						m.componentCreator.componentContent = ""
+					}
+				}
+				return m, cmd
 			}
-		case "enter":
-			m.componentContent += "\n"
-		case "backspace":
-			if len(m.componentContent) > 0 {
-				m.componentContent = m.componentContent[:len(m.componentContent)-1]
-			}
-		case "tab":
-			m.componentContent += "    "
-		case " ":
-			// Allow spaces
-			m.componentContent += " "
-		default:
-			if msg.Type == tea.KeyRunes {
-				m.componentContent += string(msg.Runes)
+		} else {
+			// Fallback to simple editor
+			handled, err := m.componentCreator.HandleContentEdit(msg)
+			if handled {
+				if err != nil {
+					return m, func() tea.Msg {
+						return StatusMsg(fmt.Sprintf("✗ Failed to save: %v", err))
+					}
+				}
+				if !m.componentCreator.IsActive() {
+					// Component was saved successfully
+					m.loadAvailableComponents()
+					return m, func() tea.Msg {
+						return StatusMsg(m.componentCreator.GetStatusMessage())
+					}
+				}
+				return m, nil
 			}
 		}
 	}
@@ -2889,421 +2860,27 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 }
 
 func (m *PipelineBuilderModel) componentCreationView() string {
-	switch m.creationStep {
+	renderer := NewComponentCreationViewRenderer(m.width, m.height)
+	
+	switch m.componentCreator.GetCurrentStep() {
 	case 0:
-		return m.componentTypeSelectionView()
+		return renderer.RenderTypeSelection(m.componentCreator.GetTypeCursor())
 	case 1:
-		return m.componentNameInputView()
+		return renderer.RenderNameInput(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName())
 	case 2:
-		return m.componentContentEditView()
+		// Use enhanced editor if available
+		if m.componentCreator.IsEnhancedEditorActive() {
+			return renderer.RenderWithEnhancedEditor(
+				m.componentCreator.GetEnhancedEditor(),
+				m.componentCreator.GetComponentType(),
+				m.componentCreator.GetComponentName(),
+			)
+		}
+		// Fallback to simple editor
+		return renderer.RenderContentEdit(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName(), m.componentCreator.GetComponentContent())
 	}
 	
 	return "Unknown creation step"
-}
-
-func (m *PipelineBuilderModel) componentTypeSelectionView() string {
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
-	selectedStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")). // Purple to match MLV
-		Background(lipgloss.Color("236")).
-		Bold(true).
-		Padding(0, 1)
-
-	normalStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245")).
-		Padding(0, 1)
-
-	descStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("241"))
-
-	// Calculate dimensions
-	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 11 // Reserve space for help pane and status bar
-
-	// Build main content
-	var mainContent strings.Builder
-
-	// Header with colons
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	heading := "CREATE NEW COMPONENT"
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	mainContent.WriteString("\n\n")
-
-	// Component type selection
-	mainContent.WriteString(headerPadding.Render("Select component type:"))
-	mainContent.WriteString("\n\n")
-
-	types := []struct {
-		name string
-		desc string
-	}{
-		{"CONTEXT", "Background information or system state"},
-		{"PROMPT", "Instructions or questions for the LLM"},
-		{"RULES", "Important constraints or guidelines"},
-	}
-
-	for i, t := range types {
-		cursor := "  "
-		if i == m.typeCursor {
-			cursor = "▸ "
-		}
-
-		line := cursor + t.name
-		if i == m.typeCursor {
-			mainContent.WriteString(selectedStyle.Render(line))
-		} else {
-			mainContent.WriteString(normalStyle.Render(line))
-		}
-		mainContent.WriteString("\n")
-		mainContent.WriteString("  " + descStyle.Render(t.desc))
-		mainContent.WriteString("\n\n")
-	}
-
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-
-	// Help section
-	help := []string{
-		"↑↓ navigate",
-		"enter select",
-		"esc cancel",
-	}
-
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
-
-	helpContent := formatHelpText(help)
-	// Right-align help text
-	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
-		Align(lipgloss.Right).
-		Render(helpContent)
-	helpContent = alignedHelp
-
-	// Combine all elements
-	var s strings.Builder
-
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	s.WriteString(contentStyle.Render(mainPane))
-	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-
-	return s.String()
-}
-
-func (m *PipelineBuilderModel) componentNameInputView() string {
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
-	promptStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("245"))
-
-	inputStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170")).
-		Padding(0, 1).
-		Width(60)
-
-	// Calculate dimensions
-	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 11 // Reserve space for help pane and status bar
-
-	// Build main content
-	var mainContent strings.Builder
-
-	// Header with colons
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	// Convert plural to singular for heading
-	singularType := m.componentCreationType
-	if strings.HasSuffix(strings.ToLower(m.componentCreationType), "s") {
-		singularType = m.componentCreationType[:len(m.componentCreationType)-1]
-	}
-	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(singularType))
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	mainContent.WriteString("\n\n")
-
-	// Name input prompt - centered
-	promptText := promptStyle.Render("Enter a descriptive name:")
-	centeredPromptStyle := lipgloss.NewStyle().
-		Width(contentWidth - 4). // Account for padding
-		Align(lipgloss.Center)
-	mainContent.WriteString(headerPadding.Render(centeredPromptStyle.Render(promptText)))
-	mainContent.WriteString("\n\n")
-
-	// Input field with cursor
-	input := m.componentName + "│" // cursor
-
-	// Render input field with padding for centering
-	inputFieldContent := inputStyle.Render(input)
-	
-	// Add padding to center the input field properly
-	centeredInputStyle := lipgloss.NewStyle().
-		Width(contentWidth - 4). // Account for padding
-		Align(lipgloss.Center)
-	
-	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
-	
-	// Check if component name already exists and show warning
-	if m.componentName != "" {
-		testFilename := sanitizeFileName(m.componentName) + ".md"
-		var componentType string
-		switch m.componentCreationType {
-		case models.ComponentTypeContext:
-			componentType = "contexts"
-		case models.ComponentTypePrompt:
-			componentType = "prompts"
-		case models.ComponentTypeRules:
-			componentType = "rules"
-		}
-		
-		existingComponents, _ := files.ListComponents(componentType)
-		for _, existing := range existingComponents {
-			if strings.EqualFold(existing, testFilename) {
-				// Show warning
-				warningStyle := lipgloss.NewStyle().
-					Foreground(lipgloss.Color("214")). // Orange/yellow for warning
-					Bold(true)
-				warningText := warningStyle.Render(fmt.Sprintf("⚠ Warning: %s '%s' already exists", strings.Title(m.componentCreationType), m.componentName))
-				mainContent.WriteString("\n\n")
-				mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(warningText)))
-				break
-			}
-		}
-	}
-
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-
-	// Help section
-	help := []string{
-		"enter continue",
-		"esc back",
-	}
-
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
-
-	helpContent := formatHelpText(help)
-	// Right-align help text
-	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
-		Align(lipgloss.Right).
-		Render(helpContent)
-	helpContent = alignedHelp
-
-	// Combine all elements
-	var s strings.Builder
-
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	s.WriteString(contentStyle.Render(mainPane))
-	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-
-	return s.String()
-}
-
-func (m *PipelineBuilderModel) componentContentEditView() string {
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
-
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("214")) // Orange like other headers
-
-	// Calculate dimensions
-	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 11 // Reserve space for help pane and status bar (3) + borders (2) + spacing (5)
-
-	// Build main content
-	var mainContent strings.Builder
-
-	// Header with colons
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	// Convert plural to singular for heading
-	singularType := m.componentCreationType
-	if strings.HasSuffix(strings.ToLower(m.componentCreationType), "s") {
-		singularType = m.componentCreationType[:len(m.componentCreationType)-1]
-	}
-	heading := fmt.Sprintf("CREATE NEW %s: %s", strings.ToUpper(singularType), m.componentName)
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("240"))
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	mainContent.WriteString("\n\n")
-
-	// Editor content with cursor
-	content := m.componentContent + "│" // cursor
-	
-	// Preprocess content to handle carriage returns and ensure proper line breaks
-	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
-	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
-	
-	// Calculate available width for wrapping (accounting for padding)
-	availableWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
-	if availableWidth < 1 {
-		availableWidth = 1
-	}
-	
-	// Wrap content to prevent overflow
-	wrappedContent := wordwrap.String(processedContent, availableWidth)
-
-	mainContent.WriteString(headerPadding.Render(wrappedContent))
-
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-
-	// Help section
-	help := []string{
-		"^s save",
-		"esc back",
-	}
-
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
-
-	helpContent := formatHelpText(help)
-	// Right-align help text
-	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
-		Align(lipgloss.Right).
-		Render(helpContent)
-	helpContent = alignedHelp
-
-	// Combine all elements
-	var s strings.Builder
-
-	// Add top margin to ensure content is not cut off
-	s.WriteString("\n")
-
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	s.WriteString(contentStyle.Render(mainPane))
-	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-
-	return s.String()
-}
-
-func (m *PipelineBuilderModel) saveNewComponent() tea.Cmd {
-	return func() tea.Msg {
-		// Create filename from name using sanitization
-		filename := sanitizeFileName(m.componentName) + ".md"
-		
-		// Determine directory and component type for listing
-		var dir string
-		var componentType string
-		switch m.componentCreationType {
-		case models.ComponentTypeContext:
-			dir = filepath.Join(files.ComponentsDir, files.ContextsDir)
-			componentType = "contexts"
-		case models.ComponentTypePrompt:
-			dir = filepath.Join(files.ComponentsDir, files.PromptsDir)
-			componentType = "prompts"
-		case models.ComponentTypeRules:
-			dir = filepath.Join(files.ComponentsDir, files.RulesDir)
-			componentType = "rules"
-		}
-		
-		// Check if component already exists (case-insensitive)
-		existingComponents, err := files.ListComponents(componentType)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("× Failed to check existing components: %v", err))
-		}
-		
-		for _, existing := range existingComponents {
-			if strings.EqualFold(existing, filename) {
-				return StatusMsg(fmt.Sprintf("× %s '%s' already exists. Please choose a different name.", strings.Title(m.componentCreationType), m.componentName))
-			}
-		}
-		
-		path := filepath.Join(dir, filename)
-		
-		// Write component
-		err = files.WriteComponent(path, m.componentContent)
-		if err != nil {
-			return StatusMsg(fmt.Sprintf("Failed to save component '%s': %v", m.componentName, err))
-		}
-		
-		// Reset creation state
-		m.creatingComponent = false
-		m.componentName = ""
-		m.componentContent = ""
-		m.creationStep = 0
-		
-		// Reload components
-		m.loadAvailableComponents()
-		
-		return StatusMsg(fmt.Sprintf("✓ Created %s: %s", m.componentCreationType, filename))
-	}
 }
 
 func (m *PipelineBuilderModel) editComponent() tea.Cmd {
