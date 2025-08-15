@@ -17,14 +17,10 @@ v0.1.0 ▘ ▘▘`
 		Foreground(lipgloss.Color("205")). // Pink/magenta color
 		Bold(true)
 
-	// Use the ViewTitle component for consistent styling
-	viewTitle := NewViewTitle(title)
-	viewTitle.SetWidth(0) // We'll handle width calculation separately for header
-
 	// Header padding style (matching pane borders which add 1 char on each side)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(2).
-		PaddingRight(2).
+		PaddingRight(1).
 		Width(width)
 
 	// Render the complete logo with version
@@ -37,11 +33,17 @@ v0.1.0 ▘ ▘▘`
 		// Split the logo into lines to align title with version row
 		logoLines := strings.Split(logoRendered, "\n")
 		
-		// Get the rendered title from ViewTitle component
-		titleRendered := viewTitle.View()
+		// Create title style directly for header (without vertical padding)
+		titleStyle := lipgloss.NewStyle().
+			Foreground(lipgloss.Color("255")). // White text
+			Background(lipgloss.Color("0")).   // Black background
+			Bold(true).
+			Padding(0, 1) // Horizontal padding only
+		
+		titleRendered := titleStyle.Render(title)
 		
 		// Calculate available width for content (accounting for padding)
-		contentWidth := width - 4 // -4 for left and right padding (2 each side)
+		contentWidth := width - 3 // -3 for left and right padding (2 left, 1 right)
 		
 		// Get the actual rendered width of the title (including background padding)
 		titleRenderedWidth := lipgloss.Width(titleRendered)
@@ -53,17 +55,28 @@ v0.1.0 ▘ ▘▘`
 			spacerWidth = 0
 		}
 		
+		// Build header with title aligned to the version line (4th line)
+		// Add 3 empty lines above the title to align with line 4
+		emptyLine := lipgloss.NewStyle().Width(titleRenderedWidth).Render("")
+		titleColumn := lipgloss.JoinVertical(
+			lipgloss.Left,
+			emptyLine, // Line 1
+			emptyLine, // Line 2
+			emptyLine, // Line 3
+			titleRendered, // Line 4 - aligned with version
+		)
+		
 		// Use content width and place title on left, logo on right
 		headerContent = lipgloss.JoinHorizontal(
 			lipgloss.Top,
-			titleRendered,
+			titleColumn,
 			lipgloss.NewStyle().Width(spacerWidth).Render(""),
 			logoRendered,
 		)
 	} else {
 		// No title, just right-align the logo
 		rightAlign := lipgloss.NewStyle().
-			Width(width - 4). // -4 for padding (2 each side)
+			Width(width - 3). // -3 for padding (2 left, 1 right)
 			Align(lipgloss.Right)
 		
 		headerContent = rightAlign.Render(logoRendered)
