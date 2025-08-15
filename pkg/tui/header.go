@@ -20,7 +20,7 @@ v0.1.0 ▘ ▘▘`
 	// Header padding style (matching pane borders which add 1 char on each side)
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(2).
-		PaddingRight(1).
+		PaddingRight(2).
 		Width(width)
 
 	// Render the complete logo with version
@@ -43,7 +43,7 @@ v0.1.0 ▘ ▘▘`
 		titleRendered := titleStyle.Render(title)
 		
 		// Calculate available width for content (accounting for padding)
-		contentWidth := width - 3 // -3 for left and right padding (2 left, 1 right)
+		contentWidth := width - 4 // -4 for left and right padding (2 each side)
 		
 		// Get the actual rendered width of the title (including background padding)
 		titleRenderedWidth := lipgloss.Width(titleRendered)
@@ -76,7 +76,7 @@ v0.1.0 ▘ ▘▘`
 	} else {
 		// No title, just right-align the logo
 		rightAlign := lipgloss.NewStyle().
-			Width(width - 3). // -3 for padding (2 left, 1 right)
+			Width(width - 4). // -4 for padding (2 each side)
 			Align(lipgloss.Right)
 		
 		headerContent = rightAlign.Render(logoRendered)
