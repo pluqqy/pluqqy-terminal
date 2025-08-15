@@ -3004,7 +3004,12 @@ func (m *PipelineBuilderModel) componentNameInputView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(m.componentCreationType))
+	// Convert plural to singular for heading
+	singularType := m.componentCreationType
+	if strings.HasSuffix(strings.ToLower(m.componentCreationType), "s") {
+		singularType = m.componentCreationType[:len(m.componentCreationType)-1]
+	}
+	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(singularType))
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
@@ -3126,7 +3131,12 @@ func (m *PipelineBuilderModel) componentContentEditView() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 
-	heading := fmt.Sprintf("EDIT %s: %s", strings.ToUpper(m.componentCreationType), m.componentName)
+	// Convert plural to singular for heading
+	singularType := m.componentCreationType
+	if strings.HasSuffix(strings.ToLower(m.componentCreationType), "s") {
+		singularType = m.componentCreationType[:len(m.componentCreationType)-1]
+	}
+	heading := fmt.Sprintf("CREATE NEW %s: %s", strings.ToUpper(singularType), m.componentName)
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0

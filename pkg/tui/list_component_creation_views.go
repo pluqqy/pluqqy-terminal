@@ -160,7 +160,12 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 	
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
-	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(componentType))
+	// Convert plural to singular for heading
+	singularType := componentType
+	if strings.HasSuffix(strings.ToLower(componentType), "s") {
+		singularType = componentType[:len(componentType)-1]
+	}
+	heading := fmt.Sprintf("CREATE NEW %s", strings.ToUpper(singularType))
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
@@ -280,7 +285,12 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 	
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
-	heading := fmt.Sprintf("EDIT %s: %s", strings.ToUpper(componentType), componentName)
+	// Convert plural to singular for heading
+	singularType := componentType
+	if strings.HasSuffix(strings.ToLower(componentType), "s") {
+		singularType = componentType[:len(componentType)-1]
+	}
+	heading := fmt.Sprintf("CREATE NEW %s: %s", strings.ToUpper(singularType), componentName)
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
