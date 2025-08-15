@@ -204,12 +204,22 @@ func (m *MainListModel) getCurrentComponents() []componentItem {
 	return m.filteredComponents
 }
 
+// getVisibleComponents is an alias for getCurrentComponents for clearer intent
+func (m *MainListModel) getVisibleComponents() []componentItem {
+	return m.filteredComponents
+}
+
 // getCurrentPipelines returns either filtered pipelines (if searching) or all pipelines
 func (m *MainListModel) getCurrentPipelines() []pipelineItem {
 	if m.searchQuery != "" {
 		return m.filteredPipelines
 	}
 	return m.pipelines
+}
+
+// getFilteredPipelines returns the currently visible pipelines (respects search filter)
+func (m *MainListModel) getFilteredPipelines() []pipelineItem {
+	return m.filteredPipelines
 }
 
 func (m *MainListModel) getEditingItemName() string {

@@ -290,32 +290,60 @@ func (a *App) View() string {
 	case mainListView:
 		if a.mainList != nil {
 			if a.mainList.componentCreator.IsActive() {
-				if a.mainList.componentCreator.GetComponentType() != "" {
-					// Capitalize the component type
-					componentType := a.mainList.componentCreator.GetComponentType()
-					if len(componentType) > 0 {
-						componentType = strings.ToUpper(componentType[:1]) + componentType[1:]
-					}
-					title = componentType + ": New"
+				// During component creation
+				if a.mainList.componentCreator.GetCurrentStep() == 2 && a.mainList.componentCreator.GetComponentName() != "" {
+					// Step 2: Content editing - show the name
+					title = "Component: " + a.mainList.componentCreator.GetComponentName()
 				} else {
+					// Steps 0-1: Type selection and name input
 					title = "Component: New"
 				}
 			} else if a.mainList.componentEditor.IsActive() && a.mainList.componentEditor.ComponentName != "" {
+				// Editing existing component
 				title = "Component: " + a.mainList.componentEditor.ComponentName
 			} else if a.mainList.tagEditor.Active {
 				title = "Tag Editor"
-			} else {
-				title = "✦ Pluqqy ✦ Dashboard ✦"
+			} else if a.mainList.stateManager.ShowPreview && (a.mainList.stateManager.ActivePane == componentsPane || a.mainList.stateManager.ActivePane == pipelinesPane) {
+				// Normal viewing mode - show selected item
+				if a.mainList.stateManager.ActivePane == componentsPane {
+					// Get selected component
+					components := a.mainList.getVisibleComponents()
+					if len(components) > 0 && a.mainList.stateManager.ComponentCursor < len(components) {
+						comp := components[a.mainList.stateManager.ComponentCursor]
+						title = "Component: " + comp.name
+					}
+				} else if a.mainList.stateManager.ActivePane == pipelinesPane {
+					// Get selected pipeline
+					pipelines := a.mainList.getFilteredPipelines()
+					if len(pipelines) > 0 && a.mainList.stateManager.PipelineCursor < len(pipelines) {
+						pipe := pipelines[a.mainList.stateManager.PipelineCursor]
+						title = "Pipeline: " + pipe.name
+					}
+				}
 			}
-		} else {
-			title = "✦ Welcome to ✦ Pluqqy ✦"
+			// If no title set, don't show one (just logo)
 		}
 	case pipelineBuilderView:
 		if a.builder != nil {
 			if a.builder.editingTags {
 				title = "Tag Editor"
+			} else if a.builder.creatingComponent {
+				// During component creation in pipeline builder
+				if a.builder.creationStep == 2 && a.builder.componentName != "" {
+					// Step 2: Content editing - show the name
+					title = "Component: " + a.builder.componentName
+				} else {
+					// Steps 0-1: Type selection and name input
+					title = "Component: New"
+				}
 			} else if a.builder.pipeline != nil {
-				title = "Pipeline: " + a.builder.pipeline.Name
+				if a.builder.pipeline.Name == "" {
+					title = "Pipeline: New"
+				} else {
+					title = "Pipeline: " + a.builder.pipeline.Name
+				}
+			} else {
+				title = "Pipeline: New"
 			}
 		}
 	case pipelineViewerView:
