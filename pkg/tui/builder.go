@@ -1403,6 +1403,21 @@ func (m *PipelineBuilderModel) View() string {
 		rightHeaderStyle.Render(rightHeading) + " " + rightColonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
 	rightContent.WriteString("\n")
 	
+	// Add pipeline name with spacing
+	if m.pipeline != nil && m.pipeline.Name != "" {
+		pipelineNameStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1).
+			PaddingTop(1).
+			Bold(true).
+			Foreground(lipgloss.Color("255")) // White text
+		rightContent.WriteString(pipelineNameStyle.Render(m.pipeline.Name))
+		rightContent.WriteString("\n")
+	} else {
+		// Add empty space if no pipeline name
+		rightContent.WriteString("\n\n")
+	}
+	
 	// Always render tag row (even if empty) for consistent layout
 	tagRowStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
