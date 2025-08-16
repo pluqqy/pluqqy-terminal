@@ -37,9 +37,10 @@ const (
 )
 
 type PipelineBuilderModel struct {
-	width    int
-	height   int
-	pipeline *models.Pipeline
+	width        int
+	height       int
+	pipeline     *models.Pipeline
+	sharedLayout *SharedLayout
 
 	// Available components (left column)
 	prompts  []componentItem
@@ -1280,22 +1281,17 @@ func (m *PipelineBuilderModel) View() string {
 		Bold(true).
 		Foreground(lipgloss.Color("214"))
 
-	// Calculate dimensions
-	columnWidth := (m.width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	searchBarHeight := 3              // Height for search bar
-	
-	// Height calculation matching Main List View:
-	// Base reservation: 13 lines (header, help pane, spacing) + search bar
-	contentHeight := m.height - 13 - searchBarHeight
-
-	if m.showPreview {
-		contentHeight = contentHeight / 2
+	// Update shared layout and get dimensions
+	if m.sharedLayout == nil {
+		m.sharedLayout = NewSharedLayout(m.width, m.height, m.showPreview)
+	} else {
+		m.sharedLayout.SetSize(m.width, m.height)
+		m.sharedLayout.SetShowPreview(m.showPreview)
 	}
 	
-	// Ensure minimum height for content
-	if contentHeight < 10 {
-		contentHeight = 10
-	}
+	// Get calculated dimensions from shared layout
+	columnWidth := m.sharedLayout.GetColumnWidth()
+	contentHeight := m.sharedLayout.GetContentHeight()
 
 	// Update table renderer for left column
 	allComponents := m.getAllAvailableComponents()
@@ -1323,29 +1319,13 @@ func (m *PipelineBuilderModel) View() string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	
-	// Create heading with colons spanning the width
-	heading := "AVAILABLE COMPONENTS"
-	remainingWidth := columnWidth - len(heading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	// Dynamic header and colon styles based on active pane
-	leftHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(func() string {
-			if m.activeColumn == leftColumn {
-				return "170" // Purple when active
-			}
-			return "214" // Orange when inactive
-		}()))
-	leftColonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(func() string {
-			if m.activeColumn == leftColumn {
-				return "170" // Purple when active
-			}
-			return "240" // Gray when inactive
-		}()))
-	leftContent.WriteString(headerPadding.Render(leftHeaderStyle.Render(heading) + " " + leftColonStyle.Render(strings.Repeat(":", remainingWidth))))
+	// Render column header using shared layout
+	leftHeader := m.sharedLayout.RenderColumnHeader(ColumnHeaderConfig{
+		Heading:     "AVAILABLE COMPONENTS",
+		Active:      m.activeColumn == leftColumn,
+		ColumnWidth: columnWidth,
+	})
+	leftContent.WriteString(leftHeader)
 	leftContent.WriteString("\n")
 	
 	// Add empty row to match pipeline name row height on the right
@@ -1375,34 +1355,13 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
-	// Create heading with colons spanning the width
-	rightHeading := "PIPELINE COMPONENTS"
-	
-	// Calculate remaining width for colons (just for heading now)
-	rightRemainingWidth := columnWidth - len(rightHeading) - 5 // -5 for space and padding
-	if rightRemainingWidth < 0 {
-		rightRemainingWidth = 0
-	}
-	
-	// Dynamic header and colon styles based on active pane
-	rightHeaderStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(func() string {
-			if m.activeColumn == rightColumn {
-				return "170" // Purple when active
-			}
-			return "214" // Orange when inactive
-		}()))
-	rightColonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color(func() string {
-			if m.activeColumn == rightColumn {
-				return "170" // Purple when active
-			}
-			return "240" // Gray when inactive
-		}()))
-	// Render heading without tags
-	rightContent.WriteString(headerPadding.Render(
-		rightHeaderStyle.Render(rightHeading) + " " + rightColonStyle.Render(strings.Repeat(":", rightRemainingWidth))))
+	// Render column header using shared layout
+	rightHeader := m.sharedLayout.RenderColumnHeader(ColumnHeaderConfig{
+		Heading:     "PIPELINE COMPONENTS",
+		Active:      m.activeColumn == rightColumn,
+		ColumnWidth: columnWidth,
+	})
+	rightContent.WriteString(rightHeader)
 	rightContent.WriteString("\n")
 	
 	// Add pipeline name with spacing
@@ -1742,25 +1701,16 @@ func (m *PipelineBuilderModel) View() string {
 		s.WriteString("\n")
 	}
 
-	// Help text in bordered pane
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).  // Account for left/right padding (2) and borders (2)
-		Padding(0, 1)  // Internal padding for help text
-	
-	var helpContent string
+	// Render help pane using shared layout
+	var helpRows [][]string
 	if m.activeColumn == searchColumn {
 		// Show search syntax help when search is active
-		helpRows := [][]string{
+		helpRows = [][]string{
 			{"tab switch pane", "esc clear+exit search"},
 			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
 		}
-		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	} else {
 		// Show normal navigation help - grouped by function
-		var helpRows [][]string
-		
 		if m.activeColumn == previewColumn {
 			// Preview pane - only show first row
 			helpRows = [][]string{
@@ -1783,9 +1733,9 @@ func (m *PipelineBuilderModel) View() string {
 				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "K/J reorder", "enter +/-"},
 			}
 		}
-		
-		helpContent = formatHelpTextRows(helpRows, m.width - 8)
 	}
+	
+	helpContent := m.sharedLayout.RenderHelpPane(helpRows)
 	
 	// Show confirmation dialogs if active (inline above help)
 	if m.deleteConfirm.Active() {
@@ -1809,7 +1759,7 @@ func (m *PipelineBuilderModel) View() string {
 		s.WriteString("\n")
 	}
 	
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
+	s.WriteString(helpContent)
 
 	finalView := s.String()
 	

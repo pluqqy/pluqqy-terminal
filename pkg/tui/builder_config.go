@@ -58,6 +58,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		cloneState:         NewCloneState(),
 		cloneRenderer:      NewCloneRenderer(),
 		cloneOperator:      NewCloneOperator(),
+		sharedLayout:       NewSharedLayout(80, 24, config.ShowPreviewByDefault),
 	}
 	
 	// Initialize mermaid state and operator
