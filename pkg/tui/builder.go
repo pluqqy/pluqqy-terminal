@@ -1371,7 +1371,7 @@ func (m *PipelineBuilderModel) View() string {
 			PaddingRight(1).
 			PaddingTop(1).
 			Bold(true).
-			Foreground(lipgloss.Color("255")) // White text
+			Foreground(lipgloss.Color("0")) // Black text for better visibility on light backgrounds
 		rightContent.WriteString(pipelineNameStyle.Render(m.pipeline.Name))
 		rightContent.WriteString("\n")
 	} else {
