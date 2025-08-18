@@ -24,6 +24,7 @@ This approach keeps your context minimal and focused - only including what's rel
 | **Built-in Editor**     | Minimal editor for quick edits with undo, paste cleaning, and token counting |
 | **Live Preview**        | See your composed pipeline as you build                                      |
 | **Pipeline Visualizer** | Generate HTML-based interactive Mermaid diagrams of your pipelines           |
+| **Clipboard Copy**      | Copy composed pipeline content directly to clipboard with `y` key            |
 
 <br>
 
@@ -110,6 +111,7 @@ pluqqy
 | `^d`          | Delete pipeline/component (with confirmation)                      |
 | `M`           | Generate interactive Mermaid diagram for selected pipeline         |
 | `S`           | Set selected pipeline (generates PLUQQY.md, customizable filename) |
+| `y`           | Copy composed pipeline content to clipboard (pipelines pane only)  |
 | `s`           | Open settings editor                                               |
 | `p`           | Toggle preview pane                                                |
 | `^c`          | Quit (double ^c to confirm)                                        |
@@ -130,6 +132,7 @@ pluqqy
 | `p`            | Toggle preview pane                                                       |
 | `^s`           | Save pipeline                                                             |
 | `S`            | Save and set as active pipeline                                           |
+| `y`            | Copy composed pipeline content to clipboard                               |
 | `Esc`          | Back to main list (with unsaved changes confirmation)                     |
 
 <br>

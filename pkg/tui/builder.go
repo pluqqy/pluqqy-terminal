@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
@@ -990,6 +991,19 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Save and set pipeline (generate PLUQQY.md)
 			return m, m.saveAndSetPipeline()
 
+		case "y":
+			// Copy current pipeline content to clipboard
+			if m.pipeline != nil && len(m.pipeline.Components) > 0 {
+				output, err := composer.ComposePipeline(m.pipeline)
+				if err == nil {
+					if err := clipboard.WriteAll(output); err == nil {
+						return m, func() tea.Msg {
+							return StatusMsg(m.pipeline.Name + " → clipboard")
+						}
+					}
+				}
+			}
+
 		case "ctrl+up", "K":
 			if m.activeColumn == rightColumn {
 				m.moveComponentUp()
@@ -1711,13 +1725,13 @@ func (m *PipelineBuilderModel) View() string {
 		if m.activeColumn == previewColumn {
 			// Preview pane - only show first row
 			helpRows = [][]string{
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 			}
 		} else if m.activeColumn == leftColumn {
 			// Available Components pane - no K/J reorder
 			helpRows = [][]string{
 				// Row 1: System & navigation
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 				// Row 2: Component operations (no K/J reorder)
 				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "enter +/-"},
 			}
@@ -1725,7 +1739,7 @@ func (m *PipelineBuilderModel) View() string {
 			// Pipeline Components pane - includes K/J reorder
 			helpRows = [][]string{
 				// Row 1: System & navigation
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "S set", "p preview", "M diagram", "esc back", "^c quit"},
+				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 				// Row 2: Component operations with K/J reorder
 				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "K/J reorder", "enter +/-"},
 			}

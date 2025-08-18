@@ -4,10 +4,12 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/atotto/clipboard"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
+	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
@@ -496,6 +498,27 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					return m, m.pipelineOperator.SetPipeline(pipelines[m.stateManager.PipelineCursor].path)
+				}
+			}
+		
+		case "y":
+			if m.stateManager.ActivePane == pipelinesPane {
+				// Copy selected pipeline content to clipboard
+				pipelines := m.getCurrentPipelines()
+				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					selectedPipeline := pipelines[m.stateManager.PipelineCursor]
+					// Load and compose the pipeline
+					pipeline, err := files.ReadPipeline(selectedPipeline.path)
+					if err == nil && pipeline != nil {
+						output, err := composer.ComposePipeline(pipeline)
+						if err == nil {
+							if err := clipboard.WriteAll(output); err == nil {
+								return m, func() tea.Msg {
+									return StatusMsg(selectedPipeline.name + " → clipboard")
+								}
+							}
+						}
+					}
 				}
 			}
 		

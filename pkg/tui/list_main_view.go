@@ -59,7 +59,7 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 			// Pipelines pane active - show M diagram and S set, hide ^x external
 			helpRows = [][]string{
 				// Row 1: Navigation & system
-				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "M diagram", "S set", "^c quit"},
+				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "M diagram", "S set", "y copy", "^c quit"},
 				// Row 2: Component operations
 				{"n new", "e edit", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive"},
 			}
