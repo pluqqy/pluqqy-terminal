@@ -158,6 +158,20 @@ type componentItem struct {
 
 type clearEditSaveMsg struct{}
 
+type componentSaveResultMsg struct {
+	success       bool
+	message       string
+	componentPath string
+	componentName string
+	savedContent  string
+}
+
+type externalEditSaveMsg struct {
+	savedContent string
+}
+
+type componentEditExitMsg struct{}
+
 // NewPipelineBuilderModel creates a new Pipeline Builder with default configuration
 // For custom configuration, use NewPipelineBuilderModelWithConfig
 func NewPipelineBuilderModel() *PipelineBuilderModel {
@@ -454,20 +468,80 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.updateViewportSizes()
 		
 
-	case clearEditSaveMsg:
-		m.editSaveMessage = ""
-		// Exit editing mode after save confirmation is shown
-		if !m.editingComponent {
-			// Force a redraw to ensure layout is recalculated
-			return m, tea.ClearScreen
+	case componentSaveResultMsg:
+		if msg.success {
+			// Set save message
+			m.editSaveMessage = msg.message
+			
+			// Exit editing mode immediately (like main list view does)
+			m.editingComponent = false
+			m.componentContent = ""
+			m.editingComponentPath = ""
+			m.editingComponentName = ""
+			m.originalContent = ""
+			
+			// Cancel any existing timer
+			if m.editSaveTimer != nil {
+				m.editSaveTimer.Stop()
+			}
+			
+			// Reload components
+			m.loadAvailableComponents()
+			
+			// Update preview
+			m.updatePreview()
+			
+			// Set timer to clear the save message after 1.5 seconds
+			m.editSaveTimer = time.NewTimer(1500 * time.Millisecond)
+			
+			// Return a command to clear the message after timer
+			return m, func() tea.Msg {
+				<-m.editSaveTimer.C
+				return clearEditSaveMsg{}
+			}
+		} else {
+			// Handle save error
+			m.editSaveMessage = msg.message
+			return m, nil
 		}
+	
+	case externalEditSaveMsg:
+		// Update original content when saving before external edit
+		m.originalContent = msg.savedContent
+		return m, nil
+	
+	case componentEditExitMsg:
+		// Exit component editing without saving
 		m.editingComponent = false
 		m.componentContent = ""
 		m.editingComponentPath = ""
 		m.editingComponentName = ""
+		m.editSaveMessage = ""
 		m.originalContent = ""
-		// Force a redraw to ensure layout is recalculated
-		return m, tea.ClearScreen
+		if m.editSaveTimer != nil {
+			m.editSaveTimer.Stop()
+			m.editSaveTimer = nil
+		}
+		return m, nil
+	
+	case clearEditSaveMsg:
+		// Just clear the save message - editing mode was already exited when saving
+		m.editSaveMessage = ""
+		return m, nil
+	
+	case ReloadMsg:
+		// Enhanced editor saved successfully
+		if m.editingComponent && m.useEnhancedEditor {
+			// Exit editing mode
+			m.editingComponent = false
+			// Set success message
+			m.statusMessage = msg.Message
+			// Reload components
+			m.loadAvailableComponents()
+			// Update preview
+			m.updatePreview()
+		}
+		return m, nil
 	
 	case CloneSuccessMsg:
 		// Handle successful clone
@@ -2930,17 +3004,11 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 		// Save current content and open in external editor
 		// First save any unsaved changes
 		if m.componentContent != m.originalContent {
-			err := files.WriteComponent(m.editingComponentPath, m.componentContent)
-			if err != nil {
-				// Store error message to display
-				m.editSaveMessage = fmt.Sprintf("❌ Failed to save before external edit: %v", err)
-				// Set timer to clear message
-				m.editSaveTimer = time.NewTimer(3 * time.Second)
-				return m, func() tea.Msg {
-					<-m.editSaveTimer.C
-					return clearEditSaveMsg{}
-				}
-			}
+			// Save changes before opening external editor
+			return m, tea.Batch(
+				m.saveBeforeExternalEdit(),
+				m.openInEditor(m.editingComponentPath),
+			)
 		}
 		// Open in external editor
 		return m, m.openInEditor(m.editingComponentPath)
@@ -2957,33 +3025,19 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 				m.width - 4,
 				10,
 				func() tea.Cmd {
-					// Exit without saving
-					m.editingComponent = false
-					m.componentContent = ""
-					m.editingComponentPath = ""
-					m.editingComponentName = ""
-					m.editSaveMessage = ""
-					m.originalContent = ""
-					if m.editSaveTimer != nil {
-						m.editSaveTimer.Stop()
+					// Exit without saving - return a message to clear state
+					return func() tea.Msg {
+						return componentEditExitMsg{}
 					}
-					return nil
 				},
 				nil, // onCancel
 			)
 			return m, nil
 		}
 		// No changes, exit immediately
-		m.editingComponent = false
-		m.componentContent = ""
-		m.editingComponentPath = ""
-		m.editingComponentName = ""
-		m.editSaveMessage = ""
-		m.originalContent = ""
-		if m.editSaveTimer != nil {
-			m.editSaveTimer.Stop()
+		return m, func() tea.Msg {
+			return componentEditExitMsg{}
 		}
-		return m, nil
 	case "enter":
 		m.componentContent += "\n"
 	case "backspace":
@@ -3367,35 +3421,32 @@ func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
 		// Write component
 		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
 		if err != nil {
-			m.editSaveMessage = fmt.Sprintf("❌ Failed to save: %v", err)
-			return nil
+			return componentSaveResultMsg{
+				success: false,
+				message: fmt.Sprintf("❌ Failed to save: %v", err),
+			}
 		}
 		
-		// Set save message
-		m.editSaveMessage = fmt.Sprintf("✓ Saved: %s", m.editingComponentName)
-		
-		// Update original content to the saved content
-		m.originalContent = m.componentContent
-		
-		// Cancel any existing timer
-		if m.editSaveTimer != nil {
-			m.editSaveTimer.Stop()
+		return componentSaveResultMsg{
+			success:       true,
+			message:       fmt.Sprintf("✓ Saved: %s", m.editingComponentName),
+			componentPath: m.editingComponentPath,
+			componentName: m.editingComponentName,
+			savedContent:  m.componentContent,
 		}
-		
-		// Set timer to clear message and exit after 1.5 seconds
-		m.editSaveTimer = time.NewTimer(1500 * time.Millisecond)
-		
-		// Reload components
-		m.loadAvailableComponents()
-		
-		// Update preview
-		m.updatePreview()
-		
-		// Return a command to clear the message after timer
-		return func() tea.Msg {
-			<-m.editSaveTimer.C
-			return clearEditSaveMsg{}
+	}
+}
+
+func (m *PipelineBuilderModel) saveBeforeExternalEdit() tea.Cmd {
+	return func() tea.Msg {
+		// Write component
+		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
+		if err != nil {
+			// Return error message to be shown temporarily
+			return StatusMsg(fmt.Sprintf("❌ Failed to save before external edit: %v", err))
 		}
+		// Return a message to update original content
+		return externalEditSaveMsg{savedContent: m.componentContent}
 	}
 }
 
