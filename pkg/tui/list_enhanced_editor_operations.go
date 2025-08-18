@@ -298,14 +298,18 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
 		}
 		
-		// Clear editing state
-		savedName := state.ComponentName
-		state.Reset()
+		// Update original content to reflect saved state
+		state.OriginalContent = content
+		state.Content = content
 		
-		// Return a reload message to refresh data
-		return ReloadMsg{
-			Message: fmt.Sprintf("✓ Saved: %s", savedName),
+		// Mark as no longer new after first save
+		if state.IsNewComponent {
+			state.IsNewComponent = false
 		}
+		
+		// Return a status message without closing the editor
+		savedName := state.ComponentName
+		return StatusMsg(fmt.Sprintf("✓ Saved: %s", savedName))
 	}
 }
 

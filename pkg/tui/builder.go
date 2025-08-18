@@ -529,8 +529,23 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.editSaveMessage = ""
 		return m, nil
 	
+	case StatusMsg:
+		// Handle status messages, especially save confirmations
+		msgStr := string(msg)
+		if strings.HasPrefix(msgStr, "✓ Saved:") {
+			// A component was saved successfully
+			if m.editingComponent && m.useEnhancedEditor {
+				// Reload components but keep editor open
+				m.loadAvailableComponents()
+				// Update preview
+				m.updatePreview()
+			}
+		}
+		// Pass the message up to the parent app for display
+		return m, func() tea.Msg { return msg }
+	
 	case ReloadMsg:
-		// Enhanced editor saved successfully
+		// Legacy path - might still be used by other components
 		if m.editingComponent && m.useEnhancedEditor {
 			// Exit editing mode
 			m.editingComponent = false

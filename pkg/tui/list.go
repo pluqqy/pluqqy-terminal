@@ -751,6 +751,20 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return StatusMsg(fmt.Sprintf("✗ Clone failed: %v", msg.Error))
 		}
 	
+	case StatusMsg:
+		// Handle status messages, especially save confirmations from enhanced editor
+		msgStr := string(msg)
+		if strings.HasPrefix(msgStr, "✓ Saved:") {
+			// A component was saved successfully
+			if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+				// Reload components but keep editor open
+				m.reloadComponents()
+				m.performSearch()
+			}
+		}
+		// Pass the message up to the parent app for display
+		return m, func() tea.Msg { return msg }
+	
 	case ReloadMsg:
 		// Reload data after tag editing
 		m.reloadComponents()
