@@ -491,7 +491,7 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	// Styles
 	sectionStyle := lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("170"))
+		Foreground(lipgloss.Color("214"))
 		
 	labelStyle := lipgloss.NewStyle().
 		Width(20).
@@ -524,7 +524,7 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	} else {
 		content.WriteString(normalStyle.Render("  " + fieldLine))
 	}
-	content.WriteString("\n")
+	content.WriteString("\n\n")
 	content.WriteString(commentStyle.Render("  # Filename for the generated pipeline output (when you press 'S' to set a pipeline)"))
 	content.WriteString("\n\n")
 	
@@ -536,7 +536,7 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	} else {
 		content.WriteString(normalStyle.Render("  " + fieldLine))
 	}
-	content.WriteString("\n")
+	content.WriteString("\n\n")
 	content.WriteString(commentStyle.Render("  # Directory where the pipeline output file will be written"))
 	content.WriteString("\n\n")
 	
@@ -548,7 +548,7 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	} else {
 		content.WriteString(normalStyle.Render("  " + fieldLine))
 	}
-	content.WriteString("\n")
+	content.WriteString("\n\n")
 	content.WriteString(commentStyle.Render("  # Directory for pipeline-generated files (automatically added to .gitignore)"))
 	content.WriteString("\n\n")
 	
@@ -568,14 +568,12 @@ func (m *SettingsEditorModel) updateViewportContent() {
 	} else {
 		content.WriteString(normalStyle.Render("  " + fieldLine))
 	}
-	content.WriteString("\n")
+	content.WriteString("\n\n")
 	content.WriteString(commentStyle.Render("  # Whether to include section headers in the output"))
 	content.WriteString("\n\n")
 	
 	// Sections
 	content.WriteString(sectionStyle.Render("SECTIONS"))
-	content.WriteString("\n")
-	content.WriteString(commentStyle.Render("# Define sections in the order they should appear in the output"))
 	content.WriteString("\n\n")
 	
 	
@@ -608,6 +606,9 @@ func (m *SettingsEditorModel) updateViewportContent() {
 		}
 		content.WriteString("\n")
 	}
+	content.WriteString("\n")
+	content.WriteString(commentStyle.Render("  # Define sections in the order they should appear in the output"))
+	content.WriteString("\n")
 	
 	// Set viewport content
 	m.viewport.SetContent(content.String())
