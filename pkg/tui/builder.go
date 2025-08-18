@@ -853,6 +853,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i := 0; i < pageSize && m.rightCursor > 0; i++ {
 					m.rightCursor--
 				}
+				// Adjust viewport to ensure cursor is visible
+				m.adjustRightViewportScroll()
 			}
 			
 		case "pgdown":
@@ -866,6 +868,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for i := 0; i < pageSize && m.rightCursor < maxCursor; i++ {
 					m.rightCursor++
 				}
+				// Adjust viewport to ensure cursor is visible
+				m.adjustRightViewportScroll()
 			}
 			
 		case "home":
@@ -873,6 +877,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.leftCursor = 0
 			} else if m.activeColumn == rightColumn {
 				m.rightCursor = 0
+				// Adjust viewport to show the first item
+				m.adjustRightViewportScroll()
 				// Sync preview scroll when jumping to first component in pipeline
 				if m.showPreview && len(m.selectedComponents) > 0 {
 					m.syncPreviewToSelectedComponent()
@@ -888,6 +894,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.activeColumn == rightColumn {
 				if len(m.selectedComponents) > 0 {
 					m.rightCursor = len(m.selectedComponents) - 1
+					// Adjust viewport to show the last item
+					m.adjustRightViewportScroll()
 				}
 				// Sync preview scroll when jumping to last component in pipeline
 				if m.showPreview && len(m.selectedComponents) > 0 {
@@ -2045,6 +2053,8 @@ func (m *PipelineBuilderModel) moveCursor(delta int) {
 		if m.rightCursor >= len(m.selectedComponents) {
 			m.rightCursor = len(m.selectedComponents) - 1
 		}
+		// Adjust viewport to ensure cursor is visible after movement
+		m.adjustRightViewportScroll()
 		// Sync preview scroll when navigating components in right column (Pipeline Components)
 		if m.showPreview && len(m.selectedComponents) > 0 {
 			m.syncPreviewToSelectedComponent()
@@ -2088,6 +2098,9 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 				}
 				// Otherwise keep cursor at the same position to show where removal happened
 				
+				// Adjust viewport to ensure cursor is visible
+				m.adjustRightViewportScroll()
+				
 				// Update preview after removing component
 				m.updatePreview()
 				
@@ -2114,6 +2127,63 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 	}
 }
 
+// adjustRightViewportScroll ensures the cursor is visible in the right viewport
+func (m *PipelineBuilderModel) adjustRightViewportScroll() {
+	// Calculate the line number where the cursor is
+	currentLine := 0
+	overallIndex := 0
+	
+	// Load settings for section order
+	settings, err := files.ReadSettings()
+	if err != nil || settings == nil {
+		settings = models.DefaultSettings()
+	}
+	
+	// Group components by type
+	typeGroups := make(map[string][]models.ComponentRef)
+	for _, comp := range m.selectedComponents {
+		typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
+	}
+	
+	// Calculate cursor line position
+	for sectionIdx, section := range settings.Output.Formatting.Sections {
+		components := typeGroups[section.Type]
+		if len(components) == 0 {
+			continue
+		}
+		
+		currentLine++ // Section header
+		
+		for range components {
+			if overallIndex == m.rightCursor {
+				goto found
+			}
+			currentLine++
+			overallIndex++
+		}
+		
+		// Add empty line if there are more sections
+		hasMoreSections := false
+		for j := sectionIdx + 1; j < len(settings.Output.Formatting.Sections); j++ {
+			if len(typeGroups[settings.Output.Formatting.Sections[j].Type]) > 0 {
+				hasMoreSections = true
+				break
+			}
+		}
+		if hasMoreSections {
+			currentLine++ // Empty line between sections
+		}
+	}
+	
+found:
+	// Ensure the cursor line is visible
+	if currentLine < m.rightViewport.YOffset {
+		m.rightViewport.SetYOffset(currentLine)
+	} else if currentLine >= m.rightViewport.YOffset+m.rightViewport.Height {
+		m.rightViewport.SetYOffset(currentLine - m.rightViewport.Height + 1)
+	}
+}
+
 // insertComponentByType inserts a component in the correct position based on type grouping
 func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef) {
 	// Add the component to the list
@@ -2126,7 +2196,8 @@ func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef
 	for i, comp := range m.selectedComponents {
 		if comp.Path == newComp.Path && comp.Type == newComp.Type {
 			m.rightCursor = i
-			// The viewport will auto-scroll to the cursor in the View method
+			// Immediately adjust viewport to show the cursor
+			m.adjustRightViewportScroll()
 			break
 		}
 	}
@@ -2236,6 +2307,9 @@ func (m *PipelineBuilderModel) removeSelectedComponent() {
 		// Update the usage count locally
 		m.updateLocalUsageCount(componentPath, -1)
 		
+		// Adjust viewport to ensure cursor is still visible
+		m.adjustRightViewportScroll()
+		
 		// Update preview after removing component
 		m.updatePreview()
 	}
@@ -2257,6 +2331,9 @@ func (m *PipelineBuilderModel) moveComponentUp() {
 			m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
 			
 			m.rightCursor--
+			
+			// Adjust viewport to ensure cursor is visible after move
+			m.adjustRightViewportScroll()
 		}
 	}
 }
@@ -2277,6 +2354,9 @@ func (m *PipelineBuilderModel) moveComponentDown() {
 			m.selectedComponents[m.rightCursor+1].Order = m.rightCursor + 2
 			
 			m.rightCursor++
+			
+			// Adjust viewport to ensure cursor is visible after move
+			m.adjustRightViewportScroll()
 		}
 	}
 }
