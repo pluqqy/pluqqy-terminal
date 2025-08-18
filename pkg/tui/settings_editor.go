@@ -675,19 +675,19 @@ func (m *SettingsEditorModel) saveSettings() tea.Cmd {
 			if !hasContexts {
 				m.settings.Output.Formatting.Sections = append(m.settings.Output.Formatting.Sections, models.Section{
 					Type:    "contexts",
-					Heading: "## CONTEXT",
+					Heading: "## CONTEXTS",
 				})
 			}
 			if !hasPrompts {
 				m.settings.Output.Formatting.Sections = append(m.settings.Output.Formatting.Sections, models.Section{
 					Type:    "prompts",
-					Heading: "## PROMPT",
+					Heading: "## PROMPTS",
 				})
 			}
 			if !hasRules {
 				m.settings.Output.Formatting.Sections = append(m.settings.Output.Formatting.Sections, models.Section{
 					Type:    "rules",
-					Heading: "## IMPORTANT RULES",
+					Heading: "## RULES",
 				})
 			}
 		}

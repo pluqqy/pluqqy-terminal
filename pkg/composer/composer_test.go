@@ -50,9 +50,9 @@ func TestComposePipeline(t *testing.T) {
 	// Verify output contains expected elements
 	expectedElements := []string{
 		"# test-debug",
-		"## CONTEXT",
+		"## CONTEXTS",
 		"## PROMPTS",
-		"## IMPORTANT RULES",
+		"## RULES",
 		contextContent,
 		promptContent,
 		rulesContent,

@@ -37,8 +37,8 @@ func DefaultSettings() *Settings {
 			Formatting: FormattingSettings{
 				ShowHeadings: true,
 				Sections: []Section{
-					{Type: "rules", Heading: "## IMPORTANT RULES"},
-					{Type: "contexts", Heading: "## CONTEXT"},
+					{Type: "rules", Heading: "## RULES"},
+					{Type: "contexts", Heading: "## CONTEXTS"},
 					{Type: "prompts", Heading: "## PROMPTS"},
 				},
 			},
