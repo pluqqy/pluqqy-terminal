@@ -1696,9 +1696,6 @@ func (m *PipelineBuilderModel) View() string {
 			PaddingLeft(1).
 			PaddingRight(1)
 		s.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
-	} else {
-		// Add spacing when preview is not shown to keep layout consistent
-		s.WriteString("\n")
 	}
 
 	// Render help pane using shared layout
@@ -1754,11 +1751,10 @@ func (m *PipelineBuilderModel) View() string {
 			MarginBottom(1)
 		s.WriteString("\n")
 		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4))))
-	} else {
-		// Only add newline if no confirmation dialog is shown
-		s.WriteString("\n")
 	}
 	
+	// Always add a single newline before help pane (matching Main list view)
+	s.WriteString("\n")
 	s.WriteString(helpContent)
 
 	finalView := s.String()
