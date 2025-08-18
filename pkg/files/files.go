@@ -290,7 +290,7 @@ func formatComponentContentWithName(content string, name string, tags []string) 
 		buf.WriteString("---\n")
 		frontmatterBytes, _ := yaml.Marshal(frontmatter)
 		buf.Write(frontmatterBytes)
-		buf.WriteString("---\n\n")
+		buf.WriteString("---\n")
 	}
 	
 	// Write the content

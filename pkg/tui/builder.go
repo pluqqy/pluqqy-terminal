@@ -1068,8 +1068,25 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.savePipeline()
 			
 		case "ctrl+d":
-			// Delete pipeline with confirmation (not in preview pane)
-			if m.activeColumn != previewColumn && m.pipeline != nil && m.pipeline.Path != "" {
+			// Handle deletion based on active column
+			if m.activeColumn == leftColumn {
+				// Delete component from Available Components pane
+				components := m.getAllAvailableComponents()
+				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+					comp := components[m.leftCursor]
+					m.deleteConfirm.ShowInline(
+						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
+						true, // destructive
+						func() tea.Cmd {
+							return m.deleteComponentFromLeft(comp)
+						},
+						func() tea.Cmd {
+							return nil
+						},
+					)
+				}
+			} else if m.activeColumn != previewColumn && m.pipeline != nil && m.pipeline.Path != "" {
+				// Delete pipeline with confirmation (not in preview pane or left column)
 				pipelineName := filepath.Base(m.pipeline.Path)
 				m.deleteConfirm.ShowInline(
 					fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
@@ -2711,6 +2728,33 @@ func (m *PipelineBuilderModel) deletePipeline() tea.Cmd {
 			view:   mainListView,
 			status: fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName),
 		}
+	}
+}
+
+func (m *PipelineBuilderModel) deleteComponentFromLeft(comp componentItem) tea.Cmd {
+	return func() tea.Msg {
+		// Store tags before deletion for cleanup
+		tagsToCleanup := make([]string, len(comp.tags))
+		copy(tagsToCleanup, comp.tags)
+		
+		// Delete the component file
+		err := files.DeleteComponent(comp.path)
+		if err != nil {
+			return StatusMsg(fmt.Sprintf("× Failed to delete %s: %v", comp.compType, err))
+		}
+		
+		// Start async tag cleanup if there were tags
+		if len(tagsToCleanup) > 0 {
+			go func() {
+				tags.CleanupOrphanedTags(tagsToCleanup)
+			}()
+		}
+		
+		// Reload components to refresh the list
+		m.loadAvailableComponents()
+		
+		// Return success message
+		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
 	}
 }
 
