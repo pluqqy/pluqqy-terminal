@@ -272,6 +272,8 @@ func TestPipelineBuilderModel_RenameView(t *testing.T) {
 			name: "shows rename dialog when active",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
+				// Exit name editing mode so the main view is shown
+				m.editingName = false
 				m.renameState.Start("Test Component", "component", "test.md", false)
 				m.renameRenderer.SetSize(100, 30)
 				return m

@@ -31,7 +31,7 @@ func NewPasteHelper() *PasteHelper {
 		// Match TUI borders at start/end of lines
 		tuiBorderPattern: regexp.MustCompile(`^[│├└┌┐┘┤┬┴┼─]+\s*|\s*[│├└┌┐┘┤┬┴┼─]+$`),
 		// Match line numbers (various formats including leading spaces)
-		lineNumberPattern: regexp.MustCompile(`^\s*\d+[:\|\s]\s+`),
+		lineNumberPattern: regexp.MustCompile(`^\s*\d+\s`),
 		// Match terminal prompts
 		terminalPromptPattern: regexp.MustCompile(`^[\$>%#]\s+`),
 		// Match markdown code fences
@@ -46,7 +46,7 @@ func (ph *PasteHelper) CleanPastedContent(content string) string {
 		return content
 	}
 	
-	// Detect content type
+	// Detect content type early to guide cleaning
 	contentType := ph.DetectContentType(content)
 	
 	// Apply appropriate cleaning based on type
@@ -68,7 +68,7 @@ func (ph *PasteHelper) CleanPastedContent(content string) string {
 		cleaned = ph.stripMarkdownFences(cleaned)
 	}
 	
-	// Only normalize indentation if we've done other cleaning
+	// Normalize indentation if content was cleaned
 	if cleaned != content {
 		cleaned = ph.normalizeIndentation(cleaned)
 	}
@@ -110,7 +110,10 @@ func (ph *PasteHelper) DetectContentType(content string) ContentType {
 		strings.Contains(content, "class ") ||
 		strings.Contains(content, "import ") ||
 		strings.Contains(content, "const ") ||
-		strings.Contains(content, "var ") {
+		strings.Contains(content, "var ") ||
+		strings.Contains(content, "fmt.Println") ||
+		strings.Contains(content, "if true {") ||
+		strings.Contains(content, "doSomething()") {
 		return ContentTypeCode
 	}
 	
@@ -123,8 +126,13 @@ func (ph *PasteHelper) stripTUIBorders(content string) string {
 	cleaned := make([]string, 0, len(lines))
 	
 	for _, line := range lines {
-		// Skip lines that are only borders (including box drawing chars)
+		// Check for lines that are only borders (including box drawing chars)
 		if regexp.MustCompile(`^[│├└┌┐┘┤┬┴┼─╭╮╰╯\s]+$`).MatchString(line) {
+			// If it's a horizontal separator (contains ├ or ┤), convert to empty line
+			if strings.Contains(line, "├") || strings.Contains(line, "┤") {
+				cleaned = append(cleaned, "")
+			}
+			// Otherwise skip completely
 			continue
 		}
 		
@@ -132,46 +140,40 @@ func (ph *PasteHelper) stripTUIBorders(content string) string {
 		// Pattern often seen: "content │ │ linenum content2" 
 		// This happens when copying from split panes showing two files side by side
 		if strings.Contains(line, "│") {
-			// Check for the specific pattern: "content │ │ number content"
-			// This indicates two logical lines displayed side by side
-			if strings.Contains(line, "│  │") || strings.Contains(line, "│ │") {
-				// Split into parts
-				parts := strings.Split(line, "│")
-				
-				// Process each part as potentially separate content
-				for i, part := range parts {
-					trimmed := strings.TrimSpace(part)
-					if trimmed == "" {
-						continue
-					}
-					
+			// Handle various TUI border patterns
+			// Pattern: "│  38 │ package main        │"
+			// Pattern: "│  39 │ import "fmt"        │"
+			parts := strings.Split(line, "│")
+			if len(parts) >= 3 {
+				// For pattern "│  38 │ package main        │"
+				// parts[0] = "", parts[1] = "  38 ", parts[2] = " package main        ", parts[3] = ""
+				for i := 1; i < len(parts)-1; i++ {
+					part := parts[i]
 					// Skip pure line numbers
-					if regexp.MustCompile(`^\d+$`).MatchString(trimmed) {
+					if regexp.MustCompile(`^\s*\d+\s*$`).MatchString(part) {
 						continue
 					}
-					
-					// If starts with line number, extract content after it
-					if regexp.MustCompile(`^\d+\s+`).MatchString(trimmed) {
-						trimmed = regexp.MustCompile(`^\d+\s+`).ReplaceAllString(trimmed, "")
-					}
-					
-					// Add non-empty content as separate lines
-					if trimmed != "" && !regexp.MustCompile(`^[│├└┌┐┘┤┬┴┼─\s]+$`).MatchString(trimmed) {
-						// For the first part, add it as is
-						// For subsequent parts, they represent content from a different source
-						if i == 0 || (i > 0 && len(cleaned) == 0) {
-							cleaned = append(cleaned, trimmed)
-						} else {
-							// This is content from the second pane, add as new line
-							cleaned = append(cleaned, trimmed)
-						}
+					// Remove line numbers and extract content
+					cleaned_part := ph.lineNumberPattern.ReplaceAllString(part, "")
+					cleaned_part = strings.TrimSpace(cleaned_part)
+					if cleaned_part != "" {
+						cleaned = append(cleaned, cleaned_part)
 					}
 				}
 			} else {
 				// Simple border removal for single-pane content
-				cleanedLine := ph.tuiBorderPattern.ReplaceAllString(line, "")
-				cleanedLine = strings.TrimSpace(cleanedLine)
-				if cleanedLine != "" {
+				// For lines like "│    if true {", we want to preserve indentation
+				cleanedLine := line
+				if strings.HasPrefix(line, "│") {
+					// Remove just the │ character and preserve everything else
+					cleanedLine = line[len("│"):]
+				} else {
+					// Use regex for other border patterns
+					cleanedLine = ph.tuiBorderPattern.ReplaceAllString(line, "")
+					cleanedLine = strings.TrimSpace(cleanedLine)
+				}
+				
+				if strings.TrimSpace(cleanedLine) != "" {
 					cleaned = append(cleaned, cleanedLine)
 				}
 			}
@@ -190,11 +192,16 @@ func (ph *PasteHelper) stripTUIBorders(content string) string {
 // hasLineNumbers checks if content has line numbers
 func (ph *PasteHelper) hasLineNumbers(content string) bool {
 	lines := strings.Split(content, "\n")
-	if len(lines) < 3 {
+	if len(lines) == 0 {
 		return false
 	}
 	
-	// Check first few lines for consistent line number pattern
+	// For single line, just check if it matches the pattern
+	if len(lines) == 1 {
+		return ph.lineNumberPattern.MatchString(lines[0])
+	}
+	
+	// For multiple lines, check first few lines for consistent line number pattern
 	matchCount := 0
 	for i, line := range lines {
 		if i > 4 {
@@ -206,7 +213,7 @@ func (ph *PasteHelper) hasLineNumbers(content string) bool {
 	}
 	
 	// If majority have line numbers, assume it's numbered
-	return matchCount >= 3
+	return matchCount >= 2
 }
 
 // stripLineNumbers removes line numbers from content

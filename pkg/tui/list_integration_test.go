@@ -10,18 +10,10 @@ import (
 func createFullyInitializedModel(t *testing.T) *MainListModel {
 	t.Helper()
 	
-	m := &MainListModel{
-		stateManager:       NewStateManager(),
-		businessLogic:      NewBusinessLogic(),
-		searchBar:          NewSearchBar(),
-		pipelineOperator:   NewPipelineOperator(),
-		exitConfirm:        NewConfirmation(),
-		componentCreator:   NewComponentCreator(),
-		componentEditor:    NewComponentEditor(),
-		tagEditor:          NewTagEditor(),
-		width:              100,
-		height:             50,
-	}
+	// Use the proper constructor to ensure all fields are initialized
+	m := NewMainListModel()
+	m.width = 100
+	m.height = 50
 	
 	// Initialize with test data
 	m.prompts = makeTestComponents("prompts", "greeting", "farewell", "question")

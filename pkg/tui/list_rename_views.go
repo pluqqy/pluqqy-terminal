@@ -115,26 +115,24 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 	enterKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorSuccess)).
 		Foreground(lipgloss.Color(ColorWhite)).
-		Padding(0, 1).
 		Bold(true)
 	
 	escKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorDanger)).
 		Foreground(lipgloss.Color(ColorWhite)).
-		Padding(0, 1).
 		Bold(true)
 	
 	// Build help text with colored keys
 	var helpParts []string
 	
 	if state.IsValid() {
-		helpParts = append(helpParts, enterKeyStyle.Render("Enter")+" Save")
-		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
+		helpParts = append(helpParts, "["+enterKeyStyle.Render("Enter")+"] Save")
+		helpParts = append(helpParts, "["+escKeyStyle.Render("Esc")+"] Cancel")
 	} else if state.NewName == state.OriginalName {
-		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
+		helpParts = append(helpParts, "["+escKeyStyle.Render("Esc")+"] Cancel")
 		helpParts = append(helpParts, DescriptionStyle.Render("(no changes)"))
 	} else {
-		helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
+		helpParts = append(helpParts, "["+escKeyStyle.Render("Esc")+"] Cancel")
 	}
 	
 	b.WriteString(strings.Join(helpParts, "  "))

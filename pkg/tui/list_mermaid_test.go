@@ -357,9 +357,9 @@ func TestGenerateMermaidGraph(t *testing.T) {
 				"graph TD",
 				"FULL PIPELINE",
 				"3 Components",
-				"subgraph CONTEXT", // Based on default settings "## CONTEXT"
+				"subgraph CONTEXTS", // Based on default settings "## CONTEXTS"
 				"subgraph PROMPTS", // Based on default settings "## PROMPTS"
-				"subgraph IMPORTANT_RULES", // Based on default settings "## IMPORTANT RULES"
+				"subgraph RULES", // Based on default settings "## RULES"
 				"classDef pipeline",
 				"classDef context",
 				"classDef prompt",
