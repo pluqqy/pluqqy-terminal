@@ -137,6 +137,7 @@ pluqqy
 #### Creating New Components
 
 When creating a new component (press `n` in the components pane):
+
 1. **Select Type**: Choose between Context, Prompt, or Rules
 2. **Enter Name**: Provide a descriptive name for your component
 3. **Edit Content**: Opens the enhanced editor with all features available:
