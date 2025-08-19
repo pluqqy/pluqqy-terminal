@@ -243,10 +243,10 @@ func TestGetTagStats(t *testing.T) {
 	
 	// Create some components with tags
 	component1 := filepath.Join(files.ComponentsDir, files.PromptsDir, "test1.md")
-	files.WriteComponentWithTags(component1, "# Test 1", []string{"api", "v2"})
+	files.WriteComponentWithNameAndTags(component1, "# Test 1", "Test 1", []string{"api", "v2"})
 	
 	component2 := filepath.Join(files.ComponentsDir, files.PromptsDir, "test2.md")
-	files.WriteComponentWithTags(component2, "# Test 2", []string{"api", "frontend"})
+	files.WriteComponentWithNameAndTags(component2, "# Test 2", "Test 2", []string{"api", "frontend"})
 	
 	// Create a pipeline with tags
 	pipeline := &models.Pipeline{

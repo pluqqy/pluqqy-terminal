@@ -299,16 +299,12 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 			return StatusMsg(fmt.Sprintf("× Validation failed: %v", err))
 		}
 		
-		// Write component - handle new vs existing components
-		var err error
+		// Write component - always use WriteComponentWithNameAndTags to preserve both name and tags
+		err := files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
+		
+		// After first save, it's no longer a new component
 		if state.IsNewComponent {
-			// Use WriteComponentWithNameAndTags for new components
-			err = files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
-			// After first save, it's no longer a new component
 			state.IsNewComponent = false
-		} else {
-			// Use WriteComponentWithTags to preserve tags for existing components
-			err = files.WriteComponentWithTags(state.ComponentPath, content, state.ComponentTags)
 		}
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
@@ -345,9 +341,9 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 			// After first save, it's no longer a new component
 			state.IsNewComponent = false
 		} else if state.HasUnsavedChanges() {
-			// For existing components, save normally
+			// For existing components, save with name and tags to preserve both
 			content := state.Textarea.Value()
-			err := files.WriteComponentWithTags(state.ComponentPath, content, state.ComponentTags)
+			err := files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
 			if err != nil {
 				return StatusMsg(fmt.Sprintf("× Failed to save before external edit: %v", err))
 			}
@@ -385,7 +381,10 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 		state.OriginalContent = content.Content
 		state.Content = content.Content
 		
-		// Update tags if they were changed in the external editor
+		// Update name and tags if they were changed in the external editor
+		if content.Name != "" {
+			state.ComponentName = content.Name
+		}
 		if content.Tags != nil {
 			state.ComponentTags = content.Tags
 		}

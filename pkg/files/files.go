@@ -199,37 +199,6 @@ func ReadComponent(path string) (*models.Component, error) {
 	}, nil
 }
 
-// formatComponentContent adds or updates frontmatter with tags
-func formatComponentContent(content string, tags []string) string {
-	contentBytes := []byte(content)
-	frontmatter, contentWithoutFrontmatter, _ := extractFrontmatter(contentBytes)
-	
-	// Update tags if provided
-	if tags != nil {
-		frontmatter.Tags = tags
-	}
-	
-	// If no tags and no existing frontmatter, return content as-is
-	if len(frontmatter.Tags) == 0 && !bytes.HasPrefix(contentBytes, []byte("---")) {
-		return content
-	}
-	
-	// Build new content with frontmatter
-	var buf bytes.Buffer
-	
-	// Write frontmatter if there are tags
-	if len(frontmatter.Tags) > 0 {
-		buf.WriteString("---\n")
-		frontmatterBytes, _ := yaml.Marshal(frontmatter)
-		buf.Write(frontmatterBytes)
-		buf.WriteString("---\n")
-	}
-	
-	// Write the content
-	buf.Write(contentWithoutFrontmatter)
-	
-	return buf.String()
-}
 
 func WriteComponent(path string, content string) error {
 	if err := validatePath(path); err != nil {
@@ -255,11 +224,6 @@ func WriteComponent(path string, content string) error {
 	return nil
 }
 
-// WriteComponentWithTags writes a component file with tags
-func WriteComponentWithTags(path string, content string, tags []string) error {
-	formattedContent := formatComponentContent(content, tags)
-	return WriteComponent(path, formattedContent)
-}
 
 // WriteComponentWithNameAndTags writes a component with name and tags in frontmatter
 func WriteComponentWithNameAndTags(path string, content string, name string, tags []string) error {
@@ -856,8 +820,8 @@ func UpdateComponentTags(path string, tags []string) error {
 		return fmt.Errorf("failed to read component: %w", err)
 	}
 	
-	// Update the content with new tags
-	updatedContent := formatComponentContent(component.Content, tags)
+	// Update the content with new tags, preserving the name
+	updatedContent := formatComponentContentWithName(component.Content, component.Name, tags)
 	
 	// Write back
 	return WriteComponent(path, updatedContent)

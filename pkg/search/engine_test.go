@@ -38,33 +38,38 @@ func createTestData(t *testing.T) {
 	// Create test components
 	testComponents := []struct {
 		path    string
+		name    string
 		content string
 		tags    []string
 	}{
 		{
 			path:    filepath.Join(files.ComponentsDir, files.PromptsDir, "api-prompt.md"),
+			name:    "API Prompt",
 			content: "# API Prompt\n\nThis is an API-related prompt for error handling.",
 			tags:    []string{"api", "error-handling", "v2"},
 		},
 		{
 			path:    filepath.Join(files.ComponentsDir, files.PromptsDir, "auth-prompt.md"),
+			name:    "Authentication Prompt",
 			content: "# Authentication Prompt\n\nHandle user authentication and authorization.",
 			tags:    []string{"auth", "security", "api"},
 		},
 		{
 			path:    filepath.Join(files.ComponentsDir, files.ContextsDir, "api-context.md"),
+			name:    "API Context",
 			content: "# API Context\n\nBackground information about the API system.",
 			tags:    []string{"api", "documentation"},
 		},
 		{
 			path:    filepath.Join(files.ComponentsDir, files.RulesDir, "security-rules.md"),
+			name:    "Security Rules",
 			content: "# Security Rules\n\nImportant security constraints and guidelines.",
 			tags:    []string{"security", "critical"},
 		},
 	}
 	
 	for _, tc := range testComponents {
-		err := files.WriteComponentWithTags(tc.path, tc.content, tc.tags)
+		err := files.WriteComponentWithNameAndTags(tc.path, tc.content, tc.name, tc.tags)
 		if err != nil {
 			t.Fatalf("Failed to create test component %s: %v", tc.path, err)
 		}

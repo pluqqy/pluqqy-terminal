@@ -3,7 +3,6 @@ package files
 import (
 	"os"
 	"path/filepath"
-	"strings"
 	"testing"
 )
 
@@ -92,82 +91,6 @@ author: John Doe
 	}
 }
 
-func TestFormatComponentContent(t *testing.T) {
-	tests := []struct {
-		name            string
-		content         string
-		tags            []string
-		expectedContent string
-	}{
-		{
-			name:    "add tags to content without frontmatter",
-			content: "# Component Content\nThis is the content.",
-			tags:    []string{"api", "v2"},
-			expectedContent: `---
-tags:
-    - api
-    - v2
----
-# Component Content
-This is the content.`,
-		},
-		{
-			name: "update existing tags",
-			content: `---
-tags: [old, obsolete]
----
-
-# Content`,
-			tags: []string{"new", "updated"},
-			expectedContent: `---
-tags:
-    - new
-    - updated
----
-
-# Content`,
-		},
-		{
-			name:            "remove tags",
-			content:         `---
-tags: [api, v2]
----
-
-# Content`,
-			tags:            []string{},
-			expectedContent: "\n# Content",
-		},
-		{
-			name:            "nil tags preserves existing",
-			content:         `---
-tags: [existing]
----
-
-# Content`,
-			tags:            nil,
-			expectedContent: `---
-tags:
-    - existing
----
-
-# Content`,
-		},
-	}
-	
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := formatComponentContent(tt.content, tt.tags)
-			
-			// Normalize line endings for comparison
-			expected := strings.TrimSpace(tt.expectedContent)
-			actual := strings.TrimSpace(result)
-			
-			if actual != expected {
-				t.Errorf("formatComponentContent() = %q, want %q", actual, expected)
-			}
-		})
-	}
-}
 
 func TestComponentTagOperations(t *testing.T) {
 	// Create a temporary directory for testing
@@ -191,11 +114,11 @@ func TestComponentTagOperations(t *testing.T) {
 	componentPath := filepath.Join(ComponentsDir, PromptsDir, "test-component.md")
 	content := "# Test Component\nThis is a test."
 	
-	t.Run("WriteComponentWithTags", func(t *testing.T) {
+	t.Run("WriteComponentWithNameAndTags", func(t *testing.T) {
 		tags := []string{"test", "api", "v2"}
-		err := WriteComponentWithTags(componentPath, content, tags)
+		err := WriteComponentWithNameAndTags(componentPath, content, "Test Component", tags)
 		if err != nil {
-			t.Errorf("WriteComponentWithTags() error = %v", err)
+			t.Errorf("WriteComponentWithNameAndTags() error = %v", err)
 			return
 		}
 		
