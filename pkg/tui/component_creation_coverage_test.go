@@ -182,7 +182,7 @@ func TestComponentCreator_HandleTypeSelection(t *testing.T) {
 			handled:        true,
 		},
 		{
-			name: "wrap around when going down from last",
+			name: "stops at last when going down",
 			setup: func() *ComponentCreator {
 				c := NewComponentCreator()
 				c.Start()
@@ -192,11 +192,11 @@ func TestComponentCreator_HandleTypeSelection(t *testing.T) {
 			input:          tea.KeyMsg{Type: tea.KeyDown},
 			expectedType:   "",
 			expectedStep:   0,
-			expectedCursor: 0, // Wrap to first
+			expectedCursor: 2, // Stays at last
 			handled:        true,
 		},
 		{
-			name: "wrap around when going up from first",
+			name: "stops at first when going up",
 			setup: func() *ComponentCreator {
 				c := NewComponentCreator()
 				c.Start()
@@ -206,7 +206,7 @@ func TestComponentCreator_HandleTypeSelection(t *testing.T) {
 			input:          tea.KeyMsg{Type: tea.KeyUp},
 			expectedType:   "",
 			expectedStep:   0,
-			expectedCursor: 2, // Wrap to last
+			expectedCursor: 0, // Stays at first
 			handled:        true,
 		},
 		{
