@@ -36,15 +36,21 @@ type TagEditor struct {
 
 	// Confirmation models
 	TagDeleteConfirm *ConfirmationModel
+	ExitConfirm      *ConfirmationModel
+	PendingExit      bool // Flag to indicate exit should happen after confirmation
 
 	// Tag reloader
 	TagReloader *TagReloader
+
+	// Dimensions
+	Width int
 }
 
 // NewTagEditor creates a new tag editor instance
 func NewTagEditor() *TagEditor {
 	return &TagEditor{
 		TagDeleteConfirm: NewConfirmation(),
+		ExitConfirm:      NewConfirmation(),
 		TagReloader:      NewTagReloader(),
 	}
 }
@@ -84,6 +90,35 @@ func (t *TagEditor) Reset() {
 	t.TagCloudCursor = 0
 	t.DeletingTag = ""
 	t.DeletingTagUsage = nil
+	t.PendingExit = false
+}
+
+// HasUnsavedChanges checks if tags have been modified
+func (t *TagEditor) HasUnsavedChanges() bool {
+	// Check if the number of tags has changed
+	if len(t.CurrentTags) != len(t.OriginalTags) {
+		return true
+	}
+
+	// Create maps for efficient comparison
+	originalMap := make(map[string]bool)
+	for _, tag := range t.OriginalTags {
+		originalMap[tag] = true
+	}
+
+	// Check if all current tags exist in original
+	for _, tag := range t.CurrentTags {
+		if !originalMap[tag] {
+			return true
+		}
+	}
+
+	return false
+}
+
+// SetSize updates the width for proper dialog display
+func (t *TagEditor) SetSize(width int) {
+	t.Width = width
 }
 
 // LoadAvailableTags loads tags from the registry
@@ -112,11 +147,54 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		return true, t.TagDeleteConfirm.Update(msg)
 	}
 
+	// Handle exit confirmation
+	if t.ExitConfirm.Active() {
+		cmd := t.ExitConfirm.Update(msg)
+		// Check if confirmation was completed by checking if dialog is no longer active
+		if !t.ExitConfirm.Active() && t.PendingExit {
+			// Dialog closed, check which key was pressed to determine action
+			if msg.String() == "y" || msg.String() == "Y" {
+				// User confirmed, exit without saving
+				t.Reset()
+			}
+			// Clear pending flag regardless of choice
+			t.PendingExit = false
+		}
+		return true, cmd
+	}
+
 	switch msg.String() {
 	case "esc":
-		// Cancel tag editing
-		t.Reset()
-		return true, nil
+		// Check for unsaved changes
+		if t.HasUnsavedChanges() {
+			// Set pending exit flag
+			t.PendingExit = true
+			// Show exit confirmation
+			width := t.Width
+			if width == 0 {
+				width = 80 // Default width if not set
+			}
+			t.ExitConfirm.Show(ConfirmationConfig{
+				Title:       "⚠️  Unsaved Changes",
+				Message:     "You have unsaved changes to tags.",
+				Warning:     "Exit without saving?",
+				Destructive: true,
+				Type:        ConfirmTypeDialog,
+				Width:       width - 4,
+				Height:      10,
+			}, func() tea.Cmd {
+				// On confirm: The actual reset will happen in the Update handler above
+				return nil
+			}, func() tea.Cmd {
+				// On cancel: The pending flag will be cleared in the Update handler above
+				return nil
+			})
+			return true, nil
+		} else {
+			// No changes, exit directly
+			t.Reset()
+			return true, nil
+		}
 
 	case "ctrl+s":
 		// Save tags

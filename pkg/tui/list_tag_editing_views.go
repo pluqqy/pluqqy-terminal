@@ -28,6 +28,9 @@ type TagEditingViewRenderer struct {
 	DeletingTag      string
 	DeletingTagUsage *tags.UsageStats
 
+	// Exit confirmation
+	ExitConfirm *ConfirmationModel
+
 	// Callback for getting tag suggestions
 	GetSuggestionsFunc func(input string, availableTags []string, currentTags []string) []string
 
@@ -45,6 +48,11 @@ func NewTagEditingViewRenderer(width, height int) *TagEditingViewRenderer {
 
 // Render returns the complete tag editing view
 func (r *TagEditingViewRenderer) Render() string {
+	// Show exit confirmation if active
+	if r.ExitConfirm != nil && r.ExitConfirm.Active() {
+		return r.ExitConfirm.View()
+	}
+
 	// Show deletion confirmation if active
 	if r.TagDeleteConfirm != nil && r.TagDeleteConfirm.Active() {
 		return r.TagDeleteConfirm.View()

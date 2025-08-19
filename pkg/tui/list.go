@@ -439,6 +439,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
 					m.tagEditor.Start(comp.path, comp.tags, "component")
+					m.tagEditor.SetSize(m.width)
 				}
 			} else if m.stateManager.ActivePane == pipelinesPane {
 				// Use filtered pipelines if search is active
@@ -446,6 +447,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					pipeline := pipelines[m.stateManager.PipelineCursor]
 					m.tagEditor.Start(pipeline.path, pipeline.tags, "pipeline")
+					m.tagEditor.SetSize(m.width)
 				}
 			}
 
@@ -907,6 +909,7 @@ func (m *MainListModel) View() string {
 		renderer.TagCloudCursor = m.tagEditor.TagCloudCursor
 		renderer.AvailableTags = m.tagEditor.AvailableTags
 		renderer.TagDeleteConfirm = m.tagEditor.TagDeleteConfirm
+		renderer.ExitConfirm = m.tagEditor.ExitConfirm
 		renderer.DeletingTag = m.tagEditor.DeletingTag
 		renderer.DeletingTagUsage = m.tagEditor.DeletingTagUsage
 		renderer.GetSuggestionsFunc = func(input string, availableTags []string, currentTags []string) []string {
@@ -1029,6 +1032,10 @@ func (m *MainListModel) SetSize(width, height int) {
 	m.height = height
 	// Update search bar width
 	m.searchBar.SetWidth(width)
+	// Update tag editor width
+	if m.tagEditor != nil {
+		m.tagEditor.SetSize(width)
+	}
 	// Update tag reload renderer size
 	if m.tagReloadRenderer != nil {
 		m.tagReloadRenderer.SetSize(width, height)

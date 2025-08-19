@@ -91,6 +91,7 @@ type PipelineBuilderModel struct {
 	editingTags        bool
 	editingTagsPath    string
 	currentTags        []string
+	originalTags       []string // Store original tags to check for changes
 	tagInput           string
 	tagCursor          int
 	availableTags      []string
@@ -105,7 +106,7 @@ type PipelineBuilderModel struct {
 
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
-	exitConfirmationType string // "pipeline" or "component"
+	exitConfirmationType string // "pipeline" or "component" or "tags"
 
 	// Delete confirmation
 	deleteConfirm *ConfirmationModel
@@ -1859,6 +1860,28 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 	return false
 }
 
+func (m *PipelineBuilderModel) hasTagChanges() bool {
+	// Check if the number of tags has changed
+	if len(m.currentTags) != len(m.originalTags) {
+		return true
+	}
+
+	// Create maps for efficient comparison
+	originalMap := make(map[string]bool)
+	for _, tag := range m.originalTags {
+		originalMap[tag] = true
+	}
+
+	// Check if all current tags exist in original
+	for _, tag := range m.currentTags {
+		if !originalMap[tag] {
+			return true
+		}
+	}
+
+	return false
+}
+
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
 	columnWidth := (m.width - 6) / 2                 // Account for gap, padding, and ensure border visibility
@@ -2958,13 +2981,45 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 
 	switch msg.String() {
 	case "esc":
-		m.editingTags = false
-		m.tagInput = ""
-		m.currentTags = nil
-		m.showTagSuggestions = false
-		m.tagCloudActive = false
-		m.tagCloudCursor = 0
-		return m, nil
+		// Check for unsaved changes
+		if m.hasTagChanges() {
+			// Show confirmation dialog
+			m.exitConfirmationType = "tags"
+			m.exitConfirm.ShowDialog(
+				"⚠️  Unsaved Changes",
+				"You have unsaved changes to tags.",
+				"Exit without saving?",
+				true, // destructive
+				m.width-4,   // width
+				10,   // height
+				func() tea.Cmd {
+					// Exit without saving
+					m.editingTags = false
+					m.tagInput = ""
+					m.currentTags = nil
+					m.originalTags = nil
+					m.showTagSuggestions = false
+					m.tagCloudActive = false
+					m.tagCloudCursor = 0
+					return nil
+				},
+				func() tea.Cmd {
+					// Stay in tag editing mode
+					return nil
+				},
+			)
+			return m, nil
+		} else {
+			// No changes, exit directly
+			m.editingTags = false
+			m.tagInput = ""
+			m.currentTags = nil
+			m.originalTags = nil
+			m.showTagSuggestions = false
+			m.tagCloudActive = false
+			m.tagCloudCursor = 0
+			return m, nil
+		}
 
 	case "ctrl+s":
 		return m, m.saveTags()
@@ -3186,6 +3241,8 @@ func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string
 	m.editingTagsPath = path
 	m.currentTags = make([]string, len(currentTags))
 	copy(m.currentTags, currentTags)
+	m.originalTags = make([]string, len(currentTags))
+	copy(m.originalTags, currentTags)
 	m.tagInput = ""
 	m.tagCursor = 0
 	m.showTagSuggestions = false
@@ -3201,6 +3258,8 @@ func (m *PipelineBuilderModel) startPipelineTagEditing(currentTags []string) {
 	m.editingTagsPath = "" // Empty path indicates pipeline tags
 	m.currentTags = make([]string, len(currentTags))
 	copy(m.currentTags, currentTags)
+	m.originalTags = make([]string, len(currentTags))
+	copy(m.originalTags, currentTags)
 	m.tagInput = ""
 	m.tagCursor = 0
 	m.showTagSuggestions = false
@@ -3282,6 +3341,7 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 		m.editingTags = false
 		m.tagInput = ""
 		m.currentTags = nil
+		m.originalTags = nil
 		m.showTagSuggestions = false
 		m.tagCloudActive = false
 		m.tagCloudCursor = 0
