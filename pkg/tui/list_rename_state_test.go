@@ -41,40 +41,44 @@ func TestNewRenameState(t *testing.T) {
 
 func TestRenameState_Start(t *testing.T) {
 	tests := []struct {
-		name        string
-		displayName string
-		itemType    string
-		path        string
-		isArchived  bool
-		wantActive  bool
-		wantNewName string
+		name         string
+		displayName  string
+		itemType     string
+		path         string
+		isArchived   bool
+		wantActive   bool
+		wantNewName  string
+		wantCursorPos int
 	}{
 		{
-			name:        "start rename for component",
-			displayName: "Test Component",
-			itemType:    "component",
-			path:        "components/contexts/test.md",
-			isArchived:  false,
-			wantActive:  true,
-			wantNewName: "Test Component", // Pre-filled with current name
+			name:         "start rename for component",
+			displayName:  "Test Component",
+			itemType:     "component",
+			path:         "components/contexts/test.md",
+			isArchived:   false,
+			wantActive:   true,
+			wantNewName:  "Test Component", // Pre-filled with current name
+			wantCursorPos: 14, // Cursor at end of "Test Component"
 		},
 		{
-			name:        "start rename for pipeline",
-			displayName: "Test Pipeline",
-			itemType:    "pipeline",
-			path:        "test-pipeline.yaml",
-			isArchived:  false,
-			wantActive:  true,
-			wantNewName: "Test Pipeline",
+			name:         "start rename for pipeline",
+			displayName:  "Test Pipeline",
+			itemType:     "pipeline",
+			path:         "test-pipeline.yaml",
+			isArchived:   false,
+			wantActive:   true,
+			wantNewName:  "Test Pipeline",
+			wantCursorPos: 13, // Cursor at end of "Test Pipeline"
 		},
 		{
-			name:        "start rename for archived component",
-			displayName: "Archived Component",
-			itemType:    "component",
-			path:        "archive/components/contexts/old.md",
-			isArchived:  true,
-			wantActive:  true,
-			wantNewName: "Archived Component",
+			name:         "start rename for archived component",
+			displayName:  "Archived Component",
+			itemType:     "component",
+			path:         "archive/components/contexts/old.md",
+			isArchived:   true,
+			wantActive:   true,
+			wantNewName:  "Archived Component",
+			wantCursorPos: 18, // Cursor at end of "Archived Component"
 		},
 	}
 	
@@ -105,6 +109,10 @@ func TestRenameState_Start(t *testing.T) {
 			
 			if rs.IsArchived != tt.isArchived {
 				t.Errorf("IsArchived = %v, want %v", rs.IsArchived, tt.isArchived)
+			}
+			
+			if rs.CursorPos != tt.wantCursorPos {
+				t.Errorf("CursorPos = %d, want %d", rs.CursorPos, tt.wantCursorPos)
 			}
 		})
 	}
@@ -143,13 +151,14 @@ func TestRenameState_StartRename(t *testing.T) {
 
 func TestRenameState_HandleInput(t *testing.T) {
 	tests := []struct {
-		name         string
-		setup        func() *RenameState
-		input        tea.KeyMsg
-		wantHandled  bool
-		wantActive   bool
-		wantNewName  string
-		checkCommand bool
+		name          string
+		setup         func() *RenameState
+		input         tea.KeyMsg
+		wantHandled   bool
+		wantActive    bool
+		wantNewName   string
+		wantCursorPos int
+		checkCommand  bool
 	}{
 		{
 			name: "escape cancels rename",
@@ -163,6 +172,7 @@ func TestRenameState_HandleInput(t *testing.T) {
 			wantHandled: true,
 			wantActive:  false,
 			wantNewName: "", // Should be reset
+			wantCursorPos: 0,
 		},
 		{
 			name: "enter with valid name triggers rename",
@@ -170,6 +180,7 @@ func TestRenameState_HandleInput(t *testing.T) {
 				rs := makeTestRenameState()
 				rs.Start("Test", "component", "test.md", false)
 				rs.NewName = "New Name"
+				rs.CursorPos = 8  // Set cursor to end of "New Name"
 				rs.ValidationError = "" // No error
 				return rs
 			},
@@ -177,6 +188,7 @@ func TestRenameState_HandleInput(t *testing.T) {
 			wantHandled:  true,
 			wantActive:   true, // Still active until command completes
 			wantNewName:  "New Name",
+			wantCursorPos: 8,  // Cursor position stays at 8
 			checkCommand: true,
 		},
 		{
@@ -185,12 +197,14 @@ func TestRenameState_HandleInput(t *testing.T) {
 				rs := makeTestRenameState()
 				rs.Start("Test", "component", "test.md", false)
 				rs.NewName = ""
+				rs.CursorPos = 0
 				return rs
 			},
 			input:       tea.KeyMsg{Type: tea.KeyEnter},
 			wantHandled: true,
 			wantActive:  true,
 			wantNewName: "",
+			wantCursorPos: 0,
 		},
 		{
 			name: "enter with validation error does nothing",
@@ -205,45 +219,52 @@ func TestRenameState_HandleInput(t *testing.T) {
 			wantHandled: true,
 			wantActive:  true,
 			wantNewName: "Invalid",
+			wantCursorPos: 4,
 		},
 		{
-			name: "backspace removes last character",
+			name: "backspace removes character before cursor",
 			setup: func() *RenameState {
 				rs := makeTestRenameState()
 				rs.Start("Test", "component", "test.md", false)
 				rs.NewName = "Test Name"
+				rs.CursorPos = 5 // After "Test "
 				return rs
 			},
 			input:       tea.KeyMsg{Type: tea.KeyBackspace},
 			wantHandled: true,
 			wantActive:  true,
-			wantNewName: "Test Nam",
+			wantNewName: "TestName",
+			wantCursorPos: 4,
 		},
 		{
-			name: "backspace on empty does nothing",
-			setup: func() *RenameState {
-				rs := makeTestRenameState()
-				rs.Start("Test", "component", "test.md", false)
-				rs.NewName = ""
-				return rs
-			},
-			input:       tea.KeyMsg{Type: tea.KeyBackspace},
-			wantHandled: true,
-			wantActive:  true,
-			wantNewName: "",
-		},
-		{
-			name: "space adds space",
+			name: "backspace at beginning does nothing",
 			setup: func() *RenameState {
 				rs := makeTestRenameState()
 				rs.Start("Test", "component", "test.md", false)
 				rs.NewName = "Test"
+				rs.CursorPos = 0
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyBackspace},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 0,
+		},
+		{
+			name: "space adds space at cursor position",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "TestName"
+				rs.CursorPos = 4 // After "Test"
 				return rs
 			},
 			input:       tea.KeyMsg{Type: tea.KeySpace},
 			wantHandled: true,
 			wantActive:  true,
-			wantNewName: "Test ",
+			wantNewName: "Test Name",
+			wantCursorPos: 5,
 		},
 		{
 			name: "tab is ignored",
@@ -257,19 +278,142 @@ func TestRenameState_HandleInput(t *testing.T) {
 			wantHandled: true,
 			wantActive:  true,
 			wantNewName: "Test",
+			wantCursorPos: 4,
 		},
 		{
-			name: "character input adds to name",
+			name: "character input adds at cursor position",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Tet"
+				rs.CursorPos = 2 // After "Te"
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 3,
+		},
+		{
+			name: "left arrow moves cursor left",
 			setup: func() *RenameState {
 				rs := makeTestRenameState()
 				rs.Start("Test", "component", "test.md", false)
 				rs.NewName = "Test"
+				rs.CursorPos = 2
 				return rs
 			},
-			input:       tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+			input:       tea.KeyMsg{Type: tea.KeyLeft},
 			wantHandled: true,
 			wantActive:  true,
-			wantNewName: "Testa",
+			wantNewName: "Test",
+			wantCursorPos: 1,
+		},
+		{
+			name: "left arrow at beginning does nothing",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 0
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyLeft},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 0,
+		},
+		{
+			name: "right arrow moves cursor right",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 2
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyRight},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 3,
+		},
+		{
+			name: "right arrow at end does nothing",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 4
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyRight},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 4,
+		},
+		{
+			name: "home moves cursor to beginning",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 3
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyHome},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 0,
+		},
+		{
+			name: "end moves cursor to end",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 1
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyEnd},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 4,
+		},
+		{
+			name: "delete removes character at cursor",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 1 // On 'e'
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyDelete},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Tst",
+			wantCursorPos: 1,
+		},
+		{
+			name: "delete at end does nothing",
+			setup: func() *RenameState {
+				rs := makeTestRenameState()
+				rs.Start("Test", "component", "test.md", false)
+				rs.NewName = "Test"
+				rs.CursorPos = 4
+				return rs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyDelete},
+			wantHandled: true,
+			wantActive:  true,
+			wantNewName: "Test",
+			wantCursorPos: 4,
 		},
 		{
 			name: "inactive state ignores input",
@@ -282,6 +426,7 @@ func TestRenameState_HandleInput(t *testing.T) {
 			wantHandled: false,
 			wantActive:  false,
 			wantNewName: "",
+			wantCursorPos: 0,
 		},
 	}
 	
@@ -300,6 +445,10 @@ func TestRenameState_HandleInput(t *testing.T) {
 			
 			if rs.NewName != tt.wantNewName {
 				t.Errorf("NewName = %q, want %q", rs.NewName, tt.wantNewName)
+			}
+			
+			if rs.CursorPos != tt.wantCursorPos {
+				t.Errorf("CursorPos = %d, want %d", rs.CursorPos, tt.wantCursorPos)
 			}
 			
 			if tt.checkCommand && cmd == nil {

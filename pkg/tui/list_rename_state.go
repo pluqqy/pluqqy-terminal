@@ -14,6 +14,7 @@ type RenameState struct {
 	OriginalName    string   // Current display name
 	OriginalPath    string   // Current file path
 	NewName         string   // User input for new display name
+	CursorPos       int      // Current cursor position in the input
 	ValidationError string   // Real-time validation error
 	AffectedActive  []string // Active pipelines affected (display names)
 	AffectedArchive []string // Archived pipelines affected (display names)
@@ -44,16 +45,71 @@ func (rs *RenameState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		return true, nil
 
 	case "backspace":
-		if len(rs.NewName) > 0 {
+		if len(rs.NewName) > 0 && rs.CursorPos > 0 {
 			// Handle UTF-8 properly
 			runes := []rune(rs.NewName)
-			rs.NewName = string(runes[:len(runes)-1])
+			// Remove character before cursor
+			rs.NewName = string(runes[:rs.CursorPos-1]) + string(runes[rs.CursorPos:])
+			rs.CursorPos--
+			rs.validate()
+		}
+		return true, nil
+
+	case "delete":
+		runes := []rune(rs.NewName)
+		if rs.CursorPos < len(runes) {
+			// Remove character at cursor
+			rs.NewName = string(runes[:rs.CursorPos]) + string(runes[rs.CursorPos+1:])
+			rs.validate()
+		}
+		return true, nil
+
+	case "left", "ctrl+b":
+		if rs.CursorPos > 0 {
+			rs.CursorPos--
+		}
+		return true, nil
+
+	case "right", "ctrl+f":
+		runes := []rune(rs.NewName)
+		if rs.CursorPos < len(runes) {
+			rs.CursorPos++
+		}
+		return true, nil
+
+	case "home", "ctrl+a":
+		rs.CursorPos = 0
+		return true, nil
+
+	case "end", "ctrl+e":
+		runes := []rune(rs.NewName)
+		rs.CursorPos = len(runes)
+		return true, nil
+
+	case "ctrl+u":
+		// Clear from cursor to beginning
+		if rs.CursorPos > 0 {
+			runes := []rune(rs.NewName)
+			rs.NewName = string(runes[rs.CursorPos:])
+			rs.CursorPos = 0
+			rs.validate()
+		}
+		return true, nil
+
+	case "ctrl+k":
+		// Clear from cursor to end
+		runes := []rune(rs.NewName)
+		if rs.CursorPos < len(runes) {
+			rs.NewName = string(runes[:rs.CursorPos])
 			rs.validate()
 		}
 		return true, nil
 
 	case " ":
-		rs.NewName += " "
+		// Insert space at cursor position
+		runes := []rune(rs.NewName)
+		rs.NewName = string(runes[:rs.CursorPos]) + " " + string(runes[rs.CursorPos:])
+		rs.CursorPos++
 		rs.validate()
 		return true, nil
 
@@ -63,7 +119,11 @@ func (rs *RenameState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 
 	default:
 		if msg.Type == tea.KeyRunes {
-			rs.NewName += string(msg.Runes)
+			// Insert characters at cursor position
+			runes := []rune(rs.NewName)
+			newRunes := string(msg.Runes)
+			rs.NewName = string(runes[:rs.CursorPos]) + newRunes + string(runes[rs.CursorPos:])
+			rs.CursorPos += len([]rune(newRunes))
 			rs.validate()
 			return true, nil
 		}
@@ -79,6 +139,7 @@ func (rs *RenameState) Start(displayName, itemType, path string, isArchived bool
 	rs.OriginalName = displayName
 	rs.OriginalPath = path
 	rs.NewName = displayName // Pre-fill with current name
+	rs.CursorPos = len([]rune(displayName)) // Set cursor at end
 	rs.ValidationError = ""
 	rs.IsArchived = isArchived
 	rs.AffectedActive = nil
@@ -120,6 +181,7 @@ func (rs *RenameState) Reset() {
 	rs.OriginalName = ""
 	rs.OriginalPath = ""
 	rs.NewName = ""
+	rs.CursorPos = 0
 	rs.ValidationError = ""
 	rs.AffectedActive = nil
 	rs.AffectedArchive = nil
