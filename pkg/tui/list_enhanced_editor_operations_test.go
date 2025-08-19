@@ -1,9 +1,9 @@
 package tui
 
 import (
+	tea "github.com/charmbracelet/bubbletea"
 	"strings"
 	"testing"
-	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestDetectAtTrigger(t *testing.T) {
@@ -44,7 +44,7 @@ func TestDetectAtTrigger(t *testing.T) {
 			state := NewEnhancedEditorState()
 			state.StartEditing("test.md", "test", "prompt", "", []string{})
 			tt.setup(state)
-			
+
 			result := DetectAtTrigger(state)
 			if result != tt.expected {
 				t.Errorf("Expected DetectAtTrigger to return %v, got %v", tt.expected, result)
@@ -182,12 +182,12 @@ func TestExtractFileReferences(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := ExtractFileReferences(tt.content)
-			
+
 			if len(result) != len(tt.expected) {
 				t.Errorf("Expected %d references, got %d", len(tt.expected), len(result))
 				return
 			}
-			
+
 			for i, ref := range result {
 				if ref != tt.expected[i] {
 					t.Errorf("Expected reference %d to be %s, got %s", i, tt.expected[i], ref)
@@ -357,20 +357,20 @@ func TestInsertTextAtCursor(t *testing.T) {
 
 func TestHandleEnhancedEditorInput(t *testing.T) {
 	tests := []struct {
-		name        string
-		setup       func(state *EnhancedEditorState)
-		keyMsg      tea.KeyMsg
-		width       int
+		name          string
+		setup         func(state *EnhancedEditorState)
+		keyMsg        tea.KeyMsg
+		width         int
 		expectHandled bool
-		validateFunc func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
+		validateFunc  func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
 	}{
 		{
 			name: "inactive state returns false",
 			setup: func(state *EnhancedEditorState) {
 				// Keep state inactive
 			},
-			keyMsg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
-			width:  80,
+			keyMsg:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
+			width:         80,
 			expectHandled: false,
 			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
 				if handled {
@@ -386,8 +386,8 @@ func TestHandleEnhancedEditorInput(t *testing.T) {
 			setup: func(state *EnhancedEditorState) {
 				state.StartEditing("test.md", "test", "prompt", "content", []string{})
 			},
-			keyMsg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
-			width:  80,
+			keyMsg:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("a")},
+			width:         80,
 			expectHandled: true,
 			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
 				if !handled {
@@ -401,8 +401,8 @@ func TestHandleEnhancedEditorInput(t *testing.T) {
 				state.StartEditing("test.md", "test", "prompt", "content", []string{})
 				state.StartFilePicker()
 			},
-			keyMsg: tea.KeyMsg{Type: tea.KeyUp},
-			width:  80,
+			keyMsg:        tea.KeyMsg{Type: tea.KeyUp},
+			width:         80,
 			expectHandled: true,
 			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
 				if !handled {
@@ -419,8 +419,8 @@ func TestHandleEnhancedEditorInput(t *testing.T) {
 				onCancel := func() tea.Cmd { return nil }
 				state.ShowExitConfirmation(80, onConfirm, onCancel)
 			},
-			keyMsg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")},
-			width:  80,
+			keyMsg:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("y")},
+			width:         80,
 			expectHandled: true,
 			validateFunc: func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd) {
 				if !handled {
@@ -434,13 +434,13 @@ func TestHandleEnhancedEditorInput(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := NewEnhancedEditorState()
 			tt.setup(state)
-			
+
 			handled, cmd := HandleEnhancedEditorInput(state, tt.keyMsg, tt.width)
-			
+
 			if handled != tt.expectHandled {
 				t.Errorf("Expected handled to be %v, got %v", tt.expectHandled, handled)
 			}
-			
+
 			tt.validateFunc(t, state, handled, cmd)
 		})
 	}
@@ -448,12 +448,12 @@ func TestHandleEnhancedEditorInput(t *testing.T) {
 
 func TestHandleNormalEditorInputKeyHandling(t *testing.T) {
 	tests := []struct {
-		name        string
-		keyMsg      tea.KeyMsg
-		setup       func(state *EnhancedEditorState)
-		width       int
+		name          string
+		keyMsg        tea.KeyMsg
+		setup         func(state *EnhancedEditorState)
+		width         int
 		expectHandled bool
-		validateFunc func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
+		validateFunc  func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
 	}{
 		{
 			name:   "ctrl+k clears all content",
@@ -580,13 +580,13 @@ func TestHandleNormalEditorInputKeyHandling(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := NewEnhancedEditorState()
 			tt.setup(state)
-			
+
 			handled, cmd := handleNormalEditorInput(state, tt.keyMsg, tt.width)
-			
+
 			if handled != tt.expectHandled {
 				t.Errorf("Expected handled to be %v, got %v", tt.expectHandled, handled)
 			}
-			
+
 			tt.validateFunc(t, state, handled, cmd)
 		})
 	}
@@ -594,11 +594,11 @@ func TestHandleNormalEditorInputKeyHandling(t *testing.T) {
 
 func TestHandleFilePickerInputKeys(t *testing.T) {
 	tests := []struct {
-		name        string
-		keyMsg      tea.KeyMsg
-		setup       func(state *EnhancedEditorState)
+		name          string
+		keyMsg        tea.KeyMsg
+		setup         func(state *EnhancedEditorState)
 		expectHandled bool
-		validateFunc func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
+		validateFunc  func(t *testing.T, state *EnhancedEditorState, handled bool, cmd tea.Cmd)
 	}{
 		{
 			name:   "number key selects recent file",
@@ -606,7 +606,7 @@ func TestHandleFilePickerInputKeys(t *testing.T) {
 			setup: func(state *EnhancedEditorState) {
 				state.StartEditing("test.md", "test", "prompt", "content@", []string{})
 				state.RecentFiles.AddFile("/recent/file1.go")
-				state.RecentFiles.AddFile("/recent/file2.go") 
+				state.RecentFiles.AddFile("/recent/file2.go")
 				state.StartFilePicker()
 			},
 			expectHandled: true,
@@ -671,13 +671,13 @@ func TestHandleFilePickerInputKeys(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := NewEnhancedEditorState()
 			tt.setup(state)
-			
+
 			handled, cmd := handleFilePickerInput(state, tt.keyMsg)
-			
+
 			if handled != tt.expectHandled {
 				t.Errorf("Expected handled to be %v, got %v", tt.expectHandled, handled)
 			}
-			
+
 			tt.validateFunc(t, state, handled, cmd)
 		})
 	}
@@ -685,7 +685,7 @@ func TestHandleFilePickerInputKeys(t *testing.T) {
 
 func TestInitializeEnhancedFilePicker(t *testing.T) {
 	tests := []struct {
-		name        string
+		name         string
 		validateFunc func(t *testing.T, state *EnhancedEditorState, cmd tea.Cmd)
 	}{
 		{
@@ -713,7 +713,7 @@ func TestInitializeEnhancedFilePicker(t *testing.T) {
 			state := NewEnhancedEditorState()
 			state.StartEditing("test.md", "test", "prompt", "content", []string{})
 			state.StartFilePicker()
-			
+
 			cmd := InitializeEnhancedFilePicker(state)
 			tt.validateFunc(t, state, cmd)
 		})
@@ -722,10 +722,10 @@ func TestInitializeEnhancedFilePicker(t *testing.T) {
 
 func TestInsertFileReference(t *testing.T) {
 	tests := []struct {
-		name        string
-		content     string
-		reference   string
-		expected    string
+		name      string
+		content   string
+		reference string
+		expected  string
 	}{
 		{
 			name:      "inserts reference removing triggering @",
@@ -757,13 +757,13 @@ func TestInsertFileReference(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			state := NewEnhancedEditorState()
 			state.StartEditing("test.md", "test", "prompt", tt.content, []string{})
-			
+
 			cmd := InsertFileReference(state, tt.reference)
-			
+
 			if state.Content != tt.expected {
 				t.Errorf("Expected content %q, got %q", tt.expected, state.Content)
 			}
-			
+
 			if cmd != nil {
 				t.Error("Expected no command from InsertFileReference")
 			}

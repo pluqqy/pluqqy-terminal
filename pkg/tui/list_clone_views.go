@@ -34,7 +34,7 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 		state.mu.RUnlock()
 		return ""
 	}
-	
+
 	// Copy needed values while holding lock
 	itemType := state.ItemType
 	isArchived := state.IsArchived
@@ -70,7 +70,7 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	// Input field
 	b.WriteString(HeaderStyle.Render("New name:"))
 	b.WriteString(" ")
-	
+
 	if newName == "" {
 		// Show placeholder
 		placeholder := DescriptionStyle.Render("Enter name for clone...")
@@ -98,7 +98,7 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	b.WriteString("\n")
 	b.WriteString(HeaderStyle.Render("Destination:"))
 	b.WriteString(" ")
-	
+
 	if cloneToArchive {
 		b.WriteString("Archive")
 		b.WriteString(DescriptionStyle.Render(" (Tab to change)"))
@@ -116,37 +116,37 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	}
 
 	// Help text with colored key backgrounds
-	b.WriteString("\n\n")  // Extra line for consistent spacing
-	
+	b.WriteString("\n\n") // Extra line for consistent spacing
+
 	// Create styles for the keys
 	enterKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorSuccess)).
 		Foreground(lipgloss.Color(ColorWhite)).
 		Padding(0, 1).
 		Bold(true)
-	
+
 	tabKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorWarning)).
 		Foreground(lipgloss.Color(ColorDark)).
 		Padding(0, 1).
 		Bold(true)
-	
+
 	escKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorDanger)).
 		Foreground(lipgloss.Color(ColorWhite)).
 		Padding(0, 1).
 		Bold(true)
-	
+
 	// Build help text with colored keys
 	var helpParts []string
-	
+
 	if isValid {
 		helpParts = append(helpParts, enterKeyStyle.Render("Enter")+" Clone")
 	}
-	
+
 	helpParts = append(helpParts, tabKeyStyle.Render("Tab")+" Toggle destination")
 	helpParts = append(helpParts, escKeyStyle.Render("Esc")+" Cancel")
-	
+
 	b.WriteString(strings.Join(helpParts, "  "))
 
 	// Calculate dialog dimensions

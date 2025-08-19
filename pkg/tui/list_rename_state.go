@@ -138,7 +138,7 @@ func (rs *RenameState) Start(displayName, itemType, path string, isArchived bool
 	rs.ItemType = itemType
 	rs.OriginalName = displayName
 	rs.OriginalPath = path
-	rs.NewName = displayName // Pre-fill with current name
+	rs.NewName = displayName                // Pre-fill with current name
 	rs.CursorPos = len([]rune(displayName)) // Set cursor at end
 	rs.ValidationError = ""
 	rs.IsArchived = isArchived
@@ -213,10 +213,10 @@ func (rs *RenameState) executeRename() tea.Cmd {
 		}
 
 		return RenameSuccessMsg{
-			ItemType:    rs.ItemType,
-			OldName:     rs.OriginalName,
-			NewName:     rs.NewName,
-			IsArchived:  rs.IsArchived,
+			ItemType:   rs.ItemType,
+			OldName:    rs.OriginalName,
+			NewName:    rs.NewName,
+			IsArchived: rs.IsArchived,
 		}
 	}
 }
@@ -245,9 +245,9 @@ func (rs *RenameState) HasAffectedPipelines() bool {
 
 // IsValid returns true if the current name is valid for renaming
 func (rs *RenameState) IsValid() bool {
-	return rs.NewName != "" && 
-	       rs.ValidationError == "" && 
-	       rs.NewName != rs.OriginalName
+	return rs.NewName != "" &&
+		rs.ValidationError == "" &&
+		rs.NewName != rs.OriginalName
 }
 
 // IsActive returns whether rename mode is active

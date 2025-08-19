@@ -2,7 +2,7 @@ package tui
 
 import (
 	"testing"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
@@ -21,12 +21,12 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 			},
 			validate: func(t *testing.T, model interface{}) {
 				m := model.(*MainListModel)
-				
+
 				// Check that enhanced editor is initialized
 				if m.enhancedEditor == nil {
 					t.Error("Enhanced editor should be initialized")
 				}
-				
+
 				// Verify no legacy editor field exists by checking it's not in use
 				// This would fail to compile if componentEditor field existed
 				// which is what we want - ensuring legacy editor is completely removed
@@ -39,7 +39,7 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 			},
 			validate: func(t *testing.T, model interface{}) {
 				m := model.(*PipelineBuilderModel)
-				
+
 				// Check that enhanced editor is initialized
 				if m.enhancedEditor == nil {
 					t.Error("Enhanced editor should be initialized")
@@ -53,7 +53,7 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 			},
 			validate: func(t *testing.T, model interface{}) {
 				c := model.(*ComponentCreator)
-				
+
 				// Check that enhanced editor is initialized
 				if c.enhancedEditor == nil {
 					t.Error("Enhanced editor should be initialized")
@@ -61,7 +61,7 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			model := tt.setup()
@@ -73,10 +73,10 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 // TestEditingAlwaysUsesEnhancedEditor verifies editing operations use enhanced editor
 func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 	tests := []struct {
-		name          string
-		setup         func() *MainListModel
-		triggerEdit   func(m *MainListModel) (tea.Model, tea.Cmd)
-		expectActive  bool
+		name         string
+		setup        func() *MainListModel
+		triggerEdit  func(m *MainListModel) (tea.Model, tea.Cmd)
+		expectActive bool
 	}{
 		{
 			name: "pressing 'e' activates enhanced editor",
@@ -118,15 +118,15 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 			expectActive: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Trigger edit operation
 			updatedModel, _ := tt.triggerEdit(m)
 			updatedM := updatedModel.(*MainListModel)
-			
+
 			// Check enhanced editor state
 			if tt.expectActive {
 				if m.componentCreator.IsActive() && m.componentCreator.creationStep == 2 {
@@ -226,15 +226,15 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Trigger edit
 			updatedModel, _ := tt.triggerEdit(m)
 			updatedM := updatedModel.(*PipelineBuilderModel)
-			
+
 			// Validate
 			tt.validate(t, updatedM)
 		})
@@ -250,49 +250,49 @@ func TestNoLegacyEditorFallback(t *testing.T) {
 		creator.componentCreationType = models.ComponentTypeRules
 		creator.componentName = "Test Rule"
 		creator.creationStep = 2
-		
+
 		// This should initialize enhanced editor
 		creator.initializeEnhancedEditor()
-		
+
 		// Verify enhanced editor is active
 		if !creator.IsEnhancedEditorActive() {
 			t.Error("Enhanced editor should be active for content editing")
 		}
-		
+
 		// Try to handle input - should go through enhanced editor
 		handled, _ := creator.HandleEnhancedEditorInput(
 			tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			80, // width
 		)
-		
+
 		// The function should try to handle it (even if it returns false due to setup)
 		// The important thing is it doesn't panic or fall back to non-existent method
 		_ = handled
 	})
-	
+
 	// Test that regular editing doesn't fall back
 	t.Run("main list editor has no fallback", func(t *testing.T) {
 		m := NewMainListModel()
-		
+
 		// Verify enhanced editor exists
 		if m.enhancedEditor == nil {
 			t.Fatal("Enhanced editor must be initialized")
 		}
-		
+
 		// There should be no way to use a legacy editor
 		// This is verified by the fact that componentEditor field doesn't exist
 		// If it did exist, this would be a compilation error
 	})
-	
+
 	// Test builder has no fallback
 	t.Run("builder has no fallback to legacy editor", func(t *testing.T) {
 		m := NewPipelineBuilderModel()
-		
+
 		// Enhanced editor should always be present
 		if m.enhancedEditor == nil {
 			t.Fatal("Enhanced editor must be initialized")
 		}
-		
+
 		// handleComponentEditing should only use enhanced editor
 		// Create a simple test by checking the function exists and doesn't panic
 		_, _ = m.handleComponentEditing(tea.KeyMsg{Type: tea.KeyEsc})
@@ -303,12 +303,12 @@ func TestNoLegacyEditorFallback(t *testing.T) {
 func TestEnhancedEditorStateConsistency(t *testing.T) {
 	t.Run("enhanced editor maintains state correctly", func(t *testing.T) {
 		editor := NewEnhancedEditorState()
-		
+
 		// Test initialization
 		if editor.Active {
 			t.Error("Editor should not be active initially")
 		}
-		
+
 		// Test starting edit
 		editor.StartEditing(
 			"test/path.md",
@@ -317,26 +317,26 @@ func TestEnhancedEditorStateConsistency(t *testing.T) {
 			"Test content",
 			[]string{"tag1", "tag2"},
 		)
-		
+
 		if !editor.Active {
 			t.Error("Editor should be active after StartEditing")
 		}
-		
+
 		if editor.ComponentPath != "test/path.md" {
 			t.Errorf("Expected path 'test/path.md', got '%s'", editor.ComponentPath)
 		}
-		
+
 		if editor.ComponentName != "Test Component" {
 			t.Errorf("Expected name 'Test Component', got '%s'", editor.ComponentName)
 		}
-		
+
 		// Test reset
 		editor.Reset()
-		
+
 		if editor.Active {
 			t.Error("Editor should not be active after reset")
 		}
-		
+
 		if editor.ComponentPath != "" {
 			t.Error("Component path should be cleared after reset")
 		}
@@ -403,14 +403,14 @@ func TestEnhancedEditorHandlesAllInputProperly(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			state := tt.setup()
-			
+
 			// Handle input
 			handled, _ := HandleEnhancedEditorInput(state, tt.input, 80)
-			
+
 			// Validate
 			tt.expected(t, state, handled)
 		})

@@ -27,10 +27,10 @@ const (
 
 // StatusManager manages temporary status messages
 type StatusManager struct {
-	CurrentStatus *StatusFeedback
-	DefaultDuration time.Duration
+	CurrentStatus     *StatusFeedback
+	DefaultDuration   time.Duration
 	PersistentMessage string
-	PersistentType StatusType
+	PersistentType    StatusType
 }
 
 // NewStatusManager creates a new status manager
@@ -48,7 +48,7 @@ func (sm *StatusManager) ShowFeedback(icon, message string, statusType StatusTyp
 		ShowUntil: time.Now().Add(sm.DefaultDuration),
 		Type:      statusType,
 	}
-	
+
 	// Return a command that will clear the status after duration
 	return tea.Tick(sm.DefaultDuration, func(time.Time) tea.Msg {
 		return ClearStatusMsg{}
@@ -96,13 +96,13 @@ func (sm *StatusManager) IsActive() bool {
 	if sm.CurrentStatus == nil {
 		return false
 	}
-	
+
 	// Check if status has expired
 	if time.Now().After(sm.CurrentStatus.ShowUntil) {
 		sm.CurrentStatus = nil
 		return false
 	}
-	
+
 	return true
 }
 
@@ -112,7 +112,7 @@ func (sm *StatusManager) GetStatus() (string, bool) {
 	if sm.IsActive() {
 		return fmt.Sprintf("%s %s", sm.CurrentStatus.Icon, sm.CurrentStatus.Message), true
 	}
-	
+
 	// If no temporary status, check for persistent message
 	if sm.PersistentMessage != "" {
 		icon := "ℹ"
@@ -128,7 +128,7 @@ func (sm *StatusManager) GetStatus() (string, bool) {
 		}
 		return fmt.Sprintf("%s %s", icon, sm.PersistentMessage), true
 	}
-	
+
 	return "", false
 }
 
@@ -141,7 +141,7 @@ func ShowPastedStatus(lines int, cleaned bool) tea.Cmd {
 	if cleaned {
 		message += " (cleaned formatting)"
 	}
-	
+
 	sm := NewStatusManager()
 	return sm.ShowSuccess(message)
 }
@@ -178,12 +178,12 @@ func GetClipboardStatusString(cs *ClipboardStatus) string {
 	if !cs.HasContent || cs.LineCount == 0 {
 		return ""
 	}
-	
+
 	status := fmt.Sprintf("📋 %d lines ready", cs.LineCount)
 	if cs.WillClean {
 		status += " (will clean)"
 	}
-	
+
 	return status
 }
 
@@ -212,10 +212,10 @@ func (eaf *EditorActionFeedback) GetActionFeedback() (string, bool) {
 	if eaf.LastAction == "" {
 		return "", false
 	}
-	
+
 	if time.Since(eaf.LastActionTime) > eaf.ShowDuration {
 		return "", false
 	}
-	
+
 	return eaf.LastAction, true
 }

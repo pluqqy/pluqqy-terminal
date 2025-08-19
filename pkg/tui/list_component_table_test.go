@@ -59,7 +59,7 @@ func TestNewComponentTableRenderer(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(tt.width, tt.height, tt.showUsageColumn)
-			
+
 			if renderer == nil {
 				t.Fatal("NewComponentTableRenderer returned nil")
 			}
@@ -87,10 +87,10 @@ func TestNewComponentTableRenderer(t *testing.T) {
 
 func TestComponentTableRenderer_SetSize(t *testing.T) {
 	tests := []struct {
-		name      string
-		initial   struct{ width, height int }
-		newSize   struct{ width, height int }
-		wantSize  struct{ width, height int }
+		name       string
+		initial    struct{ width, height int }
+		newSize    struct{ width, height int }
+		wantSize   struct{ width, height int }
 		wantVPSize struct{ width, height int }
 	}{
 		{
@@ -113,7 +113,7 @@ func TestComponentTableRenderer_SetSize(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(tt.initial.width, tt.initial.height, true)
 			renderer.SetSize(tt.newSize.width, tt.newSize.height)
-			
+
 			if renderer.Width != tt.wantSize.width {
 				t.Errorf("Width = %d, want %d", renderer.Width, tt.wantSize.width)
 			}
@@ -163,11 +163,11 @@ func TestComponentTableRenderer_SetComponents(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(100, 50, true)
 			renderer.SetComponents(tt.components)
-			
+
 			if len(renderer.Components) != tt.wantCount {
 				t.Errorf("Components count = %d, want %d", len(renderer.Components), tt.wantCount)
 			}
-			
+
 			// Verify content was updated in viewport
 			content := renderer.Viewport.View()
 			if tt.wantCount == 0 && !strings.Contains(content, "No components found") {
@@ -227,7 +227,7 @@ func TestComponentTableRenderer_SetCursor(t *testing.T) {
 			renderer.SetComponents(tt.components)
 			renderer.SetActive(tt.active)
 			renderer.SetCursor(tt.cursor)
-			
+
 			if renderer.Cursor != tt.wantCursor {
 				t.Errorf("Cursor = %d, want %d", renderer.Cursor, tt.wantCursor)
 			}
@@ -254,7 +254,7 @@ func TestComponentTableRenderer_SetActive(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(100, 50, true)
 			renderer.SetActive(tt.active)
-			
+
 			if renderer.IsActive != tt.active {
 				t.Errorf("IsActive = %v, want %v", renderer.IsActive, tt.active)
 			}
@@ -264,10 +264,10 @@ func TestComponentTableRenderer_SetActive(t *testing.T) {
 
 func TestComponentTableRenderer_MarkAsAdded(t *testing.T) {
 	tests := []struct {
-		name           string
-		paths          []string
-		checkPath      string
-		wantAdded      bool
+		name      string
+		paths     []string
+		checkPath string
+		wantAdded bool
 	}{
 		{
 			name:      "marks single component as added",
@@ -292,11 +292,11 @@ func TestComponentTableRenderer_MarkAsAdded(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(100, 50, true)
-			
+
 			for _, path := range tt.paths {
 				renderer.MarkAsAdded(path)
 			}
-			
+
 			if got := renderer.AddedComponents[tt.checkPath]; got != tt.wantAdded {
 				t.Errorf("AddedComponents[%s] = %v, want %v", tt.checkPath, got, tt.wantAdded)
 			}
@@ -306,19 +306,19 @@ func TestComponentTableRenderer_MarkAsAdded(t *testing.T) {
 
 func TestComponentTableRenderer_ClearAddedMarks(t *testing.T) {
 	renderer := NewComponentTableRenderer(100, 50, true)
-	
+
 	// Add some marks
 	renderer.MarkAsAdded("../comp1.md")
 	renderer.MarkAsAdded("../comp2.md")
 	renderer.MarkAsAdded("../comp3.md")
-	
+
 	if len(renderer.AddedComponents) != 3 {
 		t.Errorf("Initial AddedComponents count = %d, want 3", len(renderer.AddedComponents))
 	}
-	
+
 	// Clear all marks
 	renderer.ClearAddedMarks()
-	
+
 	if len(renderer.AddedComponents) != 0 {
 		t.Errorf("After clear, AddedComponents count = %d, want 0", len(renderer.AddedComponents))
 	}
@@ -349,13 +349,13 @@ func TestComponentTableRenderer_RenderHeader(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(tt.width, 50, tt.showUsageColumn)
 			header := renderer.RenderHeader()
-			
+
 			for _, col := range tt.wantColumns {
 				if !strings.Contains(header, col) {
 					t.Errorf("Header missing column %q", col)
 				}
 			}
-			
+
 			if !tt.showUsageColumn && strings.Contains(header, "Usage") {
 				t.Error("Header should not contain 'Usage' column when showUsageColumn is false")
 			}
@@ -446,23 +446,23 @@ func TestComponentTableRenderer_buildTableContent(t *testing.T) {
 			renderer.Cursor = tt.cursor
 			renderer.IsActive = tt.isActive
 			renderer.ShowAddedIndicator = tt.showAdded
-			
+
 			// Set up added components
 			for _, path := range tt.addedPaths {
 				renderer.MarkAsAdded(path)
 			}
-			
+
 			// Use formatColumnWidths to get proper column widths
 			nameWidth, tagsWidth, tokenWidth, usageWidth := formatColumnWidths(96, tt.showUsageColumn)
 			content := renderer.buildTableContent(nameWidth, tagsWidth, tokenWidth, usageWidth)
-			
+
 			// Check wanted content
 			for _, want := range tt.wantContent {
 				if !strings.Contains(content, want) {
 					t.Errorf("Content missing %q\nGot: %s", want, content)
 				}
 			}
-			
+
 			// Check not wanted content
 			for _, notWant := range tt.notWantContent {
 				if strings.Contains(content, notWant) {
@@ -492,18 +492,18 @@ func TestComponentTableRenderer_updateViewportScroll(t *testing.T) {
 	}
 
 	tests := []struct {
-		name            string
-		components      []componentItem
-		cursor          int
-		viewportHeight  int
-		isActive        bool
-		wantScrolled    bool
+		name           string
+		components     []componentItem
+		cursor         int
+		viewportHeight int
+		isActive       bool
+		wantScrolled   bool
 	}{
 		{
 			name:           "scrolls when cursor below viewport",
 			components:     components,
-			cursor:         15,  // Changed to ensure it's actually below visible area
-			viewportHeight: 5,   // Smaller viewport to ensure scrolling
+			cursor:         15, // Changed to ensure it's actually below visible area
+			viewportHeight: 5,  // Smaller viewport to ensure scrolling
 			isActive:       true,
 			wantScrolled:   true,
 		},
@@ -536,13 +536,13 @@ func TestComponentTableRenderer_updateViewportScroll(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewComponentTableRenderer(100, 50, true)
-			renderer.SetComponents(tt.components)  // Use SetComponents to update content
+			renderer.SetComponents(tt.components) // Use SetComponents to update content
 			renderer.SetCursor(tt.cursor)
 			renderer.SetActive(tt.isActive)
-			
+
 			// Check if scroll actually happened
 			initialOffset := renderer.Viewport.YOffset
-			
+
 			// For the scroll test, verify the cursor is actually beyond viewport
 			if tt.name == "scrolls when cursor below viewport" {
 				// The viewport should scroll to make cursor visible
@@ -550,7 +550,7 @@ func TestComponentTableRenderer_updateViewportScroll(t *testing.T) {
 					t.Log("Viewport should have scrolled to show cursor")
 				}
 			}
-			
+
 			// Note: The actual scrolling happens in SetCursor which calls updateViewportScroll
 			// So we're testing the end result rather than calling updateViewportScroll directly
 			if tt.wantScrolled {
@@ -580,7 +580,7 @@ func TestComponentTableRenderer_EdgeCases(t *testing.T) {
 			},
 		}
 		renderer.SetComponents(components)
-		
+
 		content := renderer.buildTableContent(30, 20, 8, 6)
 		if strings.Contains(content, longName) {
 			t.Error("Long name should be truncated")
@@ -597,7 +597,7 @@ func TestComponentTableRenderer_EdgeCases(t *testing.T) {
 			makeTestComponentItem("comp", models.ComponentTypePrompt, 100, manyTags),
 		}
 		renderer.SetComponents(components)
-		
+
 		content := renderer.buildTableContent(30, 30, 8, 6)
 		// Should show limited tags due to width constraint
 		if !strings.Contains(content, "tag1") {
@@ -620,17 +620,17 @@ func TestComponentTableRenderer_EdgeCases(t *testing.T) {
 			makeTestComponentItem("comp1", models.ComponentTypePrompt, 100, []string{}),
 			makeTestComponentItem("comp2", models.ComponentTypeContext, 200, []string{}),
 		}
-		
+
 		// Test sequential operations that should not cause issues
 		renderer.SetComponents(components)
 		renderer.SetCursor(1)
 		renderer.SetActive(true)
-		
+
 		// Should not panic or have inconsistent state
 		if renderer.Cursor > len(renderer.Components) {
 			t.Error("Cursor position exceeds component count")
 		}
-		
+
 		// Verify state is consistent
 		if len(renderer.Components) != 2 {
 			t.Errorf("Expected 2 components, got %d", len(renderer.Components))
@@ -659,15 +659,15 @@ func TestComponentTableRenderer_Performance(t *testing.T) {
 		} else if i%3 == 2 {
 			compType = models.ComponentTypeRules
 		}
-		
+
 		tags := []string{}
 		if i%2 == 0 {
 			tags = []string{"tag1", "tag2"}
 		}
-		
+
 		components = append(components, componentItem{
-			name:       "component_" + string(rune('a' + (i % 26))),
-			path:       "path/comp" + string(rune('a' + (i % 26))) + ".md",
+			name:       "component_" + string(rune('a'+(i%26))),
+			path:       "path/comp" + string(rune('a'+(i%26))) + ".md",
 			compType:   compType,
 			tokenCount: 100 + i,
 			tags:       tags,
@@ -677,17 +677,17 @@ func TestComponentTableRenderer_Performance(t *testing.T) {
 	}
 
 	renderer := NewComponentTableRenderer(120, 60, true)
-	
+
 	// Measure time for setting large component list
 	start := time.Now()
 	renderer.SetComponents(components)
 	elapsed := time.Since(start)
-	
+
 	// Should complete within reasonable time
 	if elapsed > 200*time.Millisecond { // Increased threshold
 		t.Logf("SetComponents took %v (warning: may be slow on CI)", elapsed)
 	}
-	
+
 	// Test cursor movement (not full re-render each time)
 	start = time.Now()
 	for i := 0; i < 50; i++ { // Reduced iterations
@@ -695,7 +695,7 @@ func TestComponentTableRenderer_Performance(t *testing.T) {
 		renderer.updateViewportScroll()
 	}
 	elapsed = time.Since(start)
-	
+
 	if elapsed > 50*time.Millisecond { // More reasonable threshold
 		t.Logf("Cursor movement took %v (warning: may be slow on CI)", elapsed)
 	}

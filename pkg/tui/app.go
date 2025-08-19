@@ -113,7 +113,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		a.statusMsg = ""
 		// Force a redraw to ensure layout is recalculated
 		return a, tea.ClearScreen
-	
+
 	case tagCleanupCompleteMsg:
 		// Log tag cleanup results (optional - could show a subtle status)
 		if len(msg.removedTags) > 0 {
@@ -155,7 +155,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			a.statusTimer = time.NewTimer(3 * time.Second)
 			// We'll handle the timer after the view switch
 		}
-		
+
 		// Handle view switching
 		switch msg.view {
 		case mainListView:
@@ -171,7 +171,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					a.mainList.performSearch()
 				}
 			}
-			
+
 			// If we have a status message, return with timer command
 			if msg.status != "" {
 				return a, tea.Batch(
@@ -262,7 +262,7 @@ func (a *App) View() string {
 
 	// No titles - only show logo
 	var title string
-	
+
 	// Render the header (logo only, no title)
 	header := renderHeader(a.width, title)
 

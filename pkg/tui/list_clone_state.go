@@ -36,7 +36,7 @@ func NewCloneState() *CloneState {
 func (cs *CloneState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
-	
+
 	if !cs.Active {
 		return false, nil
 	}
@@ -90,7 +90,7 @@ func (cs *CloneState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 func (cs *CloneState) Start(displayName, itemType, path string, isArchived bool) {
 	cs.mu.Lock()
 	defer cs.mu.Unlock()
-	
+
 	cs.Active = true
 	cs.ItemType = itemType
 	cs.OriginalName = displayName
@@ -110,7 +110,7 @@ func (cs *CloneState) Start(displayName, itemType, path string, isArchived bool)
 func (cs *CloneState) generateUniqueNameInternal(baseName string) string {
 	// Extract the base name without any existing (Copy) prefix
 	cleanBase := baseName
-	
+
 	// Check if the name already has a (Copy) or (Copy N) prefix
 	if strings.HasPrefix(baseName, "(Copy") {
 		if strings.HasPrefix(baseName, "(Copy) ") {
@@ -125,22 +125,22 @@ func (cs *CloneState) generateUniqueNameInternal(baseName string) string {
 			}
 		}
 	}
-	
+
 	// Start with the base suggestion
 	candidateName := fmt.Sprintf("(Copy) %s", cleanBase)
 	counter := 2
-	
+
 	// Keep trying until we find a name that doesn't exist
 	for {
 		// Check if this name would work
 		if !cs.nameExistsInternal(candidateName) {
 			return candidateName
 		}
-		
+
 		// Try the next number
 		candidateName = fmt.Sprintf("(Copy %d) %s", counter, cleanBase)
 		counter++
-		
+
 		// Safety check to prevent infinite loop (stop at 1000)
 		if counter > 1000 {
 			return fmt.Sprintf("(Copy %d) %s", counter, cleanBase)
@@ -153,7 +153,7 @@ func (cs *CloneState) generateUniqueNameInternal(baseName string) string {
 func (cs *CloneState) nameExistsInternal(name string) bool {
 	// Generate the target filename
 	slugifiedName := files.Slugify(name)
-	
+
 	if cs.ItemType == "component" {
 		// Determine the component type from the path
 		var componentType string
@@ -166,17 +166,17 @@ func (cs *CloneState) nameExistsInternal(name string) bool {
 		} else {
 			return false
 		}
-		
+
 		// Build the target path
 		targetFilename := slugifiedName + ".md"
 		var targetPath string
-		
+
 		if cs.CloneToArchive {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, ".archive", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, targetFilename)
 		}
-		
+
 		// Check if file exists
 		_, err := os.Stat(targetPath)
 		return err == nil
@@ -184,18 +184,18 @@ func (cs *CloneState) nameExistsInternal(name string) bool {
 		// Build the target path
 		targetFilename := slugifiedName + ".yaml"
 		var targetPath string
-		
+
 		if cs.CloneToArchive {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", ".archive", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", targetFilename)
 		}
-		
+
 		// Check if file exists
 		_, err := os.Stat(targetPath)
 		return err == nil
 	}
-	
+
 	return false
 }
 
@@ -228,7 +228,7 @@ func (cs *CloneState) validate() {
 func (cs *CloneState) validateClone() error {
 	// Generate the target filename
 	slugifiedName := files.Slugify(cs.NewName)
-	
+
 	// Check if file already exists
 	if cs.ItemType == "component" {
 		// Determine the component type from the path
@@ -242,17 +242,17 @@ func (cs *CloneState) validateClone() error {
 		} else {
 			return fmt.Errorf("unknown component type")
 		}
-		
+
 		// Build the target path
 		targetFilename := slugifiedName + ".md"
 		var targetPath string
-		
+
 		if cs.CloneToArchive {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, ".archive", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, targetFilename)
 		}
-		
+
 		// Check if file exists
 		if _, err := os.Stat(targetPath); err == nil {
 			return fmt.Errorf("Component '%s' already exists", cs.NewName)
@@ -261,13 +261,13 @@ func (cs *CloneState) validateClone() error {
 		// Build the target path
 		targetFilename := slugifiedName + ".yaml"
 		var targetPath string
-		
+
 		if cs.CloneToArchive {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", ".archive", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", targetFilename)
 		}
-		
+
 		// Check if file exists
 		if _, err := os.Stat(targetPath); err == nil {
 			return fmt.Errorf("Pipeline '%s' already exists", cs.NewName)
@@ -315,9 +315,9 @@ func (cs *CloneState) executeClone() tea.Cmd {
 		}
 
 		return CloneSuccessMsg{
-			ItemType:       cs.ItemType,
-			OriginalName:   cs.OriginalName,
-			NewName:        cs.NewName,
+			ItemType:        cs.ItemType,
+			OriginalName:    cs.OriginalName,
+			NewName:         cs.NewName,
 			ClonedToArchive: cs.CloneToArchive,
 		}
 	}
@@ -328,17 +328,17 @@ func (cs *CloneState) cloneComponent() error {
 	// Read the original component
 	var content *models.Component
 	var err error
-	
+
 	if cs.IsArchived {
 		content, err = files.ReadArchivedComponent(cs.OriginalPath)
 	} else {
 		content, err = files.ReadComponent(cs.OriginalPath)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to read component: %w", err)
 	}
-	
+
 	// Determine the component type from the path
 	var componentType string
 	if strings.Contains(cs.OriginalPath, "/prompts/") {
@@ -354,7 +354,7 @@ func (cs *CloneState) cloneComponent() error {
 	// Generate the new filename and path
 	newFilename := files.Slugify(cs.NewName) + ".md"
 	var targetPath string
-	
+
 	if cs.CloneToArchive {
 		targetPath = fmt.Sprintf("components/%s/.archive/%s", componentType, newFilename)
 		// Ensure archive directory exists
@@ -365,13 +365,13 @@ func (cs *CloneState) cloneComponent() error {
 	} else {
 		targetPath = fmt.Sprintf("components/%s/%s", componentType, newFilename)
 	}
-	
+
 	// Write the component with new name and existing tags
 	err = files.WriteComponentWithNameAndTags(targetPath, content.Content, cs.NewName, content.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to write cloned component: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -380,13 +380,13 @@ func (cs *CloneState) clonePipeline() error {
 	// Read the original pipeline
 	var pipeline *models.Pipeline
 	var err error
-	
+
 	if cs.IsArchived {
 		pipeline, err = files.ReadArchivedPipeline(cs.OriginalPath)
 	} else {
 		pipeline, err = files.ReadPipeline(cs.OriginalPath)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to read pipeline: %w", err)
 	}
@@ -398,10 +398,10 @@ func (cs *CloneState) clonePipeline() error {
 		Components: pipeline.Components,
 		OutputPath: pipeline.OutputPath,
 	}
-	
+
 	// Generate the new filename
 	newFilename := files.Slugify(cs.NewName) + ".yaml"
-	
+
 	// Set the appropriate path based on destination
 	if cs.CloneToArchive {
 		newPipeline.Path = fmt.Sprintf("pipelines/.archive/%s", newFilename)
@@ -413,13 +413,13 @@ func (cs *CloneState) clonePipeline() error {
 	} else {
 		newPipeline.Path = newFilename // WritePipeline expects just the filename for active pipelines
 	}
-	
+
 	// Write the pipeline
 	err = files.WritePipeline(newPipeline)
 	if err != nil {
 		return fmt.Errorf("failed to write cloned pipeline: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -427,7 +427,7 @@ func (cs *CloneState) clonePipeline() error {
 func (cs *CloneState) GetSlugifiedName() string {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
+
 	if cs.NewName == "" {
 		return ""
 	}
@@ -438,16 +438,16 @@ func (cs *CloneState) GetSlugifiedName() string {
 func (cs *CloneState) IsValid() bool {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
-	return cs.NewName != "" && 
-	       cs.ValidationError == ""
+
+	return cs.NewName != "" &&
+		cs.ValidationError == ""
 }
 
 // IsActive returns whether clone mode is active
 func (cs *CloneState) IsActive() bool {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
+
 	return cs.Active
 }
 
@@ -455,7 +455,7 @@ func (cs *CloneState) IsActive() bool {
 func (cs *CloneState) GetError() error {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
+
 	if cs.ValidationError != "" {
 		return fmt.Errorf("%s", cs.ValidationError)
 	}
@@ -466,7 +466,7 @@ func (cs *CloneState) GetError() error {
 func (cs *CloneState) GetItemType() string {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
+
 	return cs.ItemType
 }
 
@@ -474,7 +474,7 @@ func (cs *CloneState) GetItemType() string {
 func (cs *CloneState) GetNewName() string {
 	cs.mu.RLock()
 	defer cs.mu.RUnlock()
-	
+
 	return cs.NewName
 }
 

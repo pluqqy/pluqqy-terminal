@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 // ComponentCreationViewRenderer handles rendering of component creation views
@@ -38,7 +38,7 @@ func (r *ComponentCreationViewRenderer) RenderTypeSelection(typeCursor int) stri
 		Foreground(lipgloss.Color("241"))
 
 	// Calculate dimensions
-	contentWidth := r.width - 4 // Match help pane width
+	contentWidth := r.width - 4    // Match help pane width
 	contentHeight := r.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
@@ -48,7 +48,7 @@ func (r *ComponentCreationViewRenderer) RenderTypeSelection(typeCursor int) stri
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	heading := "CREATE NEW COMPONENT"
@@ -107,7 +107,7 @@ func (r *ComponentCreationViewRenderer) RenderTypeSelection(typeCursor int) stri
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(r.width - 4).
+		Width(r.width-4).
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
@@ -147,7 +147,7 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 		Width(60)
 
 	// Calculate dimensions
-	contentWidth := r.width - 4 // Match help pane width
+	contentWidth := r.width - 4    // Match help pane width
 	contentHeight := r.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
@@ -157,7 +157,7 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	// Convert plural to singular for heading
@@ -187,14 +187,14 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 
 	// Render input field with padding for centering
 	inputFieldContent := inputStyle.Render(input)
-	
+
 	// Add padding to center the input field properly
 	centeredInputStyle := lipgloss.NewStyle().
 		Width(contentWidth - 4). // Account for padding
 		Align(lipgloss.Center)
-	
+
 	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
-	
+
 	// Check if component name already exists and show warning
 	if componentName != "" {
 		testFilename := sanitizeFileName(componentName) + ".md"
@@ -207,7 +207,7 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 		case models.ComponentTypeRules:
 			componentTypeDir = "rules"
 		}
-		
+
 		existingComponents, _ := files.ListComponents(componentTypeDir)
 		for _, existing := range existingComponents {
 			if strings.EqualFold(existing, testFilename) {
@@ -238,7 +238,7 @@ func (r *ComponentCreationViewRenderer) RenderNameInput(componentType, component
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(r.width - 4).
+		Width(r.width-4).
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
@@ -272,7 +272,7 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 		BorderForeground(lipgloss.Color("170"))
 
 	// Calculate dimensions
-	contentWidth := r.width - 4 // Match help pane width
+	contentWidth := r.width - 4    // Match help pane width
 	contentHeight := r.height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
@@ -282,7 +282,7 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	titleStyle := GetActiveHeaderStyle(true) // Purple for active single pane
 
 	// Convert plural to singular for heading
@@ -301,16 +301,16 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 
 	// Editor content with cursor
 	content := componentContent + "│" // cursor
-	
+
 	// Preprocess content to handle carriage returns and ensure proper line breaks
 	processedContent := preprocessContent(content)
-	
+
 	// Calculate available width for wrapping (accounting for padding)
 	availableWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
 	if availableWidth < 1 {
 		availableWidth = 1
 	}
-	
+
 	// Wrap content to prevent overflow
 	wrappedContent := wordwrap.String(processedContent, availableWidth)
 
@@ -331,7 +331,7 @@ func (r *ComponentCreationViewRenderer) RenderContentEdit(componentType, compone
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(r.width - 4).
+		Width(r.width-4).
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
@@ -363,7 +363,7 @@ func (r *ComponentCreationViewRenderer) RenderWithEnhancedEditor(enhancedEditor 
 		// Fallback to simple editor
 		return r.RenderContentEdit(componentType, componentName, enhancedEditor.GetContent())
 	}
-	
+
 	// Update the editor's component name to show in the title
 	// This is temporary for rendering purposes
 	originalName := enhancedEditor.ComponentName
@@ -372,15 +372,15 @@ func (r *ComponentCreationViewRenderer) RenderWithEnhancedEditor(enhancedEditor 
 		singularType = componentType[:len(componentType)-1]
 	}
 	enhancedEditor.ComponentName = fmt.Sprintf("NEW %s: %s", strings.ToUpper(singularType), componentName)
-	
+
 	// Create enhanced editor renderer
 	editorRenderer := NewEnhancedEditorRenderer(r.width, r.height)
-	
+
 	// Use the enhanced editor's render method
 	result := editorRenderer.Render(enhancedEditor)
-	
+
 	// Restore original name
 	enhancedEditor.ComponentName = originalName
-	
+
 	return result
 }

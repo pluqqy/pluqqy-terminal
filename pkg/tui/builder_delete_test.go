@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 	"testing"
-	
+
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
@@ -11,12 +11,12 @@ import (
 func TestPipelineBuilderModel_DeleteComponentFromLeft(t *testing.T) {
 	// This test verifies that the deleteComponentFromLeft method creates a command
 	// We can't test actual file deletion without setting up real files
-	
+
 	tests := []struct {
-		name           string
-		setup          func() *PipelineBuilderModel
+		name              string
+		setup             func() *PipelineBuilderModel
 		componentToDelete componentItem
-		expectCommand  bool
+		expectCommand     bool
 	}{
 		{
 			name: "creates delete command for component",
@@ -39,14 +39,14 @@ func TestPipelineBuilderModel_DeleteComponentFromLeft(t *testing.T) {
 			expectCommand: true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Check that delete command is created
 			cmd := m.deleteComponentFromLeft(tt.componentToDelete)
-			
+
 			if tt.expectCommand && cmd == nil {
 				t.Fatal("Expected a command to be returned")
 			}
@@ -61,13 +61,13 @@ func TestPipelineBuilderModel_DeleteComponentFromLeft(t *testing.T) {
 func TestPipelineBuilderModel_DeleteComponentKeyHandler(t *testing.T) {
 	// This test just verifies that the deleteConfirm field is properly initialized
 	// Actual key handling would require more complex setup
-	
+
 	m := NewPipelineBuilderModel()
-	
+
 	if m.deleteConfirm == nil {
 		t.Fatal("deleteConfirm should be initialized")
 	}
-	
+
 	// Verify it's not active initially
 	if m.deleteConfirm.Active() {
 		t.Error("deleteConfirm should not be active initially")
@@ -78,7 +78,7 @@ func TestPipelineBuilderModel_DeleteComponentKeyHandler(t *testing.T) {
 func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 	// Note: This test focuses on the save command generation
 	// Actual file writing is handled by the files package
-	
+
 	tests := []struct {
 		name          string
 		setup         func() *PipelineBuilderModel
@@ -125,20 +125,20 @@ func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Execute save command
 			cmd := m.savePipeline()
 			if cmd == nil {
 				t.Fatal("Expected a command to be returned")
 			}
-			
+
 			// Execute the command
 			msg := cmd()
-			
+
 			// Check result
 			switch result := msg.(type) {
 			case StatusMsg:
@@ -155,7 +155,7 @@ func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 			default:
 				t.Errorf("Unexpected message type: %T", msg)
 			}
-			
+
 			// Validate after save
 			tt.validateAfter(t, m)
 		})
@@ -201,22 +201,22 @@ func TestPipelineBuilderModel_AddSelectedComponent(t *testing.T) {
 			expectedCount: 2,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Set up the state as if the component was selected
 			m.contexts = []componentItem{tt.componentToAdd}
 			m.filteredContexts = m.contexts
 			m.leftCursor = 0
 			m.addSelectedComponent()
-			
+
 			// Validate count
 			if len(m.selectedComponents) != tt.expectedCount {
 				t.Errorf("Expected %d components, got %d", tt.expectedCount, len(m.selectedComponents))
 			}
-			
+
 			// Check that component was added
 			found := false
 			for _, comp := range m.selectedComponents {
@@ -226,7 +226,7 @@ func TestPipelineBuilderModel_AddSelectedComponent(t *testing.T) {
 					break
 				}
 			}
-			
+
 			if !found {
 				t.Error("Component was not added to selectedComponents")
 			}
@@ -284,19 +284,19 @@ func TestPipelineBuilderModel_RemoveSelectedComponent(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Remove the component
 			m.removeSelectedComponent()
-			
+
 			// Validate count
 			if len(m.selectedComponents) != tt.expectedCount {
 				t.Errorf("Expected %d components after removal, got %d", tt.expectedCount, len(m.selectedComponents))
 			}
-			
+
 			// Validate ordering
 			tt.validateOrder(t, m.selectedComponents)
 		})

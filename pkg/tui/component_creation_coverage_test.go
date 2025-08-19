@@ -2,7 +2,7 @@ package tui
 
 import (
 	"testing"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
@@ -24,27 +24,27 @@ func TestComponentCreator_GetterMethods(t *testing.T) {
 				if step := c.GetCurrentStep(); step != 0 {
 					t.Errorf("Expected initial step 0, got %d", step)
 				}
-				
+
 				// Test GetTypeCursor
 				if cursor := c.GetTypeCursor(); cursor != 0 {
 					t.Errorf("Expected type cursor 0, got %d", cursor)
 				}
-				
+
 				// Test GetComponentType
 				if compType := c.GetComponentType(); compType != "" {
 					t.Errorf("Expected empty component type, got %s", compType)
 				}
-				
+
 				// Test GetComponentName
 				if name := c.GetComponentName(); name != "" {
 					t.Errorf("Expected empty component name, got %s", name)
 				}
-				
+
 				// Test GetComponentContent
 				if content := c.GetComponentContent(); content != "" {
 					t.Errorf("Expected empty content, got %s", content)
 				}
-				
+
 				// Test GetEnhancedEditor
 				if editor := c.GetEnhancedEditor(); editor == nil {
 					t.Error("Expected enhanced editor to be initialized")
@@ -68,22 +68,22 @@ func TestComponentCreator_GetterMethods(t *testing.T) {
 				if step := c.GetCurrentStep(); step != 2 {
 					t.Errorf("Expected step 2, got %d", step)
 				}
-				
+
 				// Test GetTypeCursor
 				if cursor := c.GetTypeCursor(); cursor != 1 {
 					t.Errorf("Expected type cursor 1, got %d", cursor)
 				}
-				
+
 				// Test GetComponentType
 				if compType := c.GetComponentType(); compType != models.ComponentTypeContext {
 					t.Errorf("Expected context type, got %s", compType)
 				}
-				
+
 				// Test GetComponentName
 				if name := c.GetComponentName(); name != "Test Component" {
 					t.Errorf("Expected 'Test Component', got %s", name)
 				}
-				
+
 				// Test GetComponentContent
 				if content := c.GetComponentContent(); content != "Test content" {
 					t.Errorf("Expected 'Test content', got %s", content)
@@ -91,7 +91,7 @@ func TestComponentCreator_GetterMethods(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := tt.setup()
@@ -223,28 +223,28 @@ func TestComponentCreator_HandleTypeSelection(t *testing.T) {
 			handled:        true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			c := tt.setup()
-			
+
 			// Handle type selection
 			handled := c.HandleTypeSelection(tt.input)
-			
+
 			// Check if handled correctly
 			if handled != tt.handled {
 				t.Errorf("Expected handled=%v, got %v", tt.handled, handled)
 			}
-			
+
 			// Check resulting state
 			if c.componentCreationType != tt.expectedType {
 				t.Errorf("Expected type %s, got %s", tt.expectedType, c.componentCreationType)
 			}
-			
+
 			if c.creationStep != tt.expectedStep {
 				t.Errorf("Expected step %d, got %d", tt.expectedStep, c.creationStep)
 			}
-			
+
 			if c.typeCursor != tt.expectedCursor {
 				t.Errorf("Expected cursor %d, got %d", tt.expectedCursor, c.typeCursor)
 			}
@@ -256,38 +256,38 @@ func TestComponentCreator_HandleTypeSelection(t *testing.T) {
 func TestComponentCreator_FullFlow(t *testing.T) {
 	t.Run("complete component creation flow", func(t *testing.T) {
 		c := NewComponentCreator()
-		
+
 		// Step 1: Start creation
 		c.Start()
 		if !c.IsActive() {
 			t.Error("Creator should be active after start")
 		}
-		
+
 		// Step 2: Select type (Context)
 		c.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
 		if c.GetCurrentStep() != 1 {
 			t.Error("Should move to name input step")
 		}
-		
+
 		// Step 3: Enter name
 		c.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'T'}})
 		c.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 		c.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
 		c.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'t'}})
-		
+
 		if c.GetComponentName() != "Test" {
 			t.Errorf("Expected name 'Test', got '%s'", c.GetComponentName())
 		}
-		
+
 		// Move to content step
 		c.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 		if c.GetCurrentStep() != 2 {
 			t.Error("Should move to content input step")
 		}
-		
+
 		// Step 4: Set content
 		c.componentContent = "Test content for component"
-		
+
 		// Verify the component state is ready for save
 		if c.componentName != "Test" {
 			t.Error("Component name should be set")
@@ -339,15 +339,15 @@ func TestHandleComponentCreation(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Handle component creation input
 			updatedModel, _ := m.handleComponentCreation(tt.input)
 			updatedM := updatedModel.(*PipelineBuilderModel)
-			
+
 			// Validate
 			tt.validate(t, updatedM)
 		})
@@ -408,18 +408,17 @@ func TestMainList_HandleComponentCreation(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Process input
 			updatedModel, _ := m.Update(tt.input)
 			updatedM := updatedModel.(*MainListModel)
-			
+
 			// Validate
 			tt.validate(t, updatedM)
 		})
 	}
 }
-

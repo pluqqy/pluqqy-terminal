@@ -32,7 +32,7 @@ func TestColorConstants(t *testing.T) {
 			if tt.value != tt.color {
 				t.Errorf("expected %s, got %s", tt.value, tt.color)
 			}
-			
+
 			// Verify it can be used as a lipgloss color without panic
 			func() {
 				defer func() {
@@ -81,7 +81,7 @@ func TestStaticStyles(t *testing.T) {
 				}()
 				_ = tt.style.Render("test content")
 			}()
-			
+
 			// Verify the rendered output is not empty
 			output := tt.style.Render("test")
 			if output == "" {
@@ -132,7 +132,7 @@ func TestGetTokenBadgeStyle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			style := GetTokenBadgeStyle(tt.tokenCount)
-			
+
 			// Verify rendering doesn't panic
 			func() {
 				defer func() {
@@ -142,7 +142,7 @@ func TestGetTokenBadgeStyle(t *testing.T) {
 				}()
 				_ = style.Render("12.3k")
 			}()
-			
+
 			// Verify the style has appropriate properties based on status
 			rendered := style.Render("test")
 			if rendered == "" {
@@ -164,7 +164,7 @@ func TestGetActiveHeaderStyle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			style := GetActiveHeaderStyle(tt.isActive)
-			
+
 			// Verify rendering doesn't panic
 			func() {
 				defer func() {
@@ -174,7 +174,7 @@ func TestGetActiveHeaderStyle(t *testing.T) {
 				}()
 				_ = style.Render("Header Text")
 			}()
-			
+
 			// Verify the rendered output is not empty
 			output := style.Render("test")
 			if output == "" {
@@ -196,7 +196,7 @@ func TestGetActiveColonStyle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			style := GetActiveColonStyle(tt.isActive)
-			
+
 			// Verify rendering doesn't panic
 			func() {
 				defer func() {
@@ -206,7 +206,7 @@ func TestGetActiveColonStyle(t *testing.T) {
 				}()
 				_ = style.Render(":")
 			}()
-			
+
 			// Verify the rendered output is not empty
 			output := style.Render(":")
 			if output == "" {
@@ -232,7 +232,7 @@ func TestGetTagChipStyle(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			style := GetTagChipStyle(tt.color)
-			
+
 			// Verify rendering doesn't panic
 			func() {
 				defer func() {
@@ -242,7 +242,7 @@ func TestGetTagChipStyle(t *testing.T) {
 				}()
 				_ = style.Render("TAG")
 			}()
-			
+
 			// Verify the rendered output is not empty
 			output := style.Render("test")
 			if output == "" {
@@ -264,7 +264,7 @@ func TestStyleCombinations(t *testing.T) {
 			// Combine border with content padding
 			combined := ActiveBorderStyle.Copy().Inherit(ContentPaddingStyle)
 			_ = combined.Render("Combined content")
-			
+
 			// Combine multiple styles
 			multiCombined := HeaderStyle.Copy().
 				Inherit(HeaderPaddingStyle).
@@ -276,12 +276,12 @@ func TestStyleCombinations(t *testing.T) {
 
 func TestStylesWithVariousContent(t *testing.T) {
 	contents := []string{
-		"",                    // Empty string
-		"Simple text",         // Normal text
-		"Line\nBreak",        // Multi-line
-		"🎨 Unicode emoji",    // Unicode content
+		"",                // Empty string
+		"Simple text",     // Normal text
+		"Line\nBreak",     // Multi-line
+		"🎨 Unicode emoji", // Unicode content
 		"Very long text that might exceed normal boundaries and cause issues with rendering", // Long text
-		"\t\tTabbed",         // Special characters
+		"\t\tTabbed", // Special characters
 	}
 
 	styles := []lipgloss.Style{
@@ -327,7 +327,7 @@ func TestTokenBadgeEdgeCases(t *testing.T) {
 			if status != tt.expected {
 				t.Errorf("GetTokenStatus(%d) = %s, want %s", tt.count, status, tt.expected)
 			}
-			
+
 			// Also verify the badge style works
 			style := GetTokenBadgeStyle(tt.count)
 			func() {

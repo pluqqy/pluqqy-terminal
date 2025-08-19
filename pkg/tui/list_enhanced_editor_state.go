@@ -3,7 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
-	
+
 	"github.com/charmbracelet/bubbles/filepicker"
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -21,61 +21,61 @@ const (
 
 // UndoState represents a saved state for undo functionality
 type UndoState struct {
-	Content       string
-	CursorPos     int
-	Description   string // What action created this state
+	Content     string
+	CursorPos   int
+	Description string // What action created this state
 }
 
 // EnhancedEditorState manages ONLY the state of the enhanced editor - no business logic
 type EnhancedEditorState struct {
 	// Basic state
-	Active         bool
-	Mode           EditorMode
-	
+	Active bool
+	Mode   EditorMode
+
 	// Component information
-	ComponentPath  string
-	ComponentName  string
-	ComponentType  string
-	ComponentTags  []string // Store original tags to preserve them
-	
+	ComponentPath string
+	ComponentName string
+	ComponentType string
+	ComponentTags []string // Store original tags to preserve them
+
 	// Content management
-	Content        string
+	Content         string
 	OriginalContent string
-	CursorPosition int
-	InsertionPoint int
-	
+	CursorPosition  int
+	InsertionPoint  int
+
 	// UI components
-	Textarea       textarea.Model
-	FilePicker     filepicker.Model
-	
+	Textarea   textarea.Model
+	FilePicker filepicker.Model
+
 	// Change tracking
 	UnsavedChanges bool
-	
+
 	// Exit confirmation
-	ExitConfirm    *ConfirmationModel
+	ExitConfirm       *ConfirmationModel
 	ExitConfirmActive bool
-	
+
 	// Clipboard and status management
-	ClipboardStatus   *ClipboardStatus
-	StatusManager     *StatusManager
-	ActionFeedback    *EditorActionFeedback
-	PasteHelper       *PasteHelper
-	RecentFiles       *RecentFilesTracker
-	
+	ClipboardStatus *ClipboardStatus
+	StatusManager   *StatusManager
+	ActionFeedback  *EditorActionFeedback
+	PasteHelper     *PasteHelper
+	RecentFiles     *RecentFilesTracker
+
 	// Undo management
-	UndoStack         []UndoState
-	MaxUndoLevels     int
-	
+	UndoStack     []UndoState
+	MaxUndoLevels int
+
 	// Editor stats
-	LineCount         int
-	WordCount         int
-	CurrentLine       int
-	CurrentColumn     int
-	
+	LineCount     int
+	WordCount     int
+	CurrentLine   int
+	CurrentColumn int
+
 	// Component creation callbacks
-	SaveRequested     bool
-	CancelRequested   bool
-	IsNewComponent    bool  // True when creating a new component (not yet on disk)
+	SaveRequested   bool
+	CancelRequested bool
+	IsNewComponent  bool // True when creating a new component (not yet on disk)
 }
 
 // NewEnhancedEditorState creates a new enhanced editor state
@@ -86,27 +86,27 @@ func NewEnhancedEditorState() *EnhancedEditorState {
 	ta.CharLimit = 0 // No limit
 	ta.SetWidth(80)
 	ta.SetHeight(20)
-	
+
 	fp := filepicker.New()
 	fp.ShowHidden = false
 	fp.DirAllowed = true
 	fp.FileAllowed = true
 	// Set to show all files by default
 	fp.AllowedTypes = []string{}
-	
+
 	return &EnhancedEditorState{
-		Active:      false,
-		Mode:        EditorModeNormal,
-		Textarea:    ta,
-		FilePicker:  fp,
-		ExitConfirm: NewConfirmation(),
+		Active:          false,
+		Mode:            EditorModeNormal,
+		Textarea:        ta,
+		FilePicker:      fp,
+		ExitConfirm:     NewConfirmation(),
 		ClipboardStatus: &ClipboardStatus{},
 		StatusManager:   NewStatusManager(),
-		ActionFeedback: NewEditorActionFeedback(),
-		PasteHelper:    NewPasteHelper(),
-		RecentFiles:    NewRecentFilesTracker(),
-		UndoStack:      make([]UndoState, 0, 10),
-		MaxUndoLevels:  10,
+		ActionFeedback:  NewEditorActionFeedback(),
+		PasteHelper:     NewPasteHelper(),
+		RecentFiles:     NewRecentFilesTracker(),
+		UndoStack:       make([]UndoState, 0, 10),
+		MaxUndoLevels:   10,
 	}
 }
 
@@ -186,13 +186,13 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 	// Check if this is a paste event (detect content size jump)
 	oldContent := e.Textarea.Value()
 	oldLen := len(oldContent)
-	
+
 	// Save undo state periodically (every significant change)
 	shouldSaveUndo := false
-	
+
 	var cmd tea.Cmd
 	e.Textarea, cmd = e.Textarea.Update(msg)
-	
+
 	// Track content changes
 	newContent := e.Textarea.Value()
 	if newContent != e.Content {
@@ -200,7 +200,7 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 		newLen := len(newContent)
 		isPaste := false
 		pastedContent := ""
-		
+
 		// Detect paste by content size jump
 		if newLen > oldLen+10 && oldLen >= 0 {
 			isPaste = true
@@ -212,7 +212,7 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 			pastedContent = newContent
 			shouldSaveUndo = true
 		}
-		
+
 		// Save undo state for significant changes (not every keystroke)
 		// Check for: newline added, significant length change, or periodic saves
 		if !isPaste && oldContent != "" {
@@ -220,7 +220,7 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 			oldLines := strings.Count(oldContent, "\n")
 			newLines := strings.Count(newContent, "\n")
 			lengthDiff := len(newContent) - len(oldContent)
-			
+
 			if oldLines != newLines || // New line added/removed
 				lengthDiff < -5 || // Deleted 5+ chars
 				lengthDiff > 20 || // Added 20+ chars
@@ -228,16 +228,16 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 				shouldSaveUndo = true
 			}
 		}
-		
+
 		// Save undo state if needed
 		if shouldSaveUndo && oldContent != "" {
 			e.SaveUndoState("Edit")
 		}
-		
+
 		if isPaste && pastedContent != "" {
 			// Clean the pasted content
 			cleanedPaste := e.PasteHelper.CleanPastedContent(pastedContent)
-			
+
 			// If content was cleaned, update it
 			if cleanedPaste != pastedContent {
 				var cleanedContent string
@@ -258,11 +258,11 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 		} else {
 			e.Content = newContent
 		}
-		
+
 		e.UnsavedChanges = (e.Content != e.OriginalContent)
 		e.UpdateStats()
 	}
-	
+
 	return cmd
 }
 
@@ -321,7 +321,7 @@ func (e *EnhancedEditorState) ShowExitConfirmation(width int, onConfirm, onCance
 		"You have unsaved changes to this component.",
 		"Exit without saving?",
 		true, // destructive
-		width - 4,
+		width-4,
 		10,
 		onConfirm,
 		onCancel,
@@ -346,7 +346,7 @@ func (e *EnhancedEditorState) UpdateClipboardStatus(content string) {
 		e.ClipboardStatus.WillClean = false
 		return
 	}
-	
+
 	e.ClipboardStatus.HasContent = true
 	e.ClipboardStatus.LineCount = CountLines(content)
 	e.ClipboardStatus.WillClean = e.PasteHelper.WillClean(content)
@@ -359,10 +359,10 @@ func (e *EnhancedEditorState) SaveUndoState(description string) {
 		CursorPos:   e.CursorPosition,
 		Description: description,
 	}
-	
+
 	// Add to stack
 	e.UndoStack = append(e.UndoStack, state)
-	
+
 	// Trim stack if it exceeds max
 	if len(e.UndoStack) > e.MaxUndoLevels {
 		e.UndoStack = e.UndoStack[len(e.UndoStack)-e.MaxUndoLevels:]
@@ -374,34 +374,34 @@ func (e *EnhancedEditorState) Undo() bool {
 	if len(e.UndoStack) == 0 {
 		return false
 	}
-	
+
 	// Pop the last state
 	lastIndex := len(e.UndoStack) - 1
 	state := e.UndoStack[lastIndex]
 	e.UndoStack = e.UndoStack[:lastIndex]
-	
+
 	// Restore state
 	e.Content = state.Content
 	e.Textarea.SetValue(state.Content)
 	e.CursorPosition = state.CursorPos
 	e.UnsavedChanges = (e.Content != e.OriginalContent)
-	
+
 	// Update stats
 	e.UpdateStats()
-	
+
 	return true
 }
 
 // UpdateStats updates line count, word count, and cursor position
 func (e *EnhancedEditorState) UpdateStats() {
 	content := e.Textarea.Value()
-	
+
 	// Line count
 	e.LineCount = CountLines(content)
-	
+
 	// Word count
 	e.WordCount = CountWords(content)
-	
+
 	// Cursor position is tracked internally by textarea
 	// We'll use the simple position for now
 	e.CurrentLine = 0 // Will be updated by textarea events

@@ -33,14 +33,14 @@ func (rft *RecentFilesTracker) AddFile(path string) {
 	// Clean the path
 	cleanPath := filepath.Clean(path)
 	baseName := filepath.Base(cleanPath)
-	
+
 	// Check if file already exists in list
 	for i, rf := range rft.RecentFiles {
 		if rf.Path == cleanPath {
 			// Move to front and update
 			rft.RecentFiles[i].LastUsed = time.Now()
 			rft.RecentFiles[i].AccessCount++
-			
+
 			// Move to front if not already there
 			if i > 0 {
 				file := rft.RecentFiles[i]
@@ -48,12 +48,12 @@ func (rft *RecentFilesTracker) AddFile(path string) {
 				copy(rft.RecentFiles[1:i+1], rft.RecentFiles[0:i])
 				rft.RecentFiles[0] = file
 			}
-			
+
 			rft.LastUpdated = time.Now()
 			return
 		}
 	}
-	
+
 	// Add new file to front
 	newFile := RecentFile{
 		Path:        cleanPath,
@@ -61,15 +61,15 @@ func (rft *RecentFilesTracker) AddFile(path string) {
 		LastUsed:    time.Now(),
 		AccessCount: 1,
 	}
-	
+
 	// Prepend to list
 	rft.RecentFiles = append([]RecentFile{newFile}, rft.RecentFiles...)
-	
+
 	// Trim to max size
 	if len(rft.RecentFiles) > rft.MaxFiles {
 		rft.RecentFiles = rft.RecentFiles[:rft.MaxFiles]
 	}
-	
+
 	rft.LastUpdated = time.Now()
 }
 
@@ -100,7 +100,7 @@ func (rft *RecentFilesTracker) Clear() {
 // RemoveFile removes a specific file from the recent list
 func (rft *RecentFilesTracker) RemoveFile(path string) {
 	cleanPath := filepath.Clean(path)
-	
+
 	for i, rf := range rft.RecentFiles {
 		if rf.Path == cleanPath {
 			// Remove the file
@@ -116,13 +116,13 @@ func (rft *RecentFilesTracker) FormatRecentFilesList() []string {
 	if !rft.HasRecentFiles() {
 		return nil
 	}
-	
+
 	formatted := make([]string, 0, len(rft.RecentFiles))
 	for i, rf := range rft.RecentFiles {
 		// Format as "1. filename.ext"
 		formatted = append(formatted, formatRecentFile(i+1, rf))
 	}
-	
+
 	return formatted
 }
 
@@ -134,6 +134,6 @@ func formatRecentFile(num int, rf RecentFile) string {
 	if dir != "." && len(dir) < 30 {
 		display = filepath.Join(dir, rf.Name)
 	}
-	
+
 	return display
 }

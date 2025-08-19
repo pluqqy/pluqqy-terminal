@@ -58,21 +58,21 @@ func (r *FileReferenceRenderer) renderHeader(state *FileReferenceState) string {
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	titleStyle := GetActiveHeaderStyle(true)
 	heading := "SELECT FILE REFERENCE"
-	
+
 	if state.FilterPattern != "" {
 		heading = fmt.Sprintf("SELECT FILE REFERENCE (filter: %s)", state.FilterPattern)
 	}
-	
+
 	contentWidth := r.Width - 8
 	remainingWidth := contentWidth - len(heading) - 5
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
 	colonStyle := GetActiveColonStyle(true)
-	
+
 	return headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth)))
 }
 
@@ -114,7 +114,7 @@ func (r *FileReferenceRenderer) renderFileList(state *FileReferenceState) string
 
 	// Get visible files
 	visibleFiles := state.GetVisibleFiles()
-	
+
 	var lines []string
 	for i, file := range visibleFiles {
 		actualIndex := state.ScrollOffset + i
@@ -172,7 +172,7 @@ func (r *FileReferenceRenderer) renderFileItem(file FileInfo, selected bool) str
 // renderEmptyState renders when no files are available
 func (r *FileReferenceRenderer) renderEmptyState() string {
 	message := "No files found"
-	
+
 	styled := EmptyInactiveStyle.
 		Width(r.Width - 4).
 		Align(lipgloss.Center).
@@ -193,8 +193,8 @@ func (r *FileReferenceRenderer) renderStatusBar(state *FileReferenceState) strin
 		return ""
 	}
 
-	status := fmt.Sprintf("%d/%d • %s", 
-		state.SelectedIndex+1, 
+	status := fmt.Sprintf("%d/%d • %s",
+		state.SelectedIndex+1,
 		state.GetFileCount(),
 		GetFileType(current.Name))
 

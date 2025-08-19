@@ -31,13 +31,13 @@ func (b *BusinessLogic) GetAllComponents() []componentItem {
 	if err != nil || settings == nil {
 		settings = models.DefaultSettings()
 	}
-	
+
 	// Group components by type
 	typeGroups := make(map[string][]componentItem)
 	typeGroups[models.ComponentTypeContext] = b.contexts
 	typeGroups[models.ComponentTypePrompt] = b.prompts
 	typeGroups[models.ComponentTypeRules] = b.rules
-	
+
 	// Build ordered list based on sections
 	var all []componentItem
 	for _, section := range settings.Output.Formatting.Sections {
@@ -45,7 +45,7 @@ func (b *BusinessLogic) GetAllComponents() []componentItem {
 			all = append(all, components...)
 		}
 	}
-	
+
 	return all
 }
 

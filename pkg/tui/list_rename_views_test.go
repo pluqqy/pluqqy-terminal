@@ -13,15 +13,15 @@ func makeTestRenameRenderer() *RenameRenderer {
 
 func TestNewRenameRenderer(t *testing.T) {
 	rr := NewRenameRenderer()
-	
+
 	if rr == nil {
 		t.Fatal("NewRenameRenderer() returned nil")
 	}
-	
+
 	if rr.Width != 0 {
 		t.Errorf("Width = %d, want 0 initially", rr.Width)
 	}
-	
+
 	if rr.Height != 0 {
 		t.Errorf("Height = %d, want 0 initially", rr.Height)
 	}
@@ -29,16 +29,16 @@ func TestNewRenameRenderer(t *testing.T) {
 
 func TestRenameRenderer_SetSize(t *testing.T) {
 	rr := NewRenameRenderer()
-	
+
 	width := 100
 	height := 40
-	
+
 	rr.SetSize(width, height)
-	
+
 	if rr.Width != width {
 		t.Errorf("Width = %d, want %d", rr.Width, width)
 	}
-	
+
 	if rr.Height != height {
 		t.Errorf("Height = %d, want %d", rr.Height, height)
 	}
@@ -192,22 +192,22 @@ func TestRenameRenderer_Render(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := NewRenameRenderer()
 			rr.SetSize(tt.width, tt.height)
 			state := tt.setup()
-			
+
 			output := rr.Render(state)
-			
+
 			if tt.wantEmpty {
 				if output != "" {
 					t.Errorf("expected empty output, got %q", output)
 				}
 				return
 			}
-			
+
 			for _, want := range tt.wantContains {
 				if !strings.Contains(output, want) {
 					t.Errorf("output missing %q\nGot:\n%s", want, output)
@@ -219,10 +219,10 @@ func TestRenameRenderer_Render(t *testing.T) {
 
 func TestRenameRenderer_RenderOverlay(t *testing.T) {
 	tests := []struct {
-		name      string
-		baseView  string
-		setup     func() *RenameState
-		wantBase  bool // true if base should be returned unchanged
+		name     string
+		baseView string
+		setup    func() *RenameState
+		wantBase bool // true if base should be returned unchanged
 	}{
 		{
 			name:     "inactive state returns base unchanged",
@@ -243,14 +243,14 @@ func TestRenameRenderer_RenderOverlay(t *testing.T) {
 			wantBase: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			rr := makeTestRenameRenderer()
 			state := tt.setup()
-			
+
 			output := rr.RenderOverlay(tt.baseView, state)
-			
+
 			if tt.wantBase {
 				if output != tt.baseView {
 					t.Errorf("expected base view unchanged, got %q", output)

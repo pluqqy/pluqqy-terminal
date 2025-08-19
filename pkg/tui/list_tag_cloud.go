@@ -2,7 +2,7 @@ package tui
 
 import (
 	"strings"
-	
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	tagspkg "github.com/pluqqy/pluqqy-cli/pkg/tags"
@@ -29,14 +29,14 @@ func NewTagCloudRenderer(width, height int) *TagCloudRenderer {
 // Render generates the tag cloud pane content
 func (r *TagCloudRenderer) Render() string {
 	var content strings.Builder
-	
+
 	// Header
 	title := "AVAILABLE TAGS"
 	remainingWidth := r.Width - len(title) - 7 // Adjust for smaller width
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	
+
 	// Dynamic styles based on active state
 	headerStyle := GetActiveHeaderStyle(r.IsActive)
 	if !r.IsActive {
@@ -46,15 +46,15 @@ func (r *TagCloudRenderer) Render() string {
 			Foreground(lipgloss.Color(ColorWarning))
 	}
 	colonStyle := GetActiveColonStyle(r.IsActive)
-	
+
 	content.WriteString(HeaderPaddingStyle.Render(
-		headerStyle.Render(title) + " " + 
-		colonStyle.Render(strings.Repeat(":", remainingWidth))))
+		headerStyle.Render(title) + " " +
+			colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	content.WriteString("\n\n")
-	
+
 	// Get available tags (excluding current tags)
 	availableForCloud := r.getAvailableForCloud()
-	
+
 	// Display tags
 	if len(availableForCloud) == 0 {
 		content.WriteString(HeaderPaddingStyle.Render(
@@ -64,13 +64,13 @@ func (r *TagCloudRenderer) Render() string {
 		tagRows := r.renderTagRows(availableForCloud)
 		content.WriteString(HeaderPaddingStyle.Render(tagRows))
 	}
-	
+
 	// Apply border
 	borderStyle := InactiveBorderStyle
 	if r.IsActive {
 		borderStyle = ActiveBorderStyle
 	}
-	
+
 	return borderStyle.
 		Width(r.Width).
 		Height(r.Height).
@@ -104,7 +104,7 @@ func (r *TagCloudRenderer) renderTagRows(tags []string) string {
 	rowTags := 0
 	currentRowWidth := 0
 	maxRowWidth := r.Width - 6 // Account for padding
-	
+
 	for i, tag := range tags {
 		// Get tag color
 		registry, _ := tagspkg.NewRegistry()
@@ -114,9 +114,9 @@ func (r *TagCloudRenderer) renderTagRows(tags []string) string {
 				color = t.Color
 			}
 		}
-		
+
 		tagStyle := GetTagChipStyle(color)
-		
+
 		// Calculate tag display
 		var tagDisplay string
 		if r.IsActive && i == r.CursorIndex {
@@ -125,22 +125,22 @@ func (r *TagCloudRenderer) renderTagRows(tags []string) string {
 		} else {
 			tagDisplay = "  " + tagStyle.Render(tag) + "  "
 		}
-		
+
 		tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
-		
+
 		// Check if we need a new row
-		if rowTags > 0 && currentRowWidth + tagWidth > maxRowWidth {
+		if rowTags > 0 && currentRowWidth+tagWidth > maxRowWidth {
 			rows.WriteString("\n\n") // Double newline for vertical spacing
 			rowTags = 0
 			currentRowWidth = 0
 		}
-		
+
 		rows.WriteString(tagDisplay)
 		rows.WriteString("  ")
 		currentRowWidth += tagWidth + 2
 		rowTags++
 	}
-	
+
 	return rows.String()
 }
 

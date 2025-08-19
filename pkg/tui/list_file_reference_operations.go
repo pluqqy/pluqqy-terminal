@@ -149,7 +149,7 @@ func GetFileExtension(path string) string {
 	if strings.HasPrefix(base, ".") && !strings.Contains(base[1:], ".") {
 		return ""
 	}
-	
+
 	ext := filepath.Ext(path)
 	if ext != "" {
 		return strings.ToLower(ext)

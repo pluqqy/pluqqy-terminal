@@ -60,50 +60,50 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 	// Input field
 	b.WriteString(HeaderStyle.Render("New name:"))
 	b.WriteString("\n")
-	
+
 	// Calculate input field width (dialog width minus some padding)
 	inputFieldWidth := dialogWidth - 8
 	if inputFieldWidth < 40 {
 		inputFieldWidth = 40
 	}
-	
+
 	// Create highlighted input style (similar to selected items)
 	inputFieldStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorSelected)).
 		Foreground(lipgloss.Color(ColorNormal)).
 		Width(inputFieldWidth).
 		Padding(0, 1)
-	
+
 	// Create cursor style with inverted colors for visibility
 	cursorOnHighlightStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorActive)).
 		Foreground(lipgloss.Color(ColorWhite)).
 		Bold(true)
-	
+
 	if state.NewName == "" {
 		// Show placeholder with cursor at beginning
 		var inputContent strings.Builder
 		inputContent.WriteString(cursorOnHighlightStyle.Render(" "))
 		placeholder := "Enter new display name..."
 		inputContent.WriteString(DescriptionStyle.Render(placeholder))
-		
+
 		// Pad to fill the width
 		currentLen := 1 + len(placeholder)
 		if currentLen < inputFieldWidth-2 {
 			inputContent.WriteString(strings.Repeat(" ", inputFieldWidth-2-currentLen))
 		}
-		
+
 		b.WriteString(inputFieldStyle.Render(inputContent.String()))
 	} else {
 		// Show input with cursor at correct position
 		runes := []rune(state.NewName)
 		var inputContent strings.Builder
-		
+
 		// Text before cursor
 		if state.CursorPos > 0 {
 			inputContent.WriteString(string(runes[:state.CursorPos]))
 		}
-		
+
 		// Cursor
 		if state.CursorPos < len(runes) {
 			// Cursor on a character - highlight the character
@@ -116,13 +116,13 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 			// Cursor at end - show a space with cursor styling
 			inputContent.WriteString(cursorOnHighlightStyle.Render(" "))
 		}
-		
+
 		// Pad to fill the width if needed
 		textLen := len(runes) + 1
 		if textLen < inputFieldWidth-2 {
 			inputContent.WriteString(strings.Repeat(" ", inputFieldWidth-2-textLen))
 		}
-		
+
 		// Apply the background highlight to the entire input
 		b.WriteString(inputFieldStyle.Render(inputContent.String()))
 	}
@@ -175,21 +175,21 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 
 	// Help text with colored key backgrounds
 	b.WriteString("\n")
-	
+
 	// Create styles for the keys
 	enterKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorSuccess)).
 		Foreground(lipgloss.Color(ColorWhite)).
 		Bold(true)
-	
+
 	escKeyStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color(ColorDanger)).
 		Foreground(lipgloss.Color(ColorWhite)).
 		Bold(true)
-	
+
 	// Build help text with colored keys
 	var helpParts []string
-	
+
 	if state.IsValid() {
 		helpParts = append(helpParts, "["+enterKeyStyle.Render("Enter")+"] Save")
 		helpParts = append(helpParts, "["+escKeyStyle.Render("Esc")+"] Cancel")
@@ -199,7 +199,7 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 	} else {
 		helpParts = append(helpParts, "["+escKeyStyle.Render("Esc")+"] Cancel")
 	}
-	
+
 	b.WriteString(strings.Join(helpParts, "  "))
 
 	// Apply border and center the dialog

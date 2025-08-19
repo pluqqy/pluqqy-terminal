@@ -14,9 +14,9 @@ func min(a, b int) int {
 
 func TestNewEnhancedEditorRenderer(t *testing.T) {
 	tests := []struct {
-		name   string
-		width  int
-		height int
+		name     string
+		width    int
+		height   int
 		validate func(t *testing.T, renderer *EnhancedEditorRenderer)
 	}{
 		{
@@ -115,7 +115,7 @@ func TestEnhancedEditorRenderer_Render_InactiveState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, tt.height)
 			state := NewEnhancedEditorState() // Inactive by default
-			
+
 			result := renderer.Render(state)
 			if result != tt.expected {
 				t.Errorf("Expected empty string for inactive state, got %q", result)
@@ -214,20 +214,20 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, tt.height)
 			state := NewEnhancedEditorState()
-			
+
 			// Set up the state
 			state.StartEditing("path/"+tt.componentName, tt.componentName, tt.componentType, tt.content, tt.tags)
 			if tt.hasUnsaved {
 				state.SetContent(tt.content + " modified")
 			}
-			
+
 			result := renderer.Render(state)
-			
+
 			// Basic sanity checks
 			if len(result) == 0 {
 				t.Error("Expected non-empty render output")
 			}
-			
+
 			tt.validateOutput(t, result)
 		})
 	}
@@ -292,18 +292,18 @@ func TestEnhancedEditorRenderer_Render_FilePickerMode(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, tt.height)
 			state := NewEnhancedEditorState()
-			
+
 			// Set up the state for file picking
 			state.StartEditing("path/"+tt.componentName, tt.componentName, "prompt", "content", []string{})
 			state.StartFilePicker()
-			
+
 			result := renderer.Render(state)
-			
+
 			// Basic sanity checks
 			if len(result) == 0 {
 				t.Error("Expected non-empty render output for file picker mode")
 			}
-			
+
 			tt.validateOutput(t, result)
 		})
 	}
@@ -352,15 +352,15 @@ func TestEnhancedEditorRenderer_renderHeader(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, 24)
 			state := NewEnhancedEditorState()
 			state.StartEditing("path/"+tt.componentName, tt.componentName, "prompt", "content", []string{})
-			
+
 			result := renderer.renderHeader(state)
-			
+
 			for _, expected := range tt.expected {
 				if !strings.Contains(result, expected) {
 					t.Errorf("Expected header to contain %q, but it didn't. Header: %q", expected, result)
 				}
 			}
-			
+
 			for _, notExpected := range tt.notExpected {
 				if strings.Contains(result, notExpected) {
 					t.Errorf("Expected header NOT to contain %q, but it did. Header: %q", notExpected, result)
@@ -372,10 +372,10 @@ func TestEnhancedEditorRenderer_renderHeader(t *testing.T) {
 
 func TestEnhancedEditorRenderer_renderStatusBar(t *testing.T) {
 	tests := []struct {
-		name           string
-		width          int
-		hasUnsaved     bool
-		expectedTexts  []string
+		name          string
+		width         int
+		hasUnsaved    bool
+		expectedTexts []string
 	}{
 		{
 			name:          "renders saved status",
@@ -408,13 +408,13 @@ func TestEnhancedEditorRenderer_renderStatusBar(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, 24)
 			state := NewEnhancedEditorState()
 			state.StartEditing("test.md", "test", "prompt", "original content", []string{})
-			
+
 			if tt.hasUnsaved {
 				state.SetContent("modified content")
 			}
-			
+
 			result := renderer.renderStatusBar(state)
-			
+
 			for _, expectedText := range tt.expectedTexts {
 				if !strings.Contains(result, expectedText) {
 					t.Errorf("Expected status bar to contain %q, got: %q", expectedText, result)
@@ -433,10 +433,10 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 		unexpectedHelp []string
 	}{
 		{
-			name:         "renders normal mode help",
-			width:        80,
-			mode:         EditorModeNormal,
-			expectedHelp: []string{"@ insert file ref", "\\@ literal @", "^s save", "^x external", "esc cancel"},
+			name:           "renders normal mode help",
+			width:          80,
+			mode:           EditorModeNormal,
+			expectedHelp:   []string{"@ insert file ref", "\\@ literal @", "^s save", "^x external", "esc cancel"},
 			unexpectedHelp: []string{"enter select", "↑↓ navigate"},
 		},
 		{
@@ -447,17 +447,17 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			unexpectedHelp: []string{"^s save", "@ insert file ref"},
 		},
 		{
-			name:         "renders help with small width",
-			width:        40,
-			mode:         EditorModeNormal,
-			expectedHelp: []string{"@ insert", "^s save", "^x external", "esc", "cancel"},
+			name:           "renders help with small width",
+			width:          40,
+			mode:           EditorModeNormal,
+			expectedHelp:   []string{"@ insert", "^s save", "^x external", "esc", "cancel"},
 			unexpectedHelp: []string{},
 		},
 		{
-			name:         "renders help with large width",
-			width:        120,
-			mode:         EditorModeFilePicking,
-			expectedHelp: []string{"↑↓ navigate", "enter select", "esc cancel"},
+			name:           "renders help with large width",
+			width:          120,
+			mode:           EditorModeFilePicking,
+			expectedHelp:   []string{"↑↓ navigate", "enter select", "esc cancel"},
 			unexpectedHelp: []string{},
 		},
 	}
@@ -465,15 +465,15 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, 24)
-			
+
 			result := renderer.renderHelpPane(tt.mode)
-			
+
 			for _, expected := range tt.expectedHelp {
 				if !strings.Contains(result, expected) {
 					t.Errorf("Expected help to contain %q, got: %q", expected, result)
 				}
 			}
-			
+
 			for _, unexpected := range tt.unexpectedHelp {
 				if strings.Contains(result, unexpected) {
 					t.Errorf("Expected help NOT to contain %q, got: %q", unexpected, result)
@@ -546,9 +546,9 @@ func TestEnhancedEditorRenderer_renderTextarea(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, tt.height)
 			state := NewEnhancedEditorState()
 			state.StartEditing("test.md", "test", "prompt", tt.content, []string{})
-			
+
 			result := renderer.renderTextarea(state)
-			
+
 			tt.validateOutput(t, result, state)
 		})
 	}
@@ -610,7 +610,7 @@ func TestEnhancedEditorRenderer_renderFileIcon(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(80, 24)
-			
+
 			result := renderer.renderFileIcon(tt.fileName)
 			if result != tt.expected {
 				t.Errorf("Expected icon %q for file %q, got %q", tt.expected, tt.fileName, result)
@@ -661,9 +661,9 @@ func TestEnhancedEditorRenderer_renderBreadcrumbs(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewEnhancedEditorRenderer(tt.width, 24)
-			
+
 			result := renderer.renderBreadcrumbs(tt.path)
-			
+
 			for _, expected := range tt.expected {
 				if !strings.Contains(result, expected) {
 					t.Errorf("Expected breadcrumbs to contain %q for path %q, got: %q", expected, tt.path, result)
@@ -677,19 +677,19 @@ func TestEnhancedEditorRenderer_renderBreadcrumbs(t *testing.T) {
 func TestEnhancedEditorRenderer_EdgeCases(t *testing.T) {
 	t.Run("handles nil state gracefully", func(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(80, 24)
-		
+
 		// This should not panic - testing robustness
 		defer func() {
 			if r := recover(); r != nil {
 				t.Errorf("Renderer should handle edge cases gracefully, but panicked: %v", r)
 			}
 		}()
-		
+
 		// Note: We can't actually pass nil to Render() as it expects *EnhancedEditorState
 		// But we can test with an uninitialized state
 		state := &EnhancedEditorState{}
 		result := renderer.Render(state)
-		
+
 		if result != "" {
 			t.Error("Expected empty result for uninitialized state")
 		}
@@ -699,7 +699,7 @@ func TestEnhancedEditorRenderer_EdgeCases(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(5, 3)
 		state := NewEnhancedEditorState()
 		state.StartEditing("test.md", "test", "prompt", "content", []string{})
-		
+
 		// Should not panic
 		result := renderer.Render(state)
 		if len(result) == 0 {
@@ -710,11 +710,11 @@ func TestEnhancedEditorRenderer_EdgeCases(t *testing.T) {
 	t.Run("handles very large content", func(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(80, 24)
 		state := NewEnhancedEditorState()
-		
+
 		// Create very large content
 		largeContent := strings.Repeat("This is a very long line that should be handled properly by the renderer.\n", 1000)
 		state.StartEditing("large.md", "large", "prompt", largeContent, []string{})
-		
+
 		// Should not panic or freeze
 		result := renderer.Render(state)
 		if len(result) == 0 {
@@ -726,20 +726,20 @@ func TestEnhancedEditorRenderer_EdgeCases(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(80, 24)
 		state := NewEnhancedEditorState()
 		state.StartEditing("test.md", "test", "prompt", "content", []string{})
-		
+
 		// Normal mode
 		normalResult := renderer.Render(state)
 		if !strings.Contains(normalResult, "EDITING:") {
 			t.Error("Expected normal mode to show editing header")
 		}
-		
+
 		// Switch to file picker mode
 		state.StartFilePicker()
 		pickerResult := renderer.Render(state)
 		if !strings.Contains(pickerResult, "SELECT FILE REFERENCE") {
 			t.Error("Expected file picker mode to show file selection header")
 		}
-		
+
 		// Switch back to normal mode
 		state.StopFilePicker()
 		backToNormalResult := renderer.Render(state)
@@ -755,12 +755,12 @@ func TestEnhancedEditorRenderer_Consistency(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(80, 24)
 		state := NewEnhancedEditorState()
 		state.StartEditing("test.md", "test", "prompt", "content", []string{})
-		
+
 		// Render multiple times and ensure consistency
 		result1 := renderer.Render(state)
 		result2 := renderer.Render(state)
 		result3 := renderer.Render(state)
-		
+
 		if result1 != result2 {
 			t.Error("Expected consistent rendering output")
 		}
@@ -771,16 +771,16 @@ func TestEnhancedEditorRenderer_Consistency(t *testing.T) {
 
 	t.Run("different states produce different output", func(t *testing.T) {
 		renderer := NewEnhancedEditorRenderer(80, 24)
-		
+
 		state1 := NewEnhancedEditorState()
 		state1.StartEditing("test1.md", "test1", "prompt", "content1", []string{})
-		
+
 		state2 := NewEnhancedEditorState()
 		state2.StartEditing("test2.md", "test2", "context", "content2", []string{})
-		
+
 		result1 := renderer.Render(state1)
 		result2 := renderer.Render(state2)
-		
+
 		// Both should produce non-empty output since states are active
 		if len(result1) == 0 {
 			t.Error("Expected non-empty output for active state1")
@@ -788,11 +788,11 @@ func TestEnhancedEditorRenderer_Consistency(t *testing.T) {
 		if len(result2) == 0 {
 			t.Error("Expected non-empty output for active state2")
 		}
-		
+
 		if result1 == result2 {
 			t.Error("Expected different output for different states")
 		}
-		
+
 		// Verify they contain their respective component names
 		if !strings.Contains(result1, "test1") {
 			t.Errorf("Expected result1 to contain test1, got: %q", result1[:min(200, len(result1))])

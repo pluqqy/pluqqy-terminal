@@ -30,10 +30,10 @@ func makeTestPipelineModel(name, path string) *models.Pipeline {
 
 func TestPipelineBuilderModel_DeletePipeline_Logic(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func() *PipelineBuilderModel
-		wantMsgType    string // "status" or "switch"
-		wantStatusMsg  string
+		name             string
+		setup            func() *PipelineBuilderModel
+		wantMsgType      string // "status" or "switch"
+		wantStatusMsg    string
 		wantSwitchStatus string // status message in SwitchViewMsg
 	}{
 		{
@@ -216,19 +216,19 @@ func TestPipelineBuilderModel_DeleteConfirmation(t *testing.T) {
 
 func TestPipelineBuilderModel_DeleteConfirmation_Rendering(t *testing.T) {
 	tests := []struct {
-		name                 string
-		confirmActive        bool
-		wantConfirmInView    bool
+		name              string
+		confirmActive     bool
+		wantConfirmInView bool
 	}{
 		{
-			name:                 "confirmation renders when active",
-			confirmActive:        true,
-			wantConfirmInView:    true,
+			name:              "confirmation renders when active",
+			confirmActive:     true,
+			wantConfirmInView: true,
 		},
 		{
-			name:                 "confirmation hidden when inactive",
-			confirmActive:        false,
-			wantConfirmInView:    false,
+			name:              "confirmation hidden when inactive",
+			confirmActive:     false,
+			wantConfirmInView: false,
 		},
 	}
 
@@ -236,7 +236,7 @@ func TestPipelineBuilderModel_DeleteConfirmation_Rendering(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := makeTestBuilderModel()
 			m.pipeline = makeTestPipelineModel("test", "test.yaml")
-			
+
 			if tt.confirmActive {
 				m.deleteConfirm.ShowInline(
 					"Delete pipeline 'test.yaml'?",
@@ -268,10 +268,10 @@ func TestPipelineBuilderModel_DeleteConfirmation_Rendering(t *testing.T) {
 
 func TestPipelineBuilderModel_DeleteKeyHandling(t *testing.T) {
 	tests := []struct {
-		name          string
-		setup         func() *PipelineBuilderModel
-		keyString     string
-		wantHandled   bool
+		name        string
+		setup       func() *PipelineBuilderModel
+		keyString   string
+		wantHandled bool
 	}{
 		{
 			name: "ctrl+d handled in normal mode",
@@ -343,9 +343,9 @@ func TestPipelineBuilderModel_DeleteKeyHandling(t *testing.T) {
 
 func TestPipelineBuilderModel_DeletePipelineEdgeCases(t *testing.T) {
 	tests := []struct {
-		name           string
-		pipelinePath   string
-		expectedName   string
+		name         string
+		pipelinePath string
+		expectedName string
 	}{
 		{
 			name:         "pipeline with spaces in name",
@@ -395,7 +395,7 @@ func TestPipelineBuilderModel_DeletePipelineEdgeCases(t *testing.T) {
 			if pipelineName == "" || pipelineName == "." {
 				pipelineName = filepath.Base(filepath.Clean(tt.pipelinePath))
 			}
-			
+
 			if pipelineName != tt.expectedName {
 				t.Errorf("filepath.Base(%q) = %q, want %q", tt.pipelinePath, pipelineName, tt.expectedName)
 			}
@@ -403,7 +403,7 @@ func TestPipelineBuilderModel_DeletePipelineEdgeCases(t *testing.T) {
 			// Test that delete confirmation would show correct name
 			expectedMsg := fmt.Sprintf("Delete pipeline '%s'?", pipelineName)
 			m.deleteConfirm.ShowInline(expectedMsg, true, func() tea.Cmd { return nil }, func() tea.Cmd { return nil })
-			
+
 			if m.deleteConfirm.config.Message != expectedMsg {
 				t.Errorf("Confirmation message = %q, want %q", m.deleteConfirm.config.Message, expectedMsg)
 			}
@@ -425,7 +425,7 @@ func TestPipelineBuilderModel_DeleteConfirmation_Consistency(t *testing.T) {
 
 	// Both should use ShowInline with destructive=true
 	builderModel.deleteConfirm.ShowInline("Delete pipeline 'test.yaml'?", true, func() tea.Cmd { return nil }, func() tea.Cmd { return nil })
-	
+
 	// Check that builder uses inline style (not dialog)
 	if builderModel.deleteConfirm.config.Type != ConfirmTypeInline {
 		t.Errorf("Builder delete confirmation type = %v, want ConfirmTypeInline", builderModel.deleteConfirm.config.Type)

@@ -19,16 +19,16 @@ type ComponentCreator struct {
 	componentName         string
 	componentContent      string
 	creationStep          int // 0: type, 1: name, 2: content
-	typeCursor           int
-	
+	typeCursor            int
+
 	// Enhanced editor integration
-	enhancedEditor        *EnhancedEditorState
+	enhancedEditor *EnhancedEditorState
 }
 
 // NewComponentCreator creates a new component creator instance
 func NewComponentCreator() *ComponentCreator {
 	return &ComponentCreator{
-		enhancedEditor:    NewEnhancedEditorState(),
+		enhancedEditor: NewEnhancedEditorState(),
 	}
 }
 
@@ -138,7 +138,6 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 	return false
 }
 
-
 // SaveComponent saves the component to disk
 func (c *ComponentCreator) SaveComponent() error {
 	// Determine the component subdirectory
@@ -153,36 +152,36 @@ func (c *ComponentCreator) SaveComponent() error {
 	default:
 		return fmt.Errorf("unknown component type: %s", c.componentCreationType)
 	}
-	
+
 	// Ensure directory exists
 	dir := filepath.Join(files.PluqqyDir, files.ComponentsDir, subDir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return fmt.Errorf("failed to create directory: %w", err)
 	}
-	
+
 	// Generate filename
 	filename := sanitizeFileName(c.componentName) + ".md"
 	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
 	fullPath := filepath.Join(files.PluqqyDir, relativePath)
-	
+
 	// Check if file already exists
 	if _, err := os.Stat(fullPath); err == nil {
 		return fmt.Errorf("component already exists: %s", filename)
 	}
-	
+
 	// Prepare content
 	content := c.componentContent
 	if !strings.HasSuffix(content, "\n") {
 		content += "\n"
 	}
-	
+
 	// Use the files package to write with name in frontmatter
 	// The display name is the component name provided by the user
 	err := files.WriteComponentWithNameAndTags(relativePath, content, c.componentName, nil)
 	if err != nil {
 		return fmt.Errorf("failed to write component: %w", err)
 	}
-	
+
 	return nil
 }
 
@@ -197,7 +196,7 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 	if c.enhancedEditor == nil {
 		c.enhancedEditor = NewEnhancedEditorState()
 	}
-	
+
 	// Generate the component path that will be used when saving
 	var subDir string
 	switch c.componentCreationType {
@@ -208,11 +207,11 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 	case models.ComponentTypeRules:
 		subDir = models.ComponentTypeRules
 	}
-	
+
 	// Generate filename and path
 	filename := sanitizeFileName(c.componentName) + ".md"
 	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
-	
+
 	// Configure enhanced editor for creation mode
 	c.enhancedEditor.Active = true
 	c.enhancedEditor.Mode = EditorModeNormal
@@ -222,14 +221,14 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 	c.enhancedEditor.Content = ""
 	c.enhancedEditor.OriginalContent = ""
 	c.enhancedEditor.UnsavedChanges = false
-	
+
 	// Mark this as a new component (not yet saved to disk)
 	c.enhancedEditor.IsNewComponent = true
-	
+
 	// Clear and setup the textarea
 	c.enhancedEditor.Textarea.SetValue("")
 	c.enhancedEditor.Textarea.Focus()
-	
+
 	// Set reasonable size for the textarea
 	c.enhancedEditor.Textarea.SetWidth(80)
 	c.enhancedEditor.Textarea.SetHeight(20)
@@ -240,10 +239,10 @@ func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) 
 	if c.enhancedEditor == nil || !c.enhancedEditor.Active {
 		return false, nil
 	}
-	
+
 	// Let the enhanced editor handle the input
 	handled, cmd := HandleEnhancedEditorInput(c.enhancedEditor, msg, width)
-	
+
 	// Check if save was requested (Ctrl+S pressed)
 	if msg.String() == "ctrl+s" && c.enhancedEditor.Active {
 		c.componentContent = c.enhancedEditor.GetContent()
@@ -253,14 +252,14 @@ func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) 
 			return true, cmd
 		}
 	}
-	
+
 	// Check if editor was closed (ESC or similar)
 	if !c.enhancedEditor.IsActive() {
 		c.creationStep = 1 // Go back to name input
 		c.componentContent = ""
 		return true, cmd
 	}
-	
+
 	return handled, cmd
 }
 

@@ -37,7 +37,7 @@ func (co *CloneOperator) ValidateComponentClone(originalPath, newName string, to
 
 	// Generate the target filename
 	slugifiedName := files.Slugify(newName)
-	
+
 	// Determine the component type from the path
 	var componentType string
 	if strings.Contains(originalPath, "/prompts/") {
@@ -53,7 +53,7 @@ func (co *CloneOperator) ValidateComponentClone(originalPath, newName string, to
 	// Build the target path
 	targetFilename := slugifiedName + ".md"
 	var targetPath string
-	
+
 	if toArchive {
 		targetPath = filepath.Join(files.ComponentsDir, componentType, ".archive", targetFilename)
 	} else {
@@ -78,7 +78,7 @@ func (co *CloneOperator) ValidatePipelineClone(newName string, toArchive bool) e
 	// Generate the target filename
 	slugifiedName := files.Slugify(newName)
 	targetFilename := slugifiedName + ".yaml"
-	
+
 	// Build the target path
 	var targetPath string
 	if toArchive {
@@ -100,20 +100,20 @@ func (co *CloneOperator) CloneComponent(originalPath, newName string, fromArchiv
 	// Read the original component
 	var content *models.Component
 	var err error
-	
+
 	if fromArchive {
 		content, err = files.ReadArchivedComponent(originalPath)
 	} else {
 		content, err = files.ReadComponent(originalPath)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to read component: %w", err)
 	}
 
 	// Update the display name in the content
 	content.Name = newName
-	
+
 	// Determine the component type from the path
 	var componentType string
 	if strings.Contains(originalPath, "/prompts/") {
@@ -128,7 +128,7 @@ func (co *CloneOperator) CloneComponent(originalPath, newName string, fromArchiv
 
 	// Generate the new filename
 	newFilename := files.Slugify(newName) + ".md"
-	
+
 	// Build the target path
 	var targetPath string
 	if toArchive {
@@ -151,23 +151,23 @@ func (co *CloneOperator) ClonePipeline(originalPath, newName string, fromArchive
 	// Read the original pipeline
 	var pipeline *models.Pipeline
 	var err error
-	
+
 	if fromArchive {
 		pipeline, err = files.ReadArchivedPipeline(originalPath)
 	} else {
 		pipeline, err = files.ReadPipeline(originalPath)
 	}
-	
+
 	if err != nil {
 		return fmt.Errorf("failed to read pipeline: %w", err)
 	}
 
 	// Update the pipeline name
 	pipeline.Name = newName
-	
+
 	// Generate the new filename
 	newFilename := files.Slugify(newName) + ".yaml"
-	
+
 	// Build the target path
 	var targetPath string
 	if toArchive {
@@ -184,7 +184,7 @@ func (co *CloneOperator) ClonePipeline(originalPath, newName string, fromArchive
 		OutputPath: pipeline.OutputPath,
 		Tags:       pipeline.Tags,
 	}
-	
+
 	// Write the pipeline
 	err = files.WritePipeline(newPipeline)
 	if err != nil {
@@ -217,7 +217,7 @@ func (co *CloneOperator) GetCloneSuggestion(originalName string) string {
 			}
 		}
 	}
-	
+
 	// Default case: just prepend "(Copy) "
 	return fmt.Sprintf("(Copy) %s", originalName)
 }
@@ -226,7 +226,7 @@ func (co *CloneOperator) GetCloneSuggestion(originalName string) string {
 func (co *CloneOperator) CanCloneToLocation(itemType string, fromArchive, toArchive bool) (bool, string) {
 	// For now, all combinations are allowed
 	// This method exists for future restrictions if needed
-	
+
 	if fromArchive && toArchive {
 		return true, "Cloning within archive"
 	} else if fromArchive && !toArchive {

@@ -61,7 +61,7 @@ func TestSharedLayout_NewSharedLayout(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sl := NewSharedLayout(tt.width, tt.height, tt.showPreview)
-			
+
 			if sl == nil {
 				t.Fatal("NewSharedLayout returned nil")
 			}
@@ -86,7 +86,7 @@ func TestSharedLayout_NewSharedLayout(t *testing.T) {
 
 func TestSharedLayout_SetSize(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	// Initial values
 	if got := sl.GetColumnWidth(); got != 47 {
 		t.Errorf("Initial GetColumnWidth() = %v, want 47", got)
@@ -94,7 +94,7 @@ func TestSharedLayout_SetSize(t *testing.T) {
 	if got := sl.GetContentHeight(); got != 24 {
 		t.Errorf("Initial GetContentHeight() = %v, want 24", got)
 	}
-	
+
 	// Update size
 	sl.SetSize(120, 50)
 	if sl.Width != 120 {
@@ -113,12 +113,12 @@ func TestSharedLayout_SetSize(t *testing.T) {
 
 func TestSharedLayout_SetShowPreview(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	// Initial without preview
 	if got := sl.GetContentHeight(); got != 24 {
 		t.Errorf("Initial GetContentHeight() = %v, want 24", got)
 	}
-	
+
 	// Enable preview
 	sl.SetShowPreview(true)
 	if !sl.ShowPreview {
@@ -127,7 +127,7 @@ func TestSharedLayout_SetShowPreview(t *testing.T) {
 	if got := sl.GetContentHeight(); got != 12 { // Should be halved
 		t.Errorf("GetContentHeight() with preview = %v, want 12", got)
 	}
-	
+
 	// Disable preview
 	sl.SetShowPreview(false)
 	if sl.ShowPreview {
@@ -140,7 +140,7 @@ func TestSharedLayout_SetShowPreview(t *testing.T) {
 
 func TestSharedLayout_RenderHelpPane(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	tests := []struct {
 		name     string
 		helpRows [][]string
@@ -206,7 +206,7 @@ func TestSharedLayout_RenderHelpPane(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sl.RenderHelpPane(tt.helpRows)
@@ -217,14 +217,14 @@ func TestSharedLayout_RenderHelpPane(t *testing.T) {
 
 func TestSharedLayout_RenderHeader(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	tests := []struct {
-		name      string
-		heading   string
-		active    bool
-		badge     string
-		width     int
-		validate  func(t *testing.T, result string)
+		name     string
+		heading  string
+		active   bool
+		badge    string
+		width    int
+		validate func(t *testing.T, result string)
 	}{
 		{
 			name:    "active header without badge",
@@ -284,7 +284,7 @@ func TestSharedLayout_RenderHeader(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sl.RenderHeader(tt.heading, tt.active, tt.badge, tt.width)
@@ -296,9 +296,9 @@ func TestSharedLayout_RenderHeader(t *testing.T) {
 func TestSharedLayout_RenderSearchBar(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
 	searchBar := NewSearchBar()
-	
+
 	result := sl.RenderSearchBar(searchBar)
-	
+
 	// Should set width and render
 	if result == "" {
 		t.Error("RenderSearchBar should return non-empty result")
@@ -310,7 +310,7 @@ func TestSharedLayout_RenderSearchBar(t *testing.T) {
 
 func TestSharedLayout_RenderPreviewPane(t *testing.T) {
 	sl := NewSharedLayout(100, 40, true)
-	
+
 	tests := []struct {
 		name     string
 		config   PreviewConfig
@@ -373,7 +373,7 @@ func TestSharedLayout_RenderPreviewPane(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sl.RenderPreviewPane(tt.config)
@@ -384,7 +384,7 @@ func TestSharedLayout_RenderPreviewPane(t *testing.T) {
 
 func TestSharedLayout_RenderColumnHeader(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	tests := []struct {
 		name     string
 		config   ColumnHeaderConfig
@@ -423,7 +423,7 @@ func TestSharedLayout_RenderColumnHeader(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sl.RenderColumnHeader(tt.config)
@@ -434,15 +434,15 @@ func TestSharedLayout_RenderColumnHeader(t *testing.T) {
 
 func TestSharedLayout_BuildConfirmationDialog(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	t.Run("active confirmation", func(t *testing.T) {
 		confirm := NewConfirmation()
 		confirm.ShowInline("Delete this?", true, nil, nil)
-		
+
 		result := sl.BuildConfirmationDialog(confirm, "Delete this?", true)
 		// Debug output to see what we're getting
 		t.Logf("Confirmation dialog result: %q", result)
-		
+
 		if !strings.Contains(result, "Delete this?") {
 			t.Error("Result should contain 'Delete this?'")
 		}
@@ -451,10 +451,10 @@ func TestSharedLayout_BuildConfirmationDialog(t *testing.T) {
 			t.Errorf("Result seems too short for an active confirmation: %q", result)
 		}
 	})
-	
+
 	t.Run("inactive confirmation", func(t *testing.T) {
 		confirm := NewConfirmation()
-		
+
 		result := sl.BuildConfirmationDialog(confirm, "Delete this?", true)
 		if result != "" {
 			t.Error("Result should be empty for inactive confirmation")
@@ -473,7 +473,7 @@ func TestSharedLayout_EdgeCases(t *testing.T) {
 			t.Errorf("GetContentHeight() = %v, want 10", got)
 		}
 	})
-	
+
 	t.Run("odd width", func(t *testing.T) {
 		sl := NewSharedLayout(101, 40, false)
 		// Should handle odd numbers correctly
@@ -481,10 +481,10 @@ func TestSharedLayout_EdgeCases(t *testing.T) {
 			t.Errorf("GetColumnWidth() = %v, want 47", got)
 		}
 	})
-	
+
 	t.Run("rapid dimension changes", func(t *testing.T) {
 		sl := NewSharedLayout(100, 40, false)
-		
+
 		// Simulate rapid resizing
 		for i := 50; i <= 150; i += 10 {
 			sl.SetSize(i, i/2)
@@ -505,7 +505,7 @@ func BenchmarkSharedLayout_RenderHelpPane(b *testing.B) {
 		{"/ search", "tab switch", "↑↓ nav", "p preview", "s settings"},
 		{"n new", "e edit", "d delete", "r rename", "c clone"},
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sl.RenderHelpPane(helpRows)
@@ -521,7 +521,7 @@ func BenchmarkSharedLayout_RenderPreviewPane(b *testing.B) {
 		PreviewPane: previewPane,
 		Viewport:    viewport.New(80, 20),
 	}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sl.RenderPreviewPane(config)
@@ -530,17 +530,17 @@ func BenchmarkSharedLayout_RenderPreviewPane(b *testing.B) {
 
 func TestSharedLayout_CachedValues(t *testing.T) {
 	sl := NewSharedLayout(100, 40, false)
-	
+
 	// Get initial values
 	width1 := sl.GetColumnWidth()
 	height1 := sl.GetContentHeight()
-	
+
 	// Call multiple times without changes
 	width2 := sl.GetColumnWidth()
 	height2 := sl.GetContentHeight()
 	width3 := sl.GetColumnWidth()
 	height3 := sl.GetContentHeight()
-	
+
 	// Should return same cached values
 	if width1 != width2 || width1 != width3 {
 		t.Errorf("GetColumnWidth() should return cached value: %v, %v, %v", width1, width2, width3)
@@ -548,14 +548,14 @@ func TestSharedLayout_CachedValues(t *testing.T) {
 	if height1 != height2 || height1 != height3 {
 		t.Errorf("GetContentHeight() should return cached value: %v, %v, %v", height1, height2, height3)
 	}
-	
+
 	// Change size
 	sl.SetSize(120, 50)
-	
+
 	// Should return new values
 	width4 := sl.GetColumnWidth()
 	height4 := sl.GetContentHeight()
-	
+
 	if width1 == width4 {
 		t.Error("GetColumnWidth() should return new value after SetSize")
 	}

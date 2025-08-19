@@ -11,26 +11,26 @@ import (
 
 // TagEditingViewRenderer handles the rendering of tag editing views
 type TagEditingViewRenderer struct {
-	Width              int
-	Height             int
-	ItemName           string
-	CurrentTags        []string
-	TagInput           string
-	TagCursor          int
-	ShowSuggestions    bool
-	SuggestionCursor   int
-	TagCloudActive     bool
-	TagCloudCursor     int
-	AvailableTags      []string
-	
+	Width            int
+	Height           int
+	ItemName         string
+	CurrentTags      []string
+	TagInput         string
+	TagCursor        int
+	ShowSuggestions  bool
+	SuggestionCursor int
+	TagCloudActive   bool
+	TagCloudCursor   int
+	AvailableTags    []string
+
 	// Tag deletion state
-	TagDeleteConfirm   *ConfirmationModel
-	DeletingTag        string
-	DeletingTagUsage   *tags.UsageStats
-	
+	TagDeleteConfirm *ConfirmationModel
+	DeletingTag      string
+	DeletingTagUsage *tags.UsageStats
+
 	// Callback for getting tag suggestions
 	GetSuggestionsFunc func(input string, availableTags []string, currentTags []string) []string
-	
+
 	// Callback for getting available tags for cloud
 	GetAvailableTagsForCloudFunc func(availableTags []string, currentTags []string) []string
 }
@@ -49,20 +49,20 @@ func (r *TagEditingViewRenderer) Render() string {
 	if r.TagDeleteConfirm != nil && r.TagDeleteConfirm.Active() {
 		return r.TagDeleteConfirm.View()
 	}
-	
+
 	// Calculate dimensions for side-by-side layout
 	paneWidth := (r.Width - 6) / 2
 	paneHeight := r.Height - 10
-	
+
 	// Render main editing pane
 	mainPane := r.renderMainPane(paneWidth, paneHeight)
-	
+
 	// Render tag cloud pane
 	tagCloudPane := r.renderTagCloudPane(paneWidth, paneHeight)
-	
+
 	// Render help section
 	helpSection := r.renderHelpSection()
-	
+
 	// Combine panes side by side
 	sideBySide := lipgloss.JoinHorizontal(
 		lipgloss.Top,
@@ -70,7 +70,7 @@ func (r *TagEditingViewRenderer) Render() string {
 		" ",
 		tagCloudPane,
 	)
-	
+
 	// Combine all elements
 	var s strings.Builder
 	contentStyle := lipgloss.NewStyle().
@@ -79,7 +79,7 @@ func (r *TagEditingViewRenderer) Render() string {
 	s.WriteString(contentStyle.Render(sideBySide))
 	s.WriteString("\n")
 	s.WriteString(contentStyle.Render(helpSection))
-	
+
 	return s.String()
 }
 
@@ -88,16 +88,16 @@ func (r *TagEditingViewRenderer) renderMainPane(paneWidth, paneHeight int) strin
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	var content strings.Builder
-	
+
 	// Render title
 	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(r.ItemName))
 	remainingWidth := paneWidth - len(heading) - 7
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	
+
 	// Dynamic styles based on which pane is active
 	mainHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -114,28 +114,28 @@ func (r *TagEditingViewRenderer) renderMainPane(paneWidth, paneHeight int) strin
 			}
 			return "240" // Gray when inactive
 		}()))
-	
+
 	content.WriteString(headerPadding.Render(mainHeaderStyle.Render(heading) + " " + mainColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	content.WriteString("\n\n")
-	
+
 	// Render current tags
 	content.WriteString(headerPadding.Render("Current tags:\n"))
 	content.WriteString(headerPadding.Render(r.renderCurrentTags()))
 	content.WriteString("\n\n")
-	
+
 	// Render input field
 	content.WriteString(headerPadding.Render("Add tag:"))
 	content.WriteString("\n")
 	content.WriteString(headerPadding.Render(r.renderInputField()))
 	content.WriteString("\n\n")
-	
+
 	// Render suggestions
 	if r.ShowSuggestions && len(r.TagInput) > 0 {
 		content.WriteString(headerPadding.Render("Suggestions:\n"))
 		content.WriteString(r.renderSuggestions(headerPadding))
 		content.WriteString("\n")
 	}
-	
+
 	// Apply border
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
@@ -145,7 +145,7 @@ func (r *TagEditingViewRenderer) renderMainPane(paneWidth, paneHeight int) strin
 			}
 			return "240" // Gray when inactive
 		}()))
-	
+
 	return borderStyle.
 		Width(paneWidth).
 		Height(paneHeight).
@@ -158,7 +158,7 @@ func (r *TagEditingViewRenderer) renderCurrentTags() string {
 		dimStyle := DescriptionStyle
 		return dimStyle.Render("(no tags)")
 	}
-	
+
 	var tagDisplay strings.Builder
 	for i, tag := range r.CurrentTags {
 		// Get color from registry
@@ -169,12 +169,12 @@ func (r *TagEditingViewRenderer) renderCurrentTags() string {
 				color = t.Color
 			}
 		}
-		
+
 		style := lipgloss.NewStyle().
 			Background(lipgloss.Color(color)).
 			Foreground(lipgloss.Color("255")).
 			Padding(0, 1)
-		
+
 		// Add selection indicators with consistent spacing
 		if i == r.TagCursor && r.TagInput == "" {
 			// Selected tag with triangle indicators
@@ -190,13 +190,13 @@ func (r *TagEditingViewRenderer) renderCurrentTags() string {
 			tagDisplay.WriteString(style.Render(tag))
 			tagDisplay.WriteString("  ")
 		}
-		
+
 		// Add space between tags
 		if i < len(r.CurrentTags)-1 {
 			tagDisplay.WriteString("  ") // Double space for better separation
 		}
 	}
-	
+
 	return tagDisplay.String()
 }
 
@@ -206,13 +206,13 @@ func (r *TagEditingViewRenderer) renderInputField() string {
 	cursorStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("170")).
 		Bold(true)
-	
+
 	inputDisplay := r.TagInput
 	if !r.TagCloudActive && r.TagInput != "" {
 		// Add cursor to existing input when active
 		inputDisplay = r.TagInput + cursorStyle.Render("│")
 	}
-	
+
 	// Show placeholder if empty
 	if r.TagInput == "" {
 		placeholderStyle := lipgloss.NewStyle().
@@ -224,13 +224,13 @@ func (r *TagEditingViewRenderer) renderInputField() string {
 			inputDisplay = placeholderStyle.Render("Type to add a new tag...")
 		}
 	}
-	
+
 	// Highlight input border when active
 	activeInputStyle := inputStyle
 	if !r.TagCloudActive {
 		activeInputStyle = inputStyle.BorderForeground(lipgloss.Color("170"))
 	}
-	
+
 	return activeInputStyle.Render(inputDisplay)
 }
 
@@ -239,14 +239,14 @@ func (r *TagEditingViewRenderer) renderSuggestions(padding lipgloss.Style) strin
 	if r.GetSuggestionsFunc == nil {
 		return ""
 	}
-	
+
 	suggestions := r.GetSuggestionsFunc(r.TagInput, r.AvailableTags, r.CurrentTags)
 	suggestionStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("241"))
 	selectedSuggestionStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("236")).
 		Foreground(lipgloss.Color("170"))
-	
+
 	var content strings.Builder
 	for i, suggestion := range suggestions {
 		if i > 5 { // Limit to 6 suggestions
@@ -265,7 +265,7 @@ func (r *TagEditingViewRenderer) renderSuggestions(padding lipgloss.Style) strin
 		content.WriteString(padding.Render(suggestionLine))
 		content.WriteString("\n")
 	}
-	
+
 	return content.String()
 }
 
@@ -274,16 +274,16 @@ func (r *TagEditingViewRenderer) renderTagCloudPane(paneWidth, paneHeight int) s
 	tagCloudRenderer := NewTagCloudRenderer(paneWidth, paneHeight)
 	tagCloudRenderer.IsActive = r.TagCloudActive
 	tagCloudRenderer.CursorIndex = r.TagCloudCursor
-	
+
 	// Get available tags for cloud (excluding current tags)
 	if r.GetAvailableTagsForCloudFunc != nil {
 		tagCloudRenderer.AvailableTags = r.GetAvailableTagsForCloudFunc(r.AvailableTags, r.CurrentTags)
 	} else {
 		tagCloudRenderer.AvailableTags = r.AvailableTags
 	}
-	
+
 	tagCloudRenderer.CurrentTags = r.CurrentTags
-	
+
 	return tagCloudRenderer.Render()
 }
 
@@ -305,20 +305,20 @@ func (r *TagEditingViewRenderer) renderHelpSection() string {
 			"esc cancel",
 		}
 	}
-	
+
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(r.Width - 4).
+		Width(r.Width-4).
 		Padding(0, 1)
-	
+
 	helpContent := formatHelpText(help)
-	
+
 	// Right-align help text
 	alignedHelp := lipgloss.NewStyle().
 		Width(r.Width - 8).
 		Align(lipgloss.Right).
 		Render(helpContent)
-	
+
 	return helpBorderStyle.Render(alignedHelp)
 }

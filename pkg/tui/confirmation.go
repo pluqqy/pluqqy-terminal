@@ -13,7 +13,7 @@ type ConfirmationType int
 
 const (
 	ConfirmTypeInline ConfirmationType = iota // Simple inline message
-	ConfirmTypeDialog                          // Full dialog with border and centered layout
+	ConfirmTypeDialog                         // Full dialog with border and centered layout
 )
 
 // ConfirmationConfig holds the configuration for a confirmation prompt
@@ -32,8 +32,8 @@ type ConfirmationConfig struct {
 
 // ConfirmationModel handles confirmation prompts
 type ConfirmationModel struct {
-	active   bool
-	config   ConfirmationConfig
+	active    bool
+	config    ConfirmationConfig
 	onConfirm func() tea.Cmd
 	onCancel  func() tea.Cmd
 	viewWidth int // Width for centering inline messages
@@ -50,7 +50,7 @@ func (m *ConfirmationModel) Show(config ConfirmationConfig, onConfirm, onCancel 
 	m.config = config
 	m.onConfirm = onConfirm
 	m.onCancel = onCancel
-	
+
 	// Set defaults
 	if m.config.YesLabel == "" {
 		m.config.YesLabel = "Yes"
@@ -75,7 +75,7 @@ func (m *ConfirmationModel) Update(msg tea.KeyMsg) tea.Cmd {
 	if !m.active {
 		return nil
 	}
-	
+
 	switch msg.String() {
 	case "y", "Y":
 		m.active = false
@@ -83,7 +83,7 @@ func (m *ConfirmationModel) Update(msg tea.KeyMsg) tea.Cmd {
 			return m.onConfirm()
 		}
 		return nil
-		
+
 	case "n", "N", "esc":
 		m.active = false
 		if m.onCancel != nil {
@@ -91,7 +91,7 @@ func (m *ConfirmationModel) Update(msg tea.KeyMsg) tea.Cmd {
 		}
 		return nil
 	}
-	
+
 	return nil
 }
 
@@ -100,7 +100,7 @@ func (m *ConfirmationModel) View() string {
 	if !m.active {
 		return ""
 	}
-	
+
 	switch m.config.Type {
 	case ConfirmTypeInline:
 		return m.renderInline()
@@ -121,7 +121,7 @@ func (m *ConfirmationModel) ViewWithWidth(width int) string {
 func (m *ConfirmationModel) renderInline() string {
 	options := formatConfirmOptions(m.config.Destructive)
 	message := fmt.Sprintf("%s %s", m.config.Message, options)
-	
+
 	// Center the message if width is provided
 	if m.viewWidth > 0 {
 		messageWidth := lipgloss.Width(message)
@@ -132,7 +132,7 @@ func (m *ConfirmationModel) renderInline() string {
 			return centeredStyle.Render(message)
 		}
 	}
-	
+
 	return message
 }
 
@@ -142,17 +142,17 @@ func (m *ConfirmationModel) renderDialog() string {
 	borderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("170"))
-		
+
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("214")) // Orange
-		
+
 	warningStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("214")) // Orange for warning
-	
+
 	detailStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color("245")) // Normal text
-	
+
 	// Calculate dimensions
 	width := m.config.Width
 	if width == 0 {
@@ -162,11 +162,11 @@ func (m *ConfirmationModel) renderDialog() string {
 	if height == 0 {
 		height = 10 // Default height
 	}
-	
+
 	contentWidth := width - 4 // Account for border and padding
-	
+
 	var mainContent strings.Builder
-	
+
 	// Title
 	if m.config.Title != "" {
 		centeredTitle := lipgloss.NewStyle().
@@ -176,7 +176,7 @@ func (m *ConfirmationModel) renderDialog() string {
 		mainContent.WriteString(centeredTitle)
 		mainContent.WriteString("\n\n")
 	}
-	
+
 	// Message
 	if m.config.Message != "" {
 		message := m.config.Message
@@ -190,7 +190,7 @@ func (m *ConfirmationModel) renderDialog() string {
 		mainContent.WriteString(message)
 		mainContent.WriteString("\n")
 	}
-	
+
 	// Warning
 	if m.config.Warning != "" {
 		mainContent.WriteString("\n")
@@ -205,7 +205,7 @@ func (m *ConfirmationModel) renderDialog() string {
 		mainContent.WriteString(warning)
 		mainContent.WriteString("\n")
 	}
-	
+
 	// Details
 	if len(m.config.Details) > 0 {
 		mainContent.WriteString("\n")
@@ -214,10 +214,10 @@ func (m *ConfirmationModel) renderDialog() string {
 			mainContent.WriteString("\n")
 		}
 	}
-	
+
 	// Add spacing before options
 	mainContent.WriteString("\n")
-	
+
 	// Options
 	options := formatConfirmOptions(m.config.Destructive)
 	centeredOptions := lipgloss.NewStyle().
@@ -225,7 +225,7 @@ func (m *ConfirmationModel) renderDialog() string {
 		Align(lipgloss.Center).
 		Render(options)
 	mainContent.WriteString(centeredOptions)
-	
+
 	// Apply border to main content
 	return borderStyle.
 		Width(width).

@@ -16,7 +16,7 @@ type PipelineBuilderConfig struct {
 // DefaultPipelineBuilderConfig returns the default configuration
 func DefaultPipelineBuilderConfig() *PipelineBuilderConfig {
 	return &PipelineBuilderConfig{
-		ShowPreviewByDefault: true,  // Preview shown by default
+		ShowPreviewByDefault: true, // Preview shown by default
 	}
 }
 
@@ -25,12 +25,12 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 	if config == nil {
 		config = DefaultPipelineBuilderConfig()
 	}
-	
+
 	m := &PipelineBuilderModel{
-		activeColumn:       leftColumn,
-		showPreview:        config.ShowPreviewByDefault,
-		editingName:        true,
-		nameInput:          "",
+		activeColumn: leftColumn,
+		showPreview:  config.ShowPreviewByDefault,
+		editingName:  true,
+		nameInput:    "",
 		pipeline: &models.Pipeline{
 			Name:       "",
 			Components: []models.ComponentRef{},
@@ -54,18 +54,18 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		cloneOperator:      NewCloneOperator(),
 		sharedLayout:       NewSharedLayout(80, 24, config.ShowPreviewByDefault),
 	}
-	
+
 	// Initialize mermaid state and operator
 	mermaidState := NewMermaidState()
 	m.mermaidState = mermaidState
 	m.mermaidOperator = NewMermaidOperator(mermaidState)
-	
+
 	// Initialize search engine
 	m.searchEngine = search.NewEngine()
-	
+
 	// Configure table renderer for pipeline builder
 	m.leftTableRenderer.ShowAddedIndicator = true
-	
+
 	m.loadAvailableComponents()
 	return m
 }
@@ -75,27 +75,27 @@ func LoadPipelineWithConfig(pipeline *models.Pipeline, config *PipelineBuilderCo
 	if config == nil {
 		config = DefaultPipelineBuilderConfig()
 	}
-	
+
 	m := NewPipelineBuilderModelWithConfig(config)
 	m.pipeline = pipeline
 	m.editingName = false // Don't edit name for existing pipeline
 	m.nameInput = pipeline.Name
-	
+
 	// Copy components to track original state
 	m.originalComponents = make([]models.ComponentRef, len(pipeline.Components))
 	copy(m.originalComponents, pipeline.Components)
-	
+
 	// Copy components for editing
 	m.selectedComponents = make([]models.ComponentRef, len(pipeline.Components))
 	copy(m.selectedComponents, pipeline.Components)
-	
+
 	// Set the right cursor position if there are components
 	if len(m.selectedComponents) > 0 {
 		m.rightCursor = 0
 	}
-	
+
 	// Update preview
 	m.updatePreview()
-	
+
 	return m
 }

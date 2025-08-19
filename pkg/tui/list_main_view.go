@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
 )
 
 // MainViewRenderer handles the orchestration of all view components
@@ -40,7 +40,7 @@ func (r *MainViewRenderer) RenderErrorView(err error) string {
 func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 	// Update shared layout preview state
 	r.sharedLayout.SetShowPreview(r.ShowPreview)
-	
+
 	var helpRows [][]string
 	if searchActive {
 		// Show search syntax help when search is active
@@ -73,7 +73,7 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 			}
 		}
 	}
-	
+
 	return r.sharedLayout.RenderHelpPane(helpRows)
 }
 
@@ -82,13 +82,13 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 	if !r.ShowPreview || r.PreviewContent == "" {
 		return ""
 	}
-	
+
 	// Update shared layout state
 	r.sharedLayout.SetShowPreview(r.ShowPreview)
-	
+
 	// Create heading
 	var previewHeading string
-	
+
 	// Determine what we're previewing based on lastDataPane
 	if r.LastDataPane == pipelinesPane && len(pipelines) > 0 && pipelineCursor >= 0 && pipelineCursor < len(pipelines) {
 		pipelineName := pipelines[pipelineCursor].path // Use path which contains the filename
@@ -101,7 +101,7 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 	} else {
 		previewHeading = "PREVIEW"
 	}
-	
+
 	// Configure preview
 	config := PreviewConfig{
 		Content:     r.PreviewContent,
@@ -110,14 +110,14 @@ func (r *MainViewRenderer) RenderPreviewPane(pipelines []pipelineItem, component
 		PreviewPane: previewPane,
 		Viewport:    r.PreviewViewport,
 	}
-	
+
 	return r.sharedLayout.RenderPreviewPane(config)
 }
 
 // RenderConfirmationDialogs renders delete/archive confirmation dialogs
 func (r *MainViewRenderer) RenderConfirmationDialogs(pipelineOperator *PipelineOperator) string {
 	var result strings.Builder
-	
+
 	// Show delete confirmation if active
 	if pipelineOperator.IsDeleteConfirmActive() {
 		confirmStyle := lipgloss.NewStyle().
@@ -128,7 +128,7 @@ func (r *MainViewRenderer) RenderConfirmationDialogs(pipelineOperator *PipelineO
 		result.WriteString("\n")
 		result.WriteString(confirmStyle.Render(pipelineOperator.ViewDeleteConfirm(r.Width - 4)))
 	}
-	
+
 	// Show archive confirmation if active
 	if pipelineOperator.IsArchiveConfirmActive() {
 		confirmStyle := lipgloss.NewStyle().
@@ -139,7 +139,7 @@ func (r *MainViewRenderer) RenderConfirmationDialogs(pipelineOperator *PipelineO
 		result.WriteString("\n")
 		result.WriteString(confirmStyle.Render(pipelineOperator.ViewArchiveConfirm(r.Width - 4)))
 	}
-	
+
 	return result.String()
 }
 

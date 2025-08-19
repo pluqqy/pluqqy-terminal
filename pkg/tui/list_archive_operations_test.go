@@ -13,20 +13,20 @@ import (
 
 func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func(t *testing.T) *MainListModel
-		keyInput       tea.KeyMsg
-		activePane     pane
-		expectArchive  bool
+		name            string
+		setup           func(t *testing.T) *MainListModel
+		keyInput        tea.KeyMsg
+		activePane      pane
+		expectArchive   bool
 		expectUnarchive bool
-		validateState  func(t *testing.T, m *MainListModel)
+		validateState   func(t *testing.T, m *MainListModel)
 	}{
 		{
 			name: "archive active pipeline with 'a' key",
 			setup: func(t *testing.T) *MainListModel {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestPipeline(t, "test.yaml", false)
-				
+
 				m := NewMainListModel()
 				m.loadPipelines()
 				m.stateManager.ActivePane = pipelinesPane
@@ -48,7 +48,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			setup: func(t *testing.T) *MainListModel {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestPipeline(t, "test.yaml", true)
-				
+
 				m := NewMainListModel()
 				m.searchQuery = "status:archived"
 				m.performSearch()
@@ -56,8 +56,8 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 				m.stateManager.PipelineCursor = 0
 				return m
 			},
-			keyInput:       tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
-			activePane:     pipelinesPane,
+			keyInput:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+			activePane:      pipelinesPane,
 			expectUnarchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
 				// Should show unarchive confirmation
@@ -71,7 +71,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			setup: func(t *testing.T) *MainListModel {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestComponent(t, "test.md", "contexts", false)
-				
+
 				m := NewMainListModel()
 				m.loadComponents()
 				m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
@@ -93,7 +93,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			setup: func(t *testing.T) *MainListModel {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestComponent(t, "test.md", "contexts", true)
-				
+
 				m := NewMainListModel()
 				m.searchQuery = "status:archived"
 				m.performSearch()
@@ -101,8 +101,8 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 				m.stateManager.ComponentCursor = 0
 				return m
 			},
-			keyInput:       tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
-			activePane:     componentsPane,
+			keyInput:        tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
+			activePane:      componentsPane,
 			expectUnarchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
 				if !m.pipelineOperator.IsArchiveConfirmActive() {
@@ -114,7 +114,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			name: "no action when no items selected",
 			setup: func(t *testing.T) *MainListModel {
 				setupArchiveTestEnvironment(t)
-				
+
 				m := NewMainListModel()
 				m.loadPipelines()
 				m.stateManager.ActivePane = pipelinesPane
@@ -130,15 +130,15 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup(t)
 			m.stateManager.ActivePane = tt.activePane
-			
+
 			// Process the key input
 			_, cmd := m.Update(tt.keyInput)
-			
+
 			// Execute any returned command
 			if cmd != nil {
 				msg := cmd()
@@ -146,7 +146,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 					m.Update(msg)
 				}
 			}
-			
+
 			// Validate state
 			if tt.validateState != nil {
 				tt.validateState(t, m)
@@ -157,11 +157,11 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 
 func TestMainListModel_SearchWithArchived(t *testing.T) {
 	tests := []struct {
-		name          string
-		setup         func(t *testing.T) *MainListModel
-		searchQuery   string
+		name           string
+		setup          func(t *testing.T) *MainListModel
+		searchQuery    string
 		expectArchived bool
-		validateCount func(t *testing.T, pipelines, components int)
+		validateCount  func(t *testing.T, pipelines, components int)
 	}{
 		{
 			name: "search for archived items shows only archived",
@@ -171,7 +171,7 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 				createArchiveTestPipeline(t, "archived.yaml", true)
 				createArchiveTestComponent(t, "active.md", "contexts", false)
 				createArchiveTestComponent(t, "archived.md", "contexts", true)
-				
+
 				m := NewMainListModel()
 				// Set the search query before loading
 				m.searchQuery = "status:archived"
@@ -182,7 +182,7 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 				m.performSearch()
 				return m
 			},
-			searchQuery:   "status:archived",
+			searchQuery:    "status:archived",
 			expectArchived: true,
 			validateCount: func(t *testing.T, pipelines, components int) {
 				if pipelines != 1 {
@@ -199,7 +199,7 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestPipeline(t, "active.yaml", false)
 				createArchiveTestPipeline(t, "archived.yaml", true)
-				
+
 				m := NewMainListModel()
 				// First search for archived
 				m.searchQuery = "status:archived"
@@ -209,14 +209,14 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 				m.performSearch()
 				return m
 			},
-			searchQuery:   "",
+			searchQuery:    "",
 			expectArchived: false,
 			validateCount: func(t *testing.T, pipelines, components int) {
 				// Should only show active items
 				if pipelines != 1 {
 					t.Errorf("Expected 1 active pipeline after clearing search, got %d", pipelines)
 				}
-				
+
 				// Should have no archived items
 			},
 		},
@@ -226,12 +226,12 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 				setupArchiveTestEnvironment(t)
 				createArchiveTestPipelineWithTags(t, "tagged.yaml", []string{"test"}, false)
 				createArchiveTestPipelineWithTags(t, "archived-tagged.yaml", []string{"test"}, true)
-				
+
 				m := NewMainListModel()
 				m.loadPipelines()
 				return m
 			},
-			searchQuery:   "tag:test",
+			searchQuery:    "tag:test",
 			expectArchived: false,
 			validateCount: func(t *testing.T, pipelines, components int) {
 				if pipelines != 1 {
@@ -240,21 +240,21 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup(t)
 			m.searchQuery = tt.searchQuery
 			m.performSearch()
-			
+
 			// Count filtered items
 			pipelineCount := len(m.getCurrentPipelines())
 			componentCount := len(m.getCurrentComponents())
-			
+
 			if tt.validateCount != nil {
 				tt.validateCount(t, pipelineCount, componentCount)
 			}
-			
+
 			// Check archived status
 			for _, p := range m.getCurrentPipelines() {
 				if tt.expectArchived && !p.isArchived {
@@ -269,14 +269,14 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 
 func TestMainListModel_ReloadAfterArchiveOperation(t *testing.T) {
 	setupArchiveTestEnvironment(t)
-	
+
 	// Create initial state
 	createArchiveTestPipeline(t, "test.yaml", false)
-	
+
 	m := NewMainListModel()
-	m.searchQuery = "status:archived" 
+	m.searchQuery = "status:archived"
 	m.loadPipelines()
-	
+
 	// Simulate archiving
 	reloadCalled := false
 	reloadFunc := func() {
@@ -284,18 +284,18 @@ func TestMainListModel_ReloadAfterArchiveOperation(t *testing.T) {
 		m.loadPipelines()
 		m.performSearch()
 	}
-	
+
 	// Archive the pipeline
 	cmd := m.pipelineOperator.ArchivePipeline("test.yaml", reloadFunc)
 	msg := cmd()
-	
+
 	// Check status message
 	if statusMsg, ok := msg.(StatusMsg); ok {
 		if !archiveTestContains(string(statusMsg), "Archived") {
 			t.Errorf("Expected archive success message, got: %s", statusMsg)
 		}
 	}
-	
+
 	// Verify reload was called
 	if !reloadCalled {
 		t.Error("Reload function was not called after archive")
@@ -308,7 +308,7 @@ func setupArchiveTestEnvironment(t *testing.T) {
 	oldWd, _ := os.Getwd()
 	t.Cleanup(func() { os.Chdir(oldWd) })
 	os.Chdir(tmpDir)
-	
+
 	// Create directory structure
 	os.MkdirAll(filepath.Join(files.PluqqyDir, files.PipelinesDir), 0755)
 	os.MkdirAll(filepath.Join(files.PluqqyDir, files.ComponentsDir, files.ContextsDir), 0755)
@@ -324,14 +324,14 @@ func createArchiveTestPipeline(t *testing.T, name string, archived bool) {
 		Tags: []string{"test"},
 	}
 	data, _ := yaml.Marshal(pipeline)
-	
+
 	var path string
 	if archived {
 		path = filepath.Join(files.PluqqyDir, files.ArchiveDir, files.PipelinesDir, name)
 	} else {
 		path = filepath.Join(files.PluqqyDir, files.PipelinesDir, name)
 	}
-	
+
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		t.Fatalf("Failed to create test pipeline: %v", err)
 	}
@@ -343,14 +343,14 @@ func createArchiveTestPipelineWithTags(t *testing.T, name string, tags []string,
 		Tags: tags,
 	}
 	data, _ := yaml.Marshal(pipeline)
-	
+
 	var path string
 	if archived {
 		path = filepath.Join(files.PluqqyDir, files.ArchiveDir, files.PipelinesDir, name)
 	} else {
 		path = filepath.Join(files.PluqqyDir, files.PipelinesDir, name)
 	}
-	
+
 	if err := os.WriteFile(path, data, 0644); err != nil {
 		t.Fatalf("Failed to create test pipeline: %v", err)
 	}
@@ -362,14 +362,14 @@ tags: [test]
 ---
 # Test Component
 Content here`
-	
+
 	var path string
 	if archived {
 		path = filepath.Join(files.PluqqyDir, files.ArchiveDir, files.ComponentsDir, compType, name)
 	} else {
 		path = filepath.Join(files.PluqqyDir, files.ComponentsDir, compType, name)
 	}
-	
+
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to create test component: %v", err)
 	}

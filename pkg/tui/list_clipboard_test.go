@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"testing"
 	tea "github.com/charmbracelet/bubbletea"
+	"testing"
 )
 
 func TestClipboardYank(t *testing.T) {
@@ -81,7 +81,7 @@ func TestClipboardYank(t *testing.T) {
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					pipelineName := pipelines[m.stateManager.PipelineCursor].name
 					expectedMsg := pipelineName + " → clipboard"
-					
+
 					if tt.expectStatus && expectedMsg != tt.expectMsg {
 						t.Errorf("expected status message %q, got %q", tt.expectMsg, expectedMsg)
 					}

@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/atotto/clipboard"
-	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
@@ -16,80 +16,80 @@ import (
 
 type MainListModel struct {
 	// State management
-	stateManager       *StateManager
-	
+	stateManager *StateManager
+
 	// Business logic
-	businessLogic      *BusinessLogic
-	
+	businessLogic *BusinessLogic
+
 	// Pipelines data
-	pipelines          []pipelineItem
-	
+	pipelines []pipelineItem
+
 	// Components data
-	prompts            []componentItem
-	contexts           []componentItem
-	rules              []componentItem
-	
+	prompts  []componentItem
+	contexts []componentItem
+	rules    []componentItem
+
 	// Preview data
-	previewContent     string
-	previewViewport    viewport.Model
-	
+	previewContent  string
+	previewViewport viewport.Model
+
 	// UI state
 	pipelinesViewport  viewport.Model
 	componentsViewport viewport.Model
-	
+
 	// Window dimensions
-	width              int
-	height             int
-	
+	width  int
+	height int
+
 	// Error handling
-	err                error
-	
+	err error
+
 	// Pipeline operations
-	pipelineOperator  *PipelineOperator
-	
+	pipelineOperator *PipelineOperator
+
 	// Component creation
 	componentCreator *ComponentCreator
-	
+
 	// Enhanced component editor
-	enhancedEditor   *EnhancedEditorState
-	fileReference    *FileReferenceState
-	
+	enhancedEditor *EnhancedEditorState
+	fileReference  *FileReferenceState
+
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
 	exitConfirmationType string // "component" or "component-edit"
-	
+
 	// Tag editing
 	tagEditor *TagEditor
-	
+
 	// Tag reloading
-	tagReloader     *TagReloader
+	tagReloader       *TagReloader
 	tagReloadRenderer *TagReloadRenderer
-	
+
 	// Search engine
-	searchEngine          *search.Engine
-	
+	searchEngine *search.Engine
+
 	// Search state
-	searchBar             *SearchBar
-	searchQuery           string
-	filteredPipelines     []pipelineItem
-	filteredComponents    []componentItem
-	
+	searchBar          *SearchBar
+	searchQuery        string
+	filteredPipelines  []pipelineItem
+	filteredComponents []componentItem
+
 	// Component table renderer - maintains persistent viewport scroll state across renders.
 	// This ensures that when navigating through components with arrow keys, the viewport
 	// automatically scrolls to keep the selected component visible, and maintains that
 	// scroll position between View() calls. Without this persistence, the scroll position
 	// would reset on each render, causing the viewport to jump back to the top.
 	componentTableRenderer *ComponentTableRenderer
-	
+
 	// Mermaid diagram generation
 	mermaidState    *MermaidState
 	mermaidOperator *MermaidOperator
-	
+
 	// Rename functionality
 	renameState    *RenameState
 	renameRenderer *RenameRenderer
 	renameOperator *RenameOperator
-	
+
 	// Clone functionality
 	cloneState    *CloneState
 	cloneRenderer *CloneRenderer
@@ -106,23 +106,23 @@ func (m *MainListModel) performSearch() {
 				break
 			}
 		}
-		
+
 		// If we have archived items loaded, reload without them
 		if currentHasArchived {
 			m.loadPipelines()
 			m.loadComponents()
 			m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 		}
-		
+
 		// Show all active items
 		m.filteredPipelines = m.pipelines
 		m.filteredComponents = m.businessLogic.GetAllComponents()
-		
+
 		// Update state manager with current counts for proper cursor navigation
 		m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
 		return
 	}
-	
+
 	// Check if we need to reload data with archived items
 	needsArchived := m.shouldIncludeArchived()
 	currentHasArchived := false
@@ -132,7 +132,7 @@ func (m *MainListModel) performSearch() {
 			break
 		}
 	}
-	
+
 	// Reload data if archived status changed
 	if needsArchived && !currentHasArchived {
 		// Need to reload with archived items
@@ -145,7 +145,7 @@ func (m *MainListModel) performSearch() {
 		m.loadComponents()
 		m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
 	}
-	
+
 	// Use search engine to find matching items
 	if m.searchEngine != nil {
 		results, err := m.searchEngine.Search(m.searchQuery)
@@ -153,22 +153,22 @@ func (m *MainListModel) performSearch() {
 			// On error, show all items
 			m.filteredPipelines = m.pipelines
 			m.filteredComponents = m.businessLogic.GetAllComponents()
-			
+
 			// Update state manager with current counts for proper cursor navigation
 			m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
 			return
 		}
-		
+
 		// Use the helper function to filter results
 		m.filteredPipelines, m.filteredComponents = FilterSearchResults(
 			results,
 			m.pipelines,
 			m.businessLogic.GetAllComponents(),
 		)
-		
+
 		// Update state manager with filtered counts for proper cursor navigation
 		m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
-		
+
 		// Reset cursors if they're out of bounds
 		m.stateManager.ResetCursorsAfterSearch(len(m.filteredComponents), len(m.filteredPipelines))
 	}
@@ -234,7 +234,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-		
+
 		// Handle rename mode input if active
 		if m.renameState.Active {
 			handled, cmd := m.renameState.HandleInput(msg)
@@ -242,18 +242,18 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-		
+
 		// Handle search input when search pane is active
 		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.renameState.Active && !m.cloneState.Active {
 			var cmd tea.Cmd
 			m.searchBar, cmd = m.searchBar.Update(msg)
-			
+
 			// Check if search query changed
 			if m.searchQuery != m.searchBar.Value() {
 				m.searchQuery = m.searchBar.Value()
 				m.performSearch()
 			}
-			
+
 			// Handle special keys for search
 			switch msg.String() {
 			case "esc":
@@ -270,17 +270,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-		
+
 		// Handle exit confirmation
 		if m.exitConfirm.Active() {
 			return m, m.exitConfirm.Update(msg)
 		}
-		
+
 		// Handle component creation mode
 		if m.componentCreator.IsActive() {
 			return m.handleComponentCreation(msg)
 		}
-		
+
 		// Handle enhanced editor mode
 		if m.enhancedEditor.IsActive() {
 			handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
@@ -294,7 +294,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, cmd
 			}
 		}
-		
+
 		// Handle tag editing mode
 		if m.tagEditor.Active {
 			handled, cmd := m.tagEditor.HandleInput(msg)
@@ -306,22 +306,22 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		}
-		
+
 		// Handle delete confirmation
 		if m.pipelineOperator.IsDeleteConfirmActive() {
 			return m, m.pipelineOperator.UpdateDeleteConfirm(msg)
 		}
-		
+
 		// Handle archive confirmation
 		if m.pipelineOperator.IsArchiveConfirmActive() {
 			return m, m.pipelineOperator.UpdateArchiveConfirm(msg)
 		}
-		
+
 		// Normal mode key handling
 		switch msg.String() {
 		case "q":
 			return m, tea.Quit
-		
+
 		case "tab":
 			// Handle tab navigation
 			if m.stateManager.IsInSearchPane() {
@@ -332,7 +332,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.stateManager.ActivePane != previewPane && m.stateManager.ActivePane != searchPane {
 				m.updatePreview()
 			}
-		
+
 		case "shift+tab", "backtab":
 			// Handle reverse tab navigation
 			if m.stateManager.IsInSearchPane() {
@@ -343,7 +343,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.stateManager.ActivePane != previewPane && m.stateManager.ActivePane != searchPane {
 				m.updatePreview()
 			}
-		
+
 		case "up", "k":
 			handled, updatePreview := m.stateManager.HandleKeyNavigation(msg.String())
 			if handled {
@@ -354,7 +354,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Scroll preview up
 				m.previewViewport.LineUp(1)
 			}
-		
+
 		case "down", "j":
 			handled, updatePreview := m.stateManager.HandleKeyNavigation(msg.String())
 			if handled {
@@ -365,31 +365,30 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Scroll preview down
 				m.previewViewport.LineDown(1)
 			}
-		
+
 		case "pgup":
 			if m.stateManager.IsInPreviewPane() {
 				m.previewViewport.ViewUp()
 			}
-		
+
 		case "pgdown":
 			if m.stateManager.IsInPreviewPane() {
 				m.previewViewport.ViewDown()
 			}
-		
+
 		case "p":
 			m.stateManager.ShowPreview = !m.stateManager.ShowPreview
 			m.updateViewportSizes()
 			if m.stateManager.ShowPreview {
 				m.updatePreview()
 			}
-		
+
 		case "/":
 			// Jump to search
 			m.stateManager.SwitchToSearch()
 			m.searchBar.SetActive(true)
 			return m, nil
-		
-		
+
 		case "e":
 			if m.stateManager.ActivePane == pipelinesPane {
 				pipelines := m.getCurrentPipelines()
@@ -413,14 +412,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.err = err
 						return m, nil
 					}
-					
+
 					// Use enhanced editor
 					m.enhancedEditor.StartEditing(comp.path, comp.name, comp.compType, content.Content, comp.tags)
-					
+
 					return m, nil
 				}
 			}
-		
+
 		case "ctrl+x":
 			// Edit component in external editor
 			if m.stateManager.ActivePane == componentsPane {
@@ -431,7 +430,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged
-		
+
 		case "t":
 			// Edit tags
 			if m.stateManager.ActivePane == componentsPane {
@@ -449,7 +448,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.tagEditor.Start(pipeline.path, pipeline.tags, "pipeline")
 				}
 			}
-		
+
 		case "n":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Create new pipeline (switch to builder)
@@ -463,8 +462,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.componentCreator.Start()
 				return m, nil
 			}
-		
-		
+
 		case "S":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Set selected pipeline (generate PLUQQY.md)
@@ -473,7 +471,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.pipelineOperator.SetPipeline(pipelines[m.stateManager.PipelineCursor].path)
 				}
 			}
-		
+
 		case "y":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Copy selected pipeline content to clipboard
@@ -494,7 +492,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		
+
 		case "M":
 			// Generate mermaid diagram for selected pipeline
 			if m.stateManager.ActivePane == pipelinesPane && !m.mermaidState.IsGenerating() {
@@ -504,7 +502,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, m.mermaidOperator.GeneratePipelineDiagram(pipeline)
 				}
 			}
-		
+
 		case "ctrl+d":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Delete pipeline with confirmation
@@ -515,7 +513,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					pipelineName := pipeline.name
 					pipelinePath := pipeline.path
 					pipelineTags := pipeline.tags
-					
+
 					m.pipelineOperator.ShowDeleteConfirmation(
 						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
 						func() tea.Cmd {
@@ -534,7 +532,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
 					m.stateManager.SetDeletingFromPane(componentsPane)
-					
+
 					m.pipelineOperator.ShowDeleteConfirmation(
 						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
 						func() tea.Cmd {
@@ -548,7 +546,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					)
 				}
 			}
-		
+
 		case "s":
 			// Open settings editor
 			return m, func() tea.Msg {
@@ -556,7 +554,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					view: settingsEditorView,
 				}
 			}
-			
+
 		case "a":
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Archive/Unarchive pipeline with confirmation
@@ -564,7 +562,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					pipeline := pipelines[m.stateManager.PipelineCursor]
 					m.stateManager.SetArchivingFromPane(pipelinesPane)
-					
+
 					if pipeline.isArchived {
 						// Unarchive the pipeline
 						m.pipelineOperator.ShowArchiveConfirmation(
@@ -599,7 +597,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
 					m.stateManager.SetArchivingFromPane(componentsPane)
-					
+
 					if comp.isArchived {
 						// Unarchive the component
 						m.pipelineOperator.ShowArchiveConfirmation(
@@ -629,7 +627,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 				}
 			}
-		
+
 		case "C": // Uppercase C for clone/duplicate
 			// Start clone mode
 			if m.stateManager.ActivePane == componentsPane {
@@ -649,7 +647,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.cloneState.Start(displayName, "pipeline", path, isArchived)
 				}
 			}
-		
+
 		case "R": // Uppercase R for rename (destructive operation)
 			// Handle rename mode input first if active
 			if m.renameState.Active {
@@ -678,7 +676,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-	
+
 	case RenameSuccessMsg:
 		// Handle successful rename
 		m.renameState.Reset()
@@ -691,12 +689,12 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Show success message (could be shown in status bar if available)
 		return m, nil
-	
+
 	case RenameErrorMsg:
 		// Handle rename error
 		m.renameState.ValidationError = msg.Error.Error()
 		return m, nil
-	
+
 	case CloneSuccessMsg:
 		// Handle successful clone
 		m.cloneState.Reset()
@@ -715,7 +713,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			return StatusMsg(statusText)
 		}
-	
+
 	case CloneErrorMsg:
 		// Handle clone error
 		m.cloneState.ValidationError = msg.Error.Error()
@@ -723,7 +721,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, func() tea.Msg {
 			return StatusMsg(fmt.Sprintf("✗ Clone failed: %v", msg.Error))
 		}
-	
+
 	case StatusMsg:
 		// Handle status messages, especially save confirmations from enhanced editor
 		msgStr := string(msg)
@@ -737,7 +735,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		// Pass the message up to the parent app for display
 		return m, func() tea.Msg { return msg }
-	
+
 	case ReloadMsg:
 		// Reload data after tag editing
 		m.reloadComponents()
@@ -751,7 +749,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.tagEditor.LoadAvailableTags()
 		}
 		return m, nil
-	
+
 	case TagReloadMsg:
 		// First check if tag editor is active and should handle the message
 		if m.tagEditor != nil && m.tagEditor.Active {
@@ -768,7 +766,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
-	
+
 	case tagReloadCompleteMsg:
 		// Check if tag editor should handle this
 		if m.tagEditor != nil && m.tagEditor.Active {
@@ -779,7 +777,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	}
-	
+
 	// Handle enhanced editor for non-KeyMsg message types
 	// This is crucial for filepicker which needs to process internal messages like directory reads
 	if m.enhancedEditor.IsActive() {
@@ -800,7 +798,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 	}
-	
+
 	// Update preview if needed
 	if m.stateManager.ShowPreview && m.previewContent != "" {
 		// Preprocess content to handle carriage returns and ensure proper line breaks
@@ -809,11 +807,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
 		m.previewViewport.SetContent(wrappedContent)
 	}
-	
+
 	// Update viewports
 	var cmd tea.Cmd
 	var cmds []tea.Cmd
-	
+
 	// Only forward non-key messages to viewports
 	switch msg.(type) {
 	case tea.KeyMsg:
@@ -829,7 +827,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 		}
-		
+
 		// Forward other messages to viewports
 		if m.stateManager.ShowPreview {
 			m.previewViewport, cmd = m.previewViewport.Update(msg)
@@ -837,7 +835,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				cmds = append(cmds, cmd)
 			}
 		}
-		
+
 		m.pipelinesViewport, cmd = m.pipelinesViewport.Update(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
@@ -847,7 +845,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmds = append(cmds, cmd)
 		}
 	}
-	
+
 	return m, tea.Batch(cmds...)
 }
 
@@ -860,12 +858,12 @@ func (m *MainListModel) View() string {
 	mainRenderer.SearchBar = m.searchBar
 	mainRenderer.PreviewViewport = m.previewViewport
 	mainRenderer.PreviewContent = m.previewContent
-	
+
 	// Handle error state
 	if m.err != nil {
 		return mainRenderer.RenderErrorView(m.err)
 	}
-	
+
 	// If showing exit confirmation, display dialog
 	if m.exitConfirm.Active() {
 		// Add padding to match other views
@@ -874,12 +872,12 @@ func (m *MainListModel) View() string {
 			PaddingRight(1)
 		return contentStyle.Render(m.exitConfirm.View())
 	}
-	
+
 	// If creating component, show creation wizard
 	if m.componentCreator.IsActive() {
 		return m.componentCreationView()
 	}
-	
+
 	// If editing component with enhanced editor, show enhanced edit view
 	if m.enhancedEditor.IsActive() {
 		// Handle exit confirmation dialog
@@ -890,11 +888,11 @@ func (m *MainListModel) View() string {
 				PaddingRight(1)
 			return contentStyle.Render(m.enhancedEditor.ExitConfirm.View())
 		}
-		
+
 		renderer := NewEnhancedEditorRenderer(m.width, m.height)
 		return renderer.Render(m.enhancedEditor)
 	}
-	
+
 	// If editing tags, show tag edit view
 	if m.tagEditor.Active {
 		// Create the tag editing view renderer
@@ -917,9 +915,9 @@ func (m *MainListModel) View() string {
 		renderer.GetAvailableTagsForCloudFunc = func(availableTags []string, currentTags []string) []string {
 			return m.tagEditor.GetAvailableTagsForCloud()
 		}
-		
+
 		tagEditView := renderer.Render()
-		
+
 		// Overlay tag reload status if active
 		if m.tagEditor.TagReloader != nil && m.tagEditor.TagReloader.IsActive() && m.tagReloadRenderer != nil {
 			overlay := m.tagReloadRenderer.RenderStatus(m.tagEditor.TagReloader)
@@ -927,7 +925,7 @@ func (m *MainListModel) View() string {
 				return overlayViews(tagEditView, overlay)
 			}
 		}
-		
+
 		return tagEditView
 	}
 
@@ -972,16 +970,16 @@ func (m *MainListModel) View() string {
 
 	// Build final view
 	var s strings.Builder
-	
+
 	// Add padding around the content
 	contentStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	// Add search bar first
 	s.WriteString(m.searchBar.View())
 	s.WriteString("\n")
-	
+
 	// Then add the columns
 	s.WriteString(contentStyle.Render(columns))
 
@@ -996,24 +994,24 @@ func (m *MainListModel) View() string {
 	if confirmDialogs != "" {
 		s.WriteString(confirmDialogs)
 	}
-	
+
 	// Help text
 	s.WriteString("\n")
 	s.WriteString(mainRenderer.RenderHelpPane(m.stateManager.IsInSearchPane()))
 
 	finalView := s.String()
-	
+
 	// Overlay clone dialog if active
 	if m.cloneState != nil && m.cloneState.Active && m.cloneRenderer != nil {
 		m.cloneRenderer.SetSize(m.width, m.height)
 		finalView = m.cloneRenderer.RenderOverlay(finalView, m.cloneState)
 	}
-	
+
 	// Overlay rename dialog if active
 	if m.renameState != nil && m.renameState.Active && m.renameRenderer != nil {
 		finalView = m.renameRenderer.RenderOverlay(finalView, m.renameState)
 	}
-	
+
 	// Overlay tag reload status if active
 	if m.tagReloader != nil && m.tagReloader.IsActive() && m.tagReloadRenderer != nil {
 		overlay := m.tagReloadRenderer.RenderStatus(m.tagReloader)
@@ -1022,7 +1020,7 @@ func (m *MainListModel) View() string {
 			return overlayViews(finalView, overlay)
 		}
 	}
-	
+
 	return finalView
 }
 
@@ -1046,13 +1044,13 @@ func (m *MainListModel) updatePreview() {
 	if !m.stateManager.ShowPreview {
 		return
 	}
-	
+
 	// Use PreviewRenderer for generating preview content
 	renderer := &PreviewRenderer{ShowPreview: m.stateManager.ShowPreview}
-	
+
 	// Determine which pane to preview from
 	previewPane := m.stateManager.GetPreviewPane()
-	
+
 	if previewPane == pipelinesPane {
 		// Show pipeline preview
 		pipelines := m.getCurrentPipelines()
@@ -1060,7 +1058,7 @@ func (m *MainListModel) updatePreview() {
 			m.previewContent = renderer.RenderEmptyPreview(pipelinesPane, false, false)
 			return
 		}
-		
+
 		if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(pipelines) {
 			pipeline := pipelines[m.stateManager.PipelineCursor]
 			m.previewContent = renderer.RenderPipelinePreview(pipeline.path, pipeline.isArchived)
@@ -1072,7 +1070,7 @@ func (m *MainListModel) updatePreview() {
 			m.previewContent = renderer.RenderEmptyPreview(componentsPane, false, false)
 			return
 		}
-		
+
 		if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 			comp := components[m.stateManager.ComponentCursor]
 			m.previewContent = renderer.RenderComponentPreview(comp)
@@ -1085,12 +1083,12 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 		if m.componentCreator.HandleTypeSelection(msg) {
 			return m, nil
 		}
-		
+
 	case 1: // Name input
 		if m.componentCreator.HandleNameInput(msg) {
 			return m, nil
 		}
-		
+
 	case 2: // Content input
 		// Special handling for escape with unsaved content
 		if msg.String() == "esc" && strings.TrimSpace(m.componentCreator.GetComponentContent()) != "" {
@@ -1100,7 +1098,7 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 				"You have unsaved content in this component.",
 				"Exit without saving?",
 				true, // destructive
-				m.width - 4,
+				m.width-4,
 				10,
 				func() tea.Cmd {
 					// Exit - reset component creator
@@ -1111,7 +1109,7 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 			)
 			return m, nil
 		}
-		
+
 		// Check if enhanced editor is active for component creation
 		if m.componentCreator.IsEnhancedEditorActive() {
 			handled, cmd := m.componentCreator.HandleEnhancedEditorInput(msg, m.width)
@@ -1129,13 +1127,13 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 			}
 		}
 	}
-	
+
 	return m, nil
 }
 
 func (m *MainListModel) componentCreationView() string {
 	renderer := NewComponentCreationViewRenderer(m.width, m.height)
-	
+
 	switch m.componentCreator.GetCurrentStep() {
 	case 0:
 		return renderer.RenderTypeSelection(m.componentCreator.GetTypeCursor())
@@ -1153,6 +1151,6 @@ func (m *MainListModel) componentCreationView() string {
 		// Fallback to simple editor
 		return renderer.RenderContentEdit(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName(), m.componentCreator.GetComponentContent())
 	}
-	
+
 	return "Unknown creation step"
 }

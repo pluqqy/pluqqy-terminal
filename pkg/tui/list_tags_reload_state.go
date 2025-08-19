@@ -14,27 +14,27 @@ import (
 // TagReloader manages the state and logic for reloading tags from components and pipelines
 type TagReloader struct {
 	// Core state
-	Active       bool
-	IsReloading  bool
-	
+	Active      bool
+	IsReloading bool
+
 	// Result tracking
 	ReloadResult *TagReloadResult
 	LastError    error
-	
+
 	// Statistics
 	ComponentsProcessed int
 	PipelinesProcessed  int
-	TagsFound          map[string]int // Tag name -> count
+	TagsFound           map[string]int // Tag name -> count
 }
 
 // TagReloadResult holds the results of a tag reload operation
 type TagReloadResult struct {
 	ComponentsScanned int
 	PipelinesScanned  int
-	NewTags          []string
-	UpdatedTags      []string
-	FailedFiles      []string
-	TotalTags        int
+	NewTags           []string
+	UpdatedTags       []string
+	FailedFiles       []string
+	TotalTags         int
 }
 
 // TagReloadMsg is sent when tag reload completes
@@ -59,7 +59,7 @@ func (tr *TagReloader) Start() tea.Cmd {
 	tr.ComponentsProcessed = 0
 	tr.PipelinesProcessed = 0
 	tr.TagsFound = make(map[string]int)
-	
+
 	// Return command to perform reload in background
 	return tr.performReload
 }
@@ -69,7 +69,7 @@ func (tr *TagReloader) performReload() tea.Msg {
 	result := &TagReloadResult{
 		FailedFiles: []string{},
 	}
-	
+
 	// Get or create tag registry
 	registry, err := tags.NewRegistry()
 	if err != nil {
@@ -78,27 +78,27 @@ func (tr *TagReloader) performReload() tea.Msg {
 			Error:  fmt.Errorf("failed to load tag registry: %w", err),
 		}
 	}
-	
+
 	// Track existing tags for comparison
 	existingTags := make(map[string]bool)
 	for _, tag := range registry.ListTags() {
 		existingTags[models.NormalizeTagName(tag.Name)] = true
 	}
-	
+
 	// Scan all component types
 	componentTypes := []string{
 		models.ComponentTypePrompt,
 		models.ComponentTypeContext,
 		models.ComponentTypeRules,
 	}
-	
+
 	for _, compType := range componentTypes {
 		components, err := files.ListComponents(compType)
 		if err != nil {
 			// Log error but continue with other types
 			continue
 		}
-		
+
 		for _, compFile := range components {
 			compPath := filepath.Join(files.ComponentsDir, compType, compFile)
 			comp, err := files.ReadComponent(compPath)
@@ -106,14 +106,14 @@ func (tr *TagReloader) performReload() tea.Msg {
 				result.FailedFiles = append(result.FailedFiles, compPath)
 				continue
 			}
-			
+
 			result.ComponentsScanned++
-			
+
 			// Process tags from this component
 			for _, tagName := range comp.Tags {
 				normalizedName := models.NormalizeTagName(tagName)
 				tr.TagsFound[normalizedName]++
-				
+
 				// Check if this is a new tag
 				if !existingTags[normalizedName] {
 					// Create new tag in registry
@@ -125,7 +125,7 @@ func (tr *TagReloader) performReload() tea.Msg {
 			}
 		}
 	}
-	
+
 	// Scan all pipelines
 	pipelines, err := files.ListPipelines()
 	if err == nil {
@@ -135,14 +135,14 @@ func (tr *TagReloader) performReload() tea.Msg {
 				result.FailedFiles = append(result.FailedFiles, pipelineFile)
 				continue
 			}
-			
+
 			result.PipelinesScanned++
-			
+
 			// Process tags from this pipeline
 			for _, tagName := range pipeline.Tags {
 				normalizedName := models.NormalizeTagName(tagName)
 				tr.TagsFound[normalizedName]++
-				
+
 				// Check if this is a new tag
 				if !existingTags[normalizedName] {
 					// Create new tag in registry
@@ -154,7 +154,7 @@ func (tr *TagReloader) performReload() tea.Msg {
 			}
 		}
 	}
-	
+
 	// Save the updated registry
 	if err := registry.Save(); err != nil {
 		return TagReloadMsg{
@@ -162,10 +162,10 @@ func (tr *TagReloader) performReload() tea.Msg {
 			Error:  fmt.Errorf("failed to save tag registry: %w", err),
 		}
 	}
-	
+
 	// Set total tags count
 	result.TotalTags = len(tr.TagsFound)
-	
+
 	return TagReloadMsg{
 		Result: result,
 		Error:  nil,
@@ -179,19 +179,19 @@ func (tr *TagReloader) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 		tr.IsReloading = false
 		tr.ReloadResult = msg.Result
 		tr.LastError = msg.Error
-		
+
 		if msg.Result != nil {
 			tr.ComponentsProcessed = msg.Result.ComponentsScanned
 			tr.PipelinesProcessed = msg.Result.PipelinesScanned
 		}
-		
+
 		// Deactivate after a moment to show results
 		if msg.Error == nil {
 			return true, tr.deactivateAfterDelay()
 		}
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 
@@ -227,22 +227,22 @@ func (tr *TagReloader) GetStatus() string {
 	if !tr.Active {
 		return ""
 	}
-	
+
 	if tr.IsReloading {
 		return "Reloading tags from components and pipelines..."
 	}
-	
+
 	if tr.LastError != nil {
 		return fmt.Sprintf("Tag reload failed: %v", tr.LastError)
 	}
-	
+
 	if tr.ReloadResult != nil {
 		if len(tr.ReloadResult.NewTags) > 0 {
 			return fmt.Sprintf("Tag reload complete: %d new tags found", len(tr.ReloadResult.NewTags))
 		}
 		return fmt.Sprintf("Tag reload complete: %d total tags", tr.ReloadResult.TotalTags)
 	}
-	
+
 	return ""
 }
 

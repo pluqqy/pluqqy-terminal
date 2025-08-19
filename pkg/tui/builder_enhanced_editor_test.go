@@ -2,7 +2,7 @@ package tui
 
 import (
 	"testing"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
@@ -11,11 +11,11 @@ import (
 // of the enhanced editor within the Pipeline Builder
 func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 	tests := []struct {
-		name           string
-		setup          func() *PipelineBuilderModel
-		msg            tea.KeyMsg
-		checkState     func(t *testing.T, m *PipelineBuilderModel)
-		cleanup        func()
+		name       string
+		setup      func() *PipelineBuilderModel
+		msg        tea.KeyMsg
+		checkState func(t *testing.T, m *PipelineBuilderModel)
+		cleanup    func()
 	}{
 		{
 			name: "pressing e activates enhanced editor from left column",
@@ -30,7 +30,7 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 				}
 				// Also set the filtered prompts since getAllAvailableComponents uses those
 				m.filteredPrompts = m.prompts
-				
+
 				// Pre-activate the enhanced editor since file reading will fail in test env
 				// We're testing the integration, not the file reading
 				m.editingComponent = false
@@ -137,12 +137,12 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 			cleanup: func() {}, // No cleanup needed
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
 			defer tt.cleanup() // Clean up test files after each test
-			
+
 			updatedModel, _ := m.Update(tt.msg)
 			if updatedM, ok := updatedModel.(*PipelineBuilderModel); ok {
 				tt.checkState(t, updatedM)
@@ -165,15 +165,15 @@ func TestPipelineBuilderModel_EnhancedEditorView(t *testing.T) {
 	m.enhancedEditor.Content = "Test content for the component"
 	m.width = 80
 	m.height = 24
-	
+
 	// Get the view
 	view := m.View()
-	
+
 	// Check that the view contains expected elements
 	if view == "" {
 		t.Error("Expected non-empty view when enhanced editor is active")
 	}
-	
+
 	// The view should contain the component name
 	if !builderTestContains(view, "TEST-COMPONENT") && !builderTestContains(view, "test-component") {
 		t.Error("Expected view to contain component name")
@@ -184,23 +184,23 @@ func TestPipelineBuilderModel_EnhancedEditorView(t *testing.T) {
 // editor maintains consistency with Pipeline Builder state
 func TestPipelineBuilderModel_EnhancedEditorConsistency(t *testing.T) {
 	m := NewPipelineBuilderModel()
-	
+
 	// Verify initial state
 	// Enhanced editor is always enabled now
-	
+
 	if m.enhancedEditor == nil {
 		t.Fatal("Expected enhancedEditor to be initialized")
 	}
-	
+
 	if m.enhancedEditor.IsActive() {
 		t.Error("Expected enhanced editor to be inactive initially")
 	}
-	
+
 	// Test that closing enhanced editor properly cleans up state
 	m.editingComponent = true
 	m.enhancedEditor.Active = true
 	m.enhancedEditor.Active = false // Simulate stopping
-	
+
 	// After stopping, the editor should be inactive
 	if m.enhancedEditor.IsActive() {
 		t.Error("Expected enhanced editor to be inactive after stopping")

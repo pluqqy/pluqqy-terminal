@@ -13,32 +13,32 @@ import (
 // TagEditor manages the state and logic for tag editing
 type TagEditor struct {
 	// Core state
-	Active              bool
-	Path                string
-	ItemType            string // "component" or "pipeline"
-	CurrentTags         []string
-	OriginalTags        []string
-	
+	Active       bool
+	Path         string
+	ItemType     string // "component" or "pipeline"
+	CurrentTags  []string
+	OriginalTags []string
+
 	// Input state
-	TagInput            string
-	TagCursor           int
-	ShowSuggestions     bool
-	SuggestionCursor    int
-	
+	TagInput         string
+	TagCursor        int
+	ShowSuggestions  bool
+	SuggestionCursor int
+
 	// Tag cloud state
-	TagCloudActive      bool
-	TagCloudCursor      int
-	AvailableTags       []string
-	
+	TagCloudActive bool
+	TagCloudCursor int
+	AvailableTags  []string
+
 	// Tag deletion state
-	DeletingTag         string
-	DeletingTagUsage    *tags.UsageStats
-	
+	DeletingTag      string
+	DeletingTagUsage *tags.UsageStats
+
 	// Confirmation models
-	TagDeleteConfirm    *ConfirmationModel
-	
+	TagDeleteConfirm *ConfirmationModel
+
 	// Tag reloader
-	TagReloader         *TagReloader
+	TagReloader *TagReloader
 }
 
 // NewTagEditor creates a new tag editor instance
@@ -64,7 +64,7 @@ func (t *TagEditor) Start(path string, currentTags []string, itemType string) {
 	t.SuggestionCursor = 0
 	t.TagCloudActive = false
 	t.TagCloudCursor = 0
-	
+
 	// Load available tags from registry
 	t.LoadAvailableTags()
 }
@@ -93,7 +93,7 @@ func (t *TagEditor) LoadAvailableTags() {
 		t.AvailableTags = []string{}
 		return
 	}
-	
+
 	allTags := registry.ListTags()
 	t.AvailableTags = make([]string, 0, len(allTags))
 	for _, tag := range allTags {
@@ -106,29 +106,29 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 	if !t.Active {
 		return false, nil
 	}
-	
+
 	// Handle tag deletion confirmation
 	if t.TagDeleteConfirm.Active() {
 		return true, t.TagDeleteConfirm.Update(msg)
 	}
-	
+
 	switch msg.String() {
 	case "esc":
 		// Cancel tag editing
 		t.Reset()
 		return true, nil
-		
+
 	case "ctrl+s":
 		// Save tags
 		return true, t.SaveTags()
-		
+
 	case "ctrl+t":
 		// Reload tags from all components and pipelines
 		if !t.TagReloader.IsActive() {
 			return true, t.TagReloader.Start()
 		}
 		return true, nil
-		
+
 	case "enter":
 		if t.TagCloudActive {
 			// Add tag from cloud
@@ -147,7 +147,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			t.AddTagFromInput()
 		}
 		return true, nil
-		
+
 	case "tab":
 		// Toggle between main pane and tag cloud
 		t.TagCloudActive = !t.TagCloudActive
@@ -158,7 +158,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			t.TagInput = ""
 		}
 		return true, nil
-		
+
 	case "up":
 		if !t.TagCloudActive && t.ShowSuggestions && t.TagInput != "" {
 			// Navigate up in suggestions
@@ -167,7 +167,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			}
 		}
 		return true, nil
-		
+
 	case "down":
 		if !t.TagCloudActive && t.ShowSuggestions && t.TagInput != "" {
 			// Navigate down in suggestions
@@ -181,7 +181,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			}
 		}
 		return true, nil
-		
+
 	case "left":
 		if t.TagCloudActive {
 			// Navigate in tag cloud
@@ -195,7 +195,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			}
 		}
 		return true, nil
-		
+
 	case "right":
 		if t.TagCloudActive {
 			// Navigate in tag cloud
@@ -210,7 +210,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			}
 		}
 		return true, nil
-		
+
 	case "ctrl+d":
 		if t.TagCloudActive {
 			// Delete tag from registry
@@ -220,7 +220,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			t.RemoveCurrentTag()
 		}
 		return true, cmd
-		
+
 	case "backspace", "delete":
 		if !t.TagCloudActive && t.TagInput != "" {
 			// Delete from input
@@ -231,7 +231,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			}
 		}
 		return true, nil
-		
+
 	default:
 		// Add to input only when in main pane
 		if !t.TagCloudActive && len(msg.String()) == 1 {
@@ -306,7 +306,7 @@ func (t *TagEditor) HandleTagRegistryDeletion() tea.Cmd {
 	availableForSelection := t.GetAvailableTagsForCloud()
 	if t.TagCloudCursor >= 0 && t.TagCloudCursor < len(availableForSelection) {
 		tagToDelete := availableForSelection[t.TagCloudCursor]
-		
+
 		// Get usage stats
 		usage, err := tags.CountTagUsage(tagToDelete)
 		if err != nil {
@@ -314,10 +314,10 @@ func (t *TagEditor) HandleTagRegistryDeletion() tea.Cmd {
 				return StatusMsg(fmt.Sprintf("× Failed to check tag usage: %v", err))
 			}
 		}
-		
+
 		t.DeletingTag = tagToDelete
 		t.DeletingTagUsage = usage
-		
+
 		// Show tag deletion confirmation with details
 		var details []string
 		if usage.PipelineCount > 0 {
@@ -326,12 +326,12 @@ func (t *TagEditor) HandleTagRegistryDeletion() tea.Cmd {
 		if usage.ComponentCount > 0 {
 			details = append(details, fmt.Sprintf("Used in %d component(s)", usage.ComponentCount))
 		}
-		
+
 		warning := ""
 		if usage.PipelineCount > 0 || usage.ComponentCount > 0 {
 			warning = "The tag will be removed from the registry but will remain on items that use it."
 		}
-		
+
 		// Configure and show confirmation
 		t.TagDeleteConfirm.Show(ConfirmationConfig{
 			Title:       "⚠️  Delete Tag from Registry?",
@@ -350,7 +350,7 @@ func (t *TagEditor) HandleTagRegistryDeletion() tea.Cmd {
 			return nil
 		})
 	}
-	
+
 	return nil
 }
 
@@ -362,27 +362,27 @@ func (t *TagEditor) DeleteTagFromRegistry() tea.Cmd {
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to load tag registry: %v", err))
 		}
-		
+
 		registry.RemoveTag(t.DeletingTag)
-		
+
 		if err := registry.Save(); err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save tag registry: %v", err))
 		}
-		
+
 		// Update available tags
 		t.LoadAvailableTags()
-		
+
 		// Adjust cursor if needed
 		availableForCloud := t.GetAvailableTagsForCloud()
 		if t.TagCloudCursor >= len(availableForCloud) && t.TagCloudCursor > 0 {
 			t.TagCloudCursor = len(availableForCloud) - 1
 		}
-		
+
 		// Clear deletion state
 		deletedTag := t.DeletingTag
 		t.DeletingTag = ""
 		t.DeletingTagUsage = nil
-		
+
 		return StatusMsg(fmt.Sprintf("✓ Deleted tag '%s' from registry", deletedTag))
 	}
 }
@@ -391,7 +391,7 @@ func (t *TagEditor) DeleteTagFromRegistry() tea.Cmd {
 func (t *TagEditor) SaveTags() tea.Cmd {
 	return func() tea.Msg {
 		var err error
-		
+
 		if t.ItemType == "component" {
 			// Update component tags
 			err = files.UpdateComponentTags(t.Path, t.CurrentTags)
@@ -404,11 +404,11 @@ func (t *TagEditor) SaveTags() tea.Cmd {
 			pipeline.Tags = t.CurrentTags
 			err = files.WritePipeline(pipeline)
 		}
-		
+
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save tags: %v", err))
 		}
-		
+
 		// Update the registry with any new tags
 		registry, _ := tags.NewRegistry()
 		if registry != nil {
@@ -417,10 +417,10 @@ func (t *TagEditor) SaveTags() tea.Cmd {
 			}
 			registry.Save()
 		}
-		
+
 		// Reset the editor
 		t.Reset()
-		
+
 		return ReloadMsg{Message: "✓ Tags saved"}
 	}
 }
@@ -440,17 +440,17 @@ func (t *TagEditor) GetSuggestions() []string {
 	if t.TagInput == "" {
 		return []string{}
 	}
-	
+
 	input := strings.ToLower(t.TagInput)
 	var suggestions []string
-	
+
 	// First, exact prefix matches
 	for _, tag := range t.AvailableTags {
 		if strings.HasPrefix(strings.ToLower(tag), input) && !t.HasTag(tag) {
 			suggestions = append(suggestions, tag)
 		}
 	}
-	
+
 	// Then, contains matches
 	for _, tag := range t.AvailableTags {
 		lowerTag := strings.ToLower(tag)
@@ -458,7 +458,7 @@ func (t *TagEditor) GetSuggestions() []string {
 			suggestions = append(suggestions, tag)
 		}
 	}
-	
+
 	return suggestions
 }
 
@@ -478,20 +478,20 @@ func (t *TagEditor) HasChanges() bool {
 	if len(t.CurrentTags) != len(t.OriginalTags) {
 		return true
 	}
-	
+
 	// Create a map of original tags for quick lookup
 	originalMap := make(map[string]bool)
 	for _, tag := range t.OriginalTags {
 		originalMap[tag] = true
 	}
-	
+
 	// Check if all current tags exist in original
 	for _, tag := range t.CurrentTags {
 		if !originalMap[tag] {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -500,7 +500,7 @@ func (t *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 	if !t.Active {
 		return false, nil
 	}
-	
+
 	// Handle tag reload messages if reloader is active
 	if t.TagReloader != nil {
 		switch msg := msg.(type) {
@@ -518,6 +518,6 @@ func (t *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 			return true, nil
 		}
 	}
-	
+
 	return false, nil
 }

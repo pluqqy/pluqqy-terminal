@@ -3,8 +3,8 @@ package tui
 import (
 	"strings"
 
-	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/bubbles/viewport"
+	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
@@ -15,7 +15,7 @@ type SharedLayout struct {
 	Width       int
 	Height      int
 	ShowPreview bool
-	
+
 	// Cached computed values for performance
 	contentHeight int
 	columnWidth   int
@@ -48,16 +48,16 @@ func (sl *SharedLayout) SetShowPreview(show bool) {
 // recalculateDimensions updates cached dimension values
 func (sl *SharedLayout) recalculateDimensions() {
 	sl.columnWidth = (sl.Width - 6) / 2 // Account for gap, padding, and borders
-	
+
 	// Calculate content height
 	// Base reservation: 13 lines (header, help pane, spacing)
 	// Plus 3 lines for search bar
 	sl.contentHeight = sl.Height - 16
-	
+
 	if sl.ShowPreview {
 		sl.contentHeight = sl.contentHeight / 2
 	}
-	
+
 	// Ensure minimum height
 	if sl.contentHeight < 10 {
 		sl.contentHeight = 10
@@ -79,16 +79,16 @@ func (sl *SharedLayout) RenderHelpPane(helpRows [][]string) string {
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(sl.Width - 4).  // Account for left/right padding (2) and borders (2)
-		Padding(0, 1)  // Internal padding for help text
-	
-	helpContent := formatHelpTextRows(helpRows, sl.Width - 8) // -8 for borders and padding
-	
+		Width(sl.Width-4). // Account for left/right padding (2) and borders (2)
+		Padding(0, 1)      // Internal padding for help text
+
+	helpContent := formatHelpTextRows(helpRows, sl.Width-8) // -8 for borders and padding
+
 	// Add padding around the content
 	contentStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	return contentStyle.Render(helpBorderStyle.Render(helpContent))
 }
 
@@ -103,7 +103,7 @@ func (sl *SharedLayout) RenderHeader(heading string, active bool, badge string, 
 			}
 			return "214" // Orange when inactive
 		}()))
-	
+
 	colonStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(func() string {
 			if active {
@@ -111,13 +111,13 @@ func (sl *SharedLayout) RenderHeader(heading string, active bool, badge string, 
 			}
 			return "240" // Gray when inactive
 		}()))
-	
+
 	// Calculate badge width if provided
 	badgeWidth := 0
 	if badge != "" {
 		badgeWidth = lipgloss.Width(badge)
 	}
-	
+
 	// Calculate space for colons
 	colonSpace := availableWidth - len(heading) - badgeWidth - 2 // -2 for spaces
 	if badge != "" {
@@ -126,7 +126,7 @@ func (sl *SharedLayout) RenderHeader(heading string, active bool, badge string, 
 	if colonSpace < 3 {
 		colonSpace = 3
 	}
-	
+
 	// Build header
 	var result strings.Builder
 	result.WriteString(headerStyle.Render(heading))
@@ -136,7 +136,7 @@ func (sl *SharedLayout) RenderHeader(heading string, active bool, badge string, 
 		result.WriteString(" ")
 		result.WriteString(badge)
 	}
-	
+
 	return result.String()
 }
 
@@ -148,11 +148,11 @@ func (sl *SharedLayout) RenderSearchBar(searchBar *SearchBar) string {
 
 // PreviewConfig holds configuration for rendering the preview pane
 type PreviewConfig struct {
-	Content      string
-	Heading      string
-	ActivePane   interface{} // Can be pane or column type
-	PreviewPane  interface{} // The pane being previewed (for determining active state)
-	Viewport     viewport.Model
+	Content     string
+	Heading     string
+	ActivePane  interface{} // Can be pane or column type
+	PreviewPane interface{} // The pane being previewed (for determining active state)
+	Viewport    viewport.Model
 }
 
 // RenderPreviewPane renders the preview pane with border, header, and content
@@ -160,12 +160,12 @@ func (sl *SharedLayout) RenderPreviewPane(config PreviewConfig) string {
 	if !sl.ShowPreview || config.Content == "" {
 		return ""
 	}
-	
+
 	// Calculate token count and create badge
 	tokenCount := utils.EstimateTokens(config.Content)
 	tokenBadgeStyle := GetTokenBadgeStyle(tokenCount)
 	tokenBadge := tokenBadgeStyle.Render(utils.FormatTokenCount(tokenCount))
-	
+
 	// Determine if preview is active
 	isActive := false
 	// Handle both pane type (from MainListView) and column type (from Builder)
@@ -175,7 +175,7 @@ func (sl *SharedLayout) RenderPreviewPane(config PreviewConfig) string {
 	case column:
 		isActive = v == previewColumn
 	}
-	
+
 	// Apply active/inactive style to preview border
 	var previewBorderStyle lipgloss.Style
 	if isActive {
@@ -184,33 +184,33 @@ func (sl *SharedLayout) RenderPreviewPane(config PreviewConfig) string {
 		previewBorderStyle = InactiveBorderStyle
 	}
 	previewBorderStyle = previewBorderStyle.Width(sl.Width - 4) // Account for padding and border
-	
+
 	// Build preview content with header inside
 	var previewContent strings.Builder
-	
+
 	// Calculate available width for header
 	totalWidth := sl.Width - 8 // accounting for border padding and header padding
-	
+
 	// Render header with token badge
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	header := sl.RenderHeader(config.Heading, isActive, tokenBadge, totalWidth)
 	previewContent.WriteString(headerPadding.Render(header))
 	previewContent.WriteString("\n\n")
-	
+
 	// Preprocess and wrap content
 	processedContent := preprocessContent(config.Content)
 	wrappedContent := wordwrap.String(processedContent, config.Viewport.Width)
 	config.Viewport.SetContent(wrappedContent)
-	
+
 	// Add padding to preview viewport content
 	previewViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
 	previewContent.WriteString(previewViewportPadding.Render(config.Viewport.View()))
-	
+
 	// Render the border around the entire preview with padding
 	var result strings.Builder
 	result.WriteString("\n")
@@ -218,7 +218,7 @@ func (sl *SharedLayout) RenderPreviewPane(config PreviewConfig) string {
 		PaddingLeft(1).
 		PaddingRight(1)
 	result.WriteString(previewPaddingStyle.Render(previewBorderStyle.Render(previewContent.String())))
-	
+
 	return result.String()
 }
 
@@ -235,14 +235,14 @@ func (sl *SharedLayout) RenderColumnHeader(config ColumnHeaderConfig) string {
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	// Calculate remaining width for colons
 	remainingWidth := config.ColumnWidth - len(config.Heading) - 5 // -5 for space and padding
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	
-	header := sl.RenderHeader(config.Heading, config.Active, "", config.ColumnWidth - 5)
+
+	header := sl.RenderHeader(config.Heading, config.Active, "", config.ColumnWidth-5)
 	return headerPadding.Render(header)
 }
 
@@ -262,19 +262,18 @@ func (sl *SharedLayout) BuildConfirmationDialog(confirmModel interface{}, messag
 			MarginTop(1).
 			MarginBottom(1)
 	}
-	
+
 	contentStyle := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	// Use type assertion to handle different confirmation models
 	switch cm := confirmModel.(type) {
 	case *ConfirmationModel:
 		if cm.Active() {
-			return "\n" + contentStyle.Render(confirmStyle.Render(cm.ViewWithWidth(sl.Width - 4)))
+			return "\n" + contentStyle.Render(confirmStyle.Render(cm.ViewWithWidth(sl.Width-4)))
 		}
 	}
-	
+
 	return ""
 }
-

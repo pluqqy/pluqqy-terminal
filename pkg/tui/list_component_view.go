@@ -8,21 +8,21 @@ import (
 
 // ComponentViewRenderer handles rendering of the component pane
 type ComponentViewRenderer struct {
-	Width               int
-	Height              int
-	ActivePane          pane
-	FilteredComponents  []componentItem
-	AllComponents       []componentItem
-	ComponentCursor     int
-	SearchQuery         string
-	TableRenderer       *ComponentTableRenderer
+	Width              int
+	Height             int
+	ActivePane         pane
+	FilteredComponents []componentItem
+	AllComponents      []componentItem
+	ComponentCursor    int
+	SearchQuery        string
+	TableRenderer      *ComponentTableRenderer
 }
 
 // NewComponentViewRenderer creates a new component view renderer
 func NewComponentViewRenderer(width, height int) *ComponentViewRenderer {
 	return &ComponentViewRenderer{
-		Width:         width,
-		Height:        height,
+		Width:  width,
+		Height: height,
 		// TableRenderer will be set by the caller if persistent scrolling is needed
 	}
 }
@@ -30,36 +30,36 @@ func NewComponentViewRenderer(width, height int) *ComponentViewRenderer {
 // Render generates the complete component pane view
 func (r *ComponentViewRenderer) Render() string {
 	var content strings.Builder
-	
+
 	// Calculate column width
 	columnWidth := (r.Width - 6) / 2 // Account for gap, padding, and ensure border visibility
-	
+
 	// Create table renderer if not provided (for backward compatibility)
 	if r.TableRenderer == nil {
 		r.TableRenderer = NewComponentTableRenderer(columnWidth, r.Height-6, true)
 	}
-	
+
 	// Update table renderer state only if not already updated by caller
 	r.TableRenderer.SetSize(columnWidth, r.Height)
-	
+
 	// Handle empty state with search context
 	if len(r.FilteredComponents) == 0 && len(r.AllComponents) > 0 && r.SearchQuery != "" {
 		// Override empty message for search results
 		r.TableRenderer.Components = nil // Force empty state
 	}
-	
+
 	// Create padding style for headers
 	headerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	// Create heading with colons spanning the width
 	heading := "COMPONENTS"
 	remainingWidth := columnWidth - len(heading) - 5 // -5 for space and padding (2 left + 2 right + 1 space)
 	if remainingWidth < 0 {
 		remainingWidth = 0
 	}
-	
+
 	// Dynamic header and colon styles based on active pane
 	headerStyle := lipgloss.NewStyle().
 		Bold(true).
@@ -76,29 +76,28 @@ func (r *ComponentViewRenderer) Render() string {
 			}
 			return "240" // Gray when inactive
 		}()))
-	
+
 	content.WriteString(headerPadding.Render(headerStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
 	content.WriteString("\n\n")
-	
+
 	// Render table header
 	content.WriteString(headerPadding.Render(r.TableRenderer.RenderHeader()))
 	content.WriteString("\n\n")
-	
+
 	// Add padding to table content
 	viewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
 	content.WriteString(viewportPadding.Render(r.TableRenderer.RenderTable()))
-	
+
 	// Apply border
 	borderStyle := InactiveBorderStyle
 	if r.ActivePane == componentsPane {
 		borderStyle = ActiveBorderStyle
 	}
-	
+
 	return borderStyle.
 		Width(columnWidth).
 		Height(r.Height).
 		Render(content.String())
 }
-

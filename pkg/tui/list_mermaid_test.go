@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
@@ -17,7 +17,7 @@ func TestMermaidState(t *testing.T) {
 		check    func(*testing.T, *MermaidState)
 	}{
 		{
-			name: "initial state inactive",
+			name:  "initial state inactive",
 			setup: func(ms *MermaidState) {},
 			check: func(t *testing.T, ms *MermaidState) {
 				if ms.Active {
@@ -76,7 +76,7 @@ func TestMermaidState(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ms := NewMermaidState()
@@ -88,42 +88,42 @@ func TestMermaidState(t *testing.T) {
 
 func TestMermaidStateHandleInput(t *testing.T) {
 	tests := []struct {
-		name       string
-		active     bool
-		generating bool
-		key        string
+		name        string
+		active      bool
+		generating  bool
+		key         string
 		wantHandled bool
 	}{
 		{
-			name:       "inactive state ignores input",
-			active:     false,
-			generating: false,
-			key:        "esc",
+			name:        "inactive state ignores input",
+			active:      false,
+			generating:  false,
+			key:         "esc",
 			wantHandled: false,
 		},
 		{
-			name:       "active non-generating ignores escape",
-			active:     true,
-			generating: false,
-			key:        "esc",
+			name:        "active non-generating ignores escape",
+			active:      true,
+			generating:  false,
+			key:         "esc",
 			wantHandled: false,
 		},
 		{
-			name:       "active generating handles escape",
-			active:     true,
-			generating: true,
-			key:        "esc",
+			name:        "active generating handles escape",
+			active:      true,
+			generating:  true,
+			key:         "esc",
 			wantHandled: true,
 		},
 		{
-			name:       "active generating ignores other keys",
-			active:     true,
-			generating: true,
-			key:        "a",
+			name:        "active generating ignores other keys",
+			active:      true,
+			generating:  true,
+			key:         "a",
 			wantHandled: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ms := NewMermaidState()
@@ -131,12 +131,12 @@ func TestMermaidStateHandleInput(t *testing.T) {
 			if tt.generating {
 				ms.StartGeneration()
 			}
-			
+
 			handled, _ := ms.HandleInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(tt.key)})
 			if handled != tt.wantHandled {
 				t.Errorf("HandleInput() handled = %v, want %v", handled, tt.wantHandled)
 			}
-			
+
 			// If escape was handled, generation should be stopped
 			if tt.wantHandled && tt.key == "esc" {
 				if ms.IsGenerating() {
@@ -149,18 +149,18 @@ func TestMermaidStateHandleInput(t *testing.T) {
 
 func TestGroupComponentsByType(t *testing.T) {
 	tests := []struct {
-		name           string
-		components     []models.ComponentRef
+		name             string
+		components       []models.ComponentRef
 		expectedContexts int
 		expectedPrompts  int
 		expectedRules    int
 	}{
 		{
-			name: "empty components",
-			components: []models.ComponentRef{},
+			name:             "empty components",
+			components:       []models.ComponentRef{},
 			expectedContexts: 0,
-			expectedPrompts: 0,
-			expectedRules: 0,
+			expectedPrompts:  0,
+			expectedRules:    0,
 		},
 		{
 			name: "mixed component types",
@@ -171,8 +171,8 @@ func TestGroupComponentsByType(t *testing.T) {
 				{Type: "contexts", Path: "ctx2.md"},
 			},
 			expectedContexts: 2,
-			expectedPrompts: 1,
-			expectedRules: 1,
+			expectedPrompts:  1,
+			expectedRules:    1,
 		},
 		{
 			name: "single type only",
@@ -182,8 +182,8 @@ func TestGroupComponentsByType(t *testing.T) {
 				{Type: "prompts", Path: "p3.md"},
 			},
 			expectedContexts: 0,
-			expectedPrompts: 3,
-			expectedRules: 0,
+			expectedPrompts:  3,
+			expectedRules:    0,
 		},
 		{
 			name: "unknown type ignored",
@@ -193,16 +193,16 @@ func TestGroupComponentsByType(t *testing.T) {
 				{Type: "prompts", Path: "p1.md"},
 			},
 			expectedContexts: 1,
-			expectedPrompts: 1,
-			expectedRules: 0,
+			expectedPrompts:  1,
+			expectedRules:    0,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mo := &MermaidOperator{state: NewMermaidState()}
 			contexts, prompts, rules := mo.groupComponentsByType(tt.components)
-			
+
 			if len(contexts) != tt.expectedContexts {
 				t.Errorf("Expected %d contexts, got %d", tt.expectedContexts, len(contexts))
 			}
@@ -243,7 +243,7 @@ func TestExtractComponentName(t *testing.T) {
 			expected: "my.component.test",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := extractComponentName(tt.path)
@@ -281,7 +281,7 @@ func TestSanitizeFilename(t *testing.T) {
 			expected: "test---------name",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := sanitizeFilename(tt.input)
@@ -314,7 +314,7 @@ func TestEstimateTokens(t *testing.T) {
 			expected: 25, // 100 / 4 = 25
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := estimateTokens(tt.content)
@@ -358,8 +358,8 @@ func TestGenerateMermaidGraph(t *testing.T) {
 				"FULL PIPELINE",
 				"3 Components",
 				"subgraph CONTEXTS", // Based on default settings "## CONTEXTS"
-				"subgraph PROMPTS", // Based on default settings "## PROMPTS"
-				"subgraph RULES", // Based on default settings "## RULES"
+				"subgraph PROMPTS",  // Based on default settings "## PROMPTS"
+				"subgraph RULES",    // Based on default settings "## RULES"
 				"classDef pipeline",
 				"classDef context",
 				"classDef prompt",
@@ -385,12 +385,12 @@ func TestGenerateMermaidGraph(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			mo := &MermaidOperator{state: NewMermaidState()}
 			result := mo.generateMermaidGraph(tt.pipeline)
-			
+
 			for _, check := range tt.checks {
 				if !strings.Contains(result, check) {
 					t.Errorf("Expected output to contain '%s'", check)
@@ -399,7 +399,6 @@ func TestGenerateMermaidGraph(t *testing.T) {
 		})
 	}
 }
-
 
 // Benchmark tests
 func BenchmarkGenerateMermaidGraph(b *testing.B) {
@@ -414,9 +413,9 @@ func BenchmarkGenerateMermaidGraph(b *testing.B) {
 			{Type: "rules", Path: "r1.md"},
 		},
 	}
-	
+
 	mo := &MermaidOperator{state: NewMermaidState()}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = mo.generateMermaidGraph(pipeline)
@@ -425,7 +424,7 @@ func BenchmarkGenerateMermaidGraph(b *testing.B) {
 
 func BenchmarkSanitizeFilename(b *testing.B) {
 	testName := "test/pipeline:with*special?chars"
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = sanitizeFilename(testName)
@@ -434,7 +433,7 @@ func BenchmarkSanitizeFilename(b *testing.B) {
 
 func BenchmarkEstimateTokens(b *testing.B) {
 	content := strings.Repeat("This is a test content for token estimation. ", 100)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = estimateTokens(content)

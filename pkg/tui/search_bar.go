@@ -68,13 +68,13 @@ func (s *SearchBar) View() string {
 	if s.isActive {
 		borderColor = "170" // Active purple
 	}
-	
+
 	searchStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color(borderColor)).
-		Width(s.width - 4). // Account for outer padding
+		Width(s.width-4). // Account for outer padding
 		Padding(0, 1)
-	
+
 	// Create search icon with dynamic styling based on active state
 	var searchIconStyle lipgloss.Style
 	var searchIcon string
@@ -93,15 +93,15 @@ func (s *SearchBar) View() string {
 			Bold(true)
 		searchIcon = searchIconStyle.Render(" ⌕ ") // 1 space on either side to match active state width
 	}
-	
+
 	// Add spacing after icon before search input
 	searchContent := lipgloss.JoinHorizontal(lipgloss.Center, searchIcon, " ", s.input.View())
-	
+
 	// Apply outer padding
 	outerPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	
+
 	return outerPadding.Render(searchStyle.Render(searchContent))
 }
 

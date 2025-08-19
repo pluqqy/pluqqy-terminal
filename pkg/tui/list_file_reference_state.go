@@ -18,23 +18,23 @@ type FileInfo struct {
 type FileReferenceState struct {
 	// Basic state
 	Active bool
-	
+
 	// Navigation state
 	CurrentPath   string
 	SelectedIndex int
 	ScrollOffset  int
-	
+
 	// File data
 	FileList     []FileInfo
 	FilteredList []FileInfo
-	
+
 	// Search/filter state
 	FilterPattern string
 	ShowHidden    bool
-	
+
 	// Selection state
 	SelectedFile string
-	
+
 	// View configuration
 	MaxVisible int
 }
@@ -151,13 +151,13 @@ func (f *FileReferenceState) ToggleHidden() {
 // applyFilter applies the current filter to the file list
 func (f *FileReferenceState) applyFilter() {
 	f.FilteredList = []FileInfo{}
-	
+
 	for _, file := range f.FileList {
 		// Skip hidden files if not showing them
 		if !f.ShowHidden && strings.HasPrefix(file.Name, ".") {
 			continue
 		}
-		
+
 		// Apply filter pattern if set
 		if f.FilterPattern != "" {
 			pattern := strings.ToLower(f.FilterPattern)
@@ -166,7 +166,7 @@ func (f *FileReferenceState) applyFilter() {
 				continue
 			}
 		}
-		
+
 		f.FilteredList = append(f.FilteredList, file)
 	}
 }
@@ -177,7 +177,7 @@ func (f *FileReferenceState) adjustScroll() {
 	if f.SelectedIndex < f.ScrollOffset {
 		f.ScrollOffset = f.SelectedIndex
 	}
-	
+
 	// Scroll down if selection is below visible area
 	if f.SelectedIndex >= f.ScrollOffset+f.MaxVisible {
 		f.ScrollOffset = f.SelectedIndex - f.MaxVisible + 1
@@ -189,14 +189,14 @@ func (f *FileReferenceState) GetVisibleFiles() []FileInfo {
 	if len(f.FilteredList) == 0 {
 		return []FileInfo{}
 	}
-	
+
 	start := f.ScrollOffset
 	end := f.ScrollOffset + f.MaxVisible
-	
+
 	if end > len(f.FilteredList) {
 		end = len(f.FilteredList)
 	}
-	
+
 	return f.FilteredList[start:end]
 }
 
@@ -210,10 +210,10 @@ func (f *FileReferenceState) GetBreadcrumbs() []string {
 	if f.CurrentPath == "" || f.CurrentPath == "." {
 		return []string{"Current Directory"}
 	}
-	
+
 	clean := filepath.Clean(f.CurrentPath)
 	parts := strings.Split(clean, string(filepath.Separator))
-	
+
 	// Filter out empty parts
 	var breadcrumbs []string
 	for _, part := range parts {
@@ -221,11 +221,11 @@ func (f *FileReferenceState) GetBreadcrumbs() []string {
 			breadcrumbs = append(breadcrumbs, part)
 		}
 	}
-	
+
 	if len(breadcrumbs) == 0 {
 		return []string{"Root"}
 	}
-	
+
 	return breadcrumbs
 }
 

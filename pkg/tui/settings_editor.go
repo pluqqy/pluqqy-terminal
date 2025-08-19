@@ -730,7 +730,6 @@ type settingsSavedMsg struct {
 	switchMsg SwitchViewMsg
 }
 
-
 func (m *SettingsEditorModel) SetSize(width, height int) {
 	m.width = width
 	m.height = height

@@ -9,19 +9,19 @@ import (
 
 func TestPipelineBuilderModel_RenameInitialization(t *testing.T) {
 	m := NewPipelineBuilderModel()
-	
+
 	if m.renameState == nil {
 		t.Error("renameState should be initialized")
 	}
-	
+
 	if m.renameRenderer == nil {
 		t.Error("renameRenderer should be initialized")
 	}
-	
+
 	if m.renameOperator == nil {
 		t.Error("renameOperator should be initialized")
 	}
-	
+
 	// Verify rename is not active initially
 	if m.renameState.IsActive() {
 		t.Error("rename should not be active initially")
@@ -30,9 +30,9 @@ func TestPipelineBuilderModel_RenameInitialization(t *testing.T) {
 
 func TestPipelineBuilderModel_RenameKeyHandler(t *testing.T) {
 	tests := []struct {
-		name            string
-		setup           func() *PipelineBuilderModel
-		activeColumn    column
+		name               string
+		setup              func() *PipelineBuilderModel
+		activeColumn       column
 		expectRenameActive bool
 	}{
 		{
@@ -96,19 +96,19 @@ func TestPipelineBuilderModel_RenameKeyHandler(t *testing.T) {
 			expectRenameActive: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
 			m.activeColumn = tt.activeColumn
-			
+
 			// Send 'R' key
 			msg := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'R'}}
 			newModel, _ := m.Update(msg)
 			updatedModel := newModel.(*PipelineBuilderModel)
-			
+
 			if updatedModel.renameState.IsActive() != tt.expectRenameActive {
-				t.Errorf("rename active = %v, want %v", 
+				t.Errorf("rename active = %v, want %v",
 					updatedModel.renameState.IsActive(), tt.expectRenameActive)
 			}
 		})
@@ -153,14 +153,14 @@ func TestPipelineBuilderModel_RenameStateHandling(t *testing.T) {
 			wantHandled: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Update with input
 			_, cmd := m.Update(tt.input)
-			
+
 			// Check if the input was handled (cmd returned or state changed)
 			if tt.wantHandled {
 				// When rename handles input, it should either return a command
@@ -177,10 +177,10 @@ func TestPipelineBuilderModel_RenameStateHandling(t *testing.T) {
 
 func TestPipelineBuilderModel_RenameMessages(t *testing.T) {
 	tests := []struct {
-		name          string
-		msg           tea.Msg
-		setup         func() *PipelineBuilderModel
-		checkState    func(*testing.T, *PipelineBuilderModel)
+		name       string
+		msg        tea.Msg
+		setup      func() *PipelineBuilderModel
+		checkState func(*testing.T, *PipelineBuilderModel)
 	}{
 		{
 			name: "RenameSuccessMsg resets state",
@@ -240,21 +240,21 @@ func TestPipelineBuilderModel_RenameMessages(t *testing.T) {
 					t.Error("validation error should be set")
 				}
 				if !contains(m.renameState.ValidationError, "rename failed") {
-					t.Errorf("validation error = %q, want to contain %q", 
+					t.Errorf("validation error = %q, want to contain %q",
 						m.renameState.ValidationError, "rename failed")
 				}
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Process the message
 			newModel, _ := m.Update(tt.msg)
 			updatedModel := newModel.(*PipelineBuilderModel)
-			
+
 			// Check the resulting state
 			tt.checkState(t, updatedModel)
 		})
@@ -263,10 +263,10 @@ func TestPipelineBuilderModel_RenameMessages(t *testing.T) {
 
 func TestPipelineBuilderModel_RenameView(t *testing.T) {
 	tests := []struct {
-		name              string
-		setup             func() *PipelineBuilderModel
-		wantRenameDialog  bool
-		wantContains      []string
+		name             string
+		setup            func() *PipelineBuilderModel
+		wantRenameDialog bool
+		wantContains     []string
 	}{
 		{
 			name: "shows rename dialog when active",
@@ -297,13 +297,13 @@ func TestPipelineBuilderModel_RenameView(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			view := m.View()
-			
+
 			for _, want := range tt.wantContains {
 				if !contains(view, want) {
 					t.Errorf("view missing %q\nGot:\n%s", want, view)
@@ -315,43 +315,43 @@ func TestPipelineBuilderModel_RenameView(t *testing.T) {
 
 func TestPipelineBuilderModel_RenameWindowResize(t *testing.T) {
 	m := makeTestBuilderModel()
-	
+
 	// Send window resize message
 	newWidth := 120
 	newHeight := 40
 	msg := tea.WindowSizeMsg{Width: newWidth, Height: newHeight}
-	
+
 	newModel, _ := m.Update(msg)
 	updatedModel := newModel.(*PipelineBuilderModel)
-	
+
 	// Check that rename renderer was updated
 	if updatedModel.renameRenderer.Width != newWidth {
-		t.Errorf("renameRenderer.Width = %d, want %d", 
+		t.Errorf("renameRenderer.Width = %d, want %d",
 			updatedModel.renameRenderer.Width, newWidth)
 	}
-	
+
 	if updatedModel.renameRenderer.Height != newHeight {
-		t.Errorf("renameRenderer.Height = %d, want %d", 
+		t.Errorf("renameRenderer.Height = %d, want %d",
 			updatedModel.renameRenderer.Height, newHeight)
 	}
 }
 
 func TestPipelineBuilderModel_SetSize(t *testing.T) {
 	m := makeTestBuilderModel()
-	
+
 	newWidth := 150
 	newHeight := 50
-	
+
 	m.SetSize(newWidth, newHeight)
-	
+
 	// Check that rename renderer was updated
 	if m.renameRenderer.Width != newWidth {
-		t.Errorf("renameRenderer.Width = %d, want %d", 
+		t.Errorf("renameRenderer.Width = %d, want %d",
 			m.renameRenderer.Width, newWidth)
 	}
-	
+
 	if m.renameRenderer.Height != newHeight {
-		t.Errorf("renameRenderer.Height = %d, want %d", 
+		t.Errorf("renameRenderer.Height = %d, want %d",
 			m.renameRenderer.Height, newHeight)
 	}
 }

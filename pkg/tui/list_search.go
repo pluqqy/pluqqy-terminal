@@ -2,7 +2,7 @@ package tui
 
 import (
 	"sort"
-	
+
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
@@ -57,15 +57,15 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 		// No search results, return empty lists
 		return []pipelineItem{}, []componentItem{}
 	}
-	
+
 	// Build filtered lists from search results
 	filteredPipelines := []pipelineItem{}
 	filteredComponents := []componentItem{}
-	
+
 	// Use maps to track what's already added
 	addedPipelines := make(map[string]bool)
 	addedComponents := make(map[string]bool)
-	
+
 	for _, result := range results {
 		if result.Item.Type == search.ItemTypePipeline {
 			// Match by path for accuracy (handles archived items correctly)
@@ -91,7 +91,7 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 			}
 		}
 	}
-	
+
 	// Sort filtered components by type to ensure proper grouping
 	sort.Slice(filteredComponents, func(i, j int) bool {
 		// Define type order
@@ -100,7 +100,7 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 			models.ComponentTypePrompt:  2,
 			models.ComponentTypeRules:   3,
 		}
-		
+
 		// Get order values, defaulting to 4 for unknown types
 		orderI, okI := typeOrder[filteredComponents[i].compType]
 		if !okI {
@@ -110,15 +110,15 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 		if !okJ {
 			orderJ = 4
 		}
-		
+
 		// Sort by type order first
 		if orderI != orderJ {
 			return orderI < orderJ
 		}
-		
+
 		// Within same type, sort by name
 		return filteredComponents[i].name < filteredComponents[j].name
 	})
-	
+
 	return filteredPipelines, filteredComponents
 }

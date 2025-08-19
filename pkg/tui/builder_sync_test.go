@@ -3,9 +3,9 @@ package tui
 import (
 	"testing"
 	"time"
-	
-	tea "github.com/charmbracelet/bubbletea"
+
 	"github.com/charmbracelet/bubbles/viewport"
+	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
@@ -147,7 +147,7 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 				}
 			} else {
 				if m.previewViewport.YOffset != initialOffset {
-					t.Errorf("YOffset changed when it shouldn't: got %d, initial %d", 
+					t.Errorf("YOffset changed when it shouldn't: got %d, initial %d",
 						m.previewViewport.YOffset, initialOffset)
 				}
 			}
@@ -271,7 +271,7 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			
+
 			// Process key sequence
 			for _, key := range tt.keySequence {
 				msg := tea.KeyMsg{Type: tea.KeyRunes}
@@ -289,14 +289,14 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 				case "k":
 					msg.Runes = []rune{'k'}
 				}
-				
+
 				// Update returns (Model, Cmd) but we only need to update our model
 				updatedModel, _ := m.Update(msg)
 				if pbm, ok := updatedModel.(*PipelineBuilderModel); ok {
 					m = pbm
 				}
 			}
-			
+
 			// Check cursor position
 			if m.activeColumn == rightColumn {
 				if m.rightCursor != tt.wantCursor {
@@ -367,11 +367,11 @@ func TestPipelineBuilderModel_PreviewScrollBoundaries(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
 			m.syncPreviewToSelectedComponent()
-			
+
 			if !tt.wantClipped && m.previewViewport.YOffset != tt.wantYOffset {
 				t.Errorf("YOffset = %d, want %d", m.previewViewport.YOffset, tt.wantYOffset)
 			}
-			
+
 			// Verify offset is within valid bounds
 			if m.previewViewport.YOffset < 0 {
 				t.Error("YOffset is negative")
@@ -439,10 +439,10 @@ Rule content`,
 			m.previewContent = tt.previewContent
 			m.previewViewport = viewport.New(80, 10)
 			m.previewViewport.SetContent(m.previewContent)
-			
+
 			// The sync function should handle finding the component
 			m.syncPreviewToSelectedComponent()
-			
+
 			// Just verify no panic and basic state consistency
 			if m.previewViewport.YOffset < 0 {
 				t.Error("YOffset became negative after sync")
@@ -463,7 +463,7 @@ func TestPipelineBuilderModel_NavigationStateConsistency(t *testing.T) {
 		{Path: "../components/test3.md", Type: "rule", Order: 2},
 	}
 	m.previewViewport = viewport.New(80, 10)
-	
+
 	// Test rapid navigation
 	keys := []tea.KeyMsg{
 		{Type: tea.KeyDown},
@@ -473,18 +473,18 @@ func TestPipelineBuilderModel_NavigationStateConsistency(t *testing.T) {
 		{Type: tea.KeyEnd},
 		{Type: tea.KeyUp},
 	}
-	
+
 	for i, key := range keys {
 		updatedModel, _ := m.Update(key)
 		if pbm, ok := updatedModel.(*PipelineBuilderModel); ok {
 			m = pbm
 		}
-		
+
 		// Verify cursor stays in bounds
 		if m.rightCursor < 0 || m.rightCursor >= len(m.selectedComponents) {
 			t.Errorf("After key %d: rightCursor out of bounds: %d", i, m.rightCursor)
 		}
-		
+
 		// Verify viewport offset is valid
 		if m.previewViewport.YOffset < 0 {
 			t.Errorf("After key %d: YOffset is negative: %d", i, m.previewViewport.YOffset)
@@ -498,7 +498,7 @@ func BenchmarkSyncPreviewToSelectedComponent(b *testing.B) {
 	m.showPreview = true
 	m.activeColumn = rightColumn
 	m.rightCursor = 5
-	
+
 	// Create many components
 	for i := 0; i < 20; i++ {
 		m.selectedComponents = append(m.selectedComponents, models.ComponentRef{
@@ -507,7 +507,7 @@ func BenchmarkSyncPreviewToSelectedComponent(b *testing.B) {
 			Order: i,
 		})
 	}
-	
+
 	// Create large preview content
 	content := "# Pipeline\n\n"
 	for i := 0; i < 1000; i++ {
@@ -516,7 +516,7 @@ func BenchmarkSyncPreviewToSelectedComponent(b *testing.B) {
 	m.previewContent = content
 	m.previewViewport = viewport.New(80, 20)
 	m.previewViewport.SetContent(m.previewContent)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.syncPreviewToSelectedComponent()

@@ -10,23 +10,23 @@ import (
 
 func TestNewTagReloader(t *testing.T) {
 	tr := NewTagReloader()
-	
+
 	if tr == nil {
 		t.Fatal("NewTagReloader returned nil")
 	}
-	
+
 	if tr.Active {
 		t.Error("New tag reloader should not be active")
 	}
-	
+
 	if tr.IsReloading {
 		t.Error("New tag reloader should not be reloading")
 	}
-	
+
 	if tr.TagsFound == nil {
 		t.Error("TagsFound map should be initialized")
 	}
-	
+
 	if len(tr.TagsFound) != 0 {
 		t.Error("TagsFound should be empty initially")
 	}
@@ -34,25 +34,25 @@ func TestNewTagReloader(t *testing.T) {
 
 func TestTagReloader_Start(t *testing.T) {
 	tr := NewTagReloader()
-	
+
 	cmd := tr.Start()
-	
+
 	if !tr.Active {
 		t.Error("Tag reloader should be active after Start")
 	}
-	
+
 	if !tr.IsReloading {
 		t.Error("Tag reloader should be reloading after Start")
 	}
-	
+
 	if tr.ReloadResult != nil {
 		t.Error("ReloadResult should be nil when starting")
 	}
-	
+
 	if tr.LastError != nil {
 		t.Error("LastError should be nil when starting")
 	}
-	
+
 	if cmd == nil {
 		t.Error("Start should return a command")
 	}
@@ -79,8 +79,8 @@ func TestTagReloader_HandleMessage(t *testing.T) {
 				Result: &TagReloadResult{
 					ComponentsScanned: 10,
 					PipelinesScanned:  5,
-					TotalTags:        15,
-					NewTags:          []string{"new-tag-1", "new-tag-2"},
+					TotalTags:         15,
+					NewTags:           []string{"new-tag-1", "new-tag-2"},
 				},
 				Error: nil,
 			},
@@ -149,20 +149,20 @@ func TestTagReloader_HandleMessage(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := tt.setup()
 			handled, cmd := tr.HandleMessage(tt.msg)
-			
+
 			if handled != tt.wantHandled {
 				t.Errorf("handled = %v, want %v", handled, tt.wantHandled)
 			}
-			
+
 			if (cmd != nil) != tt.wantCmd {
 				t.Errorf("cmd returned = %v, want cmd = %v", cmd != nil, tt.wantCmd)
 			}
-			
+
 			if tt.checkState != nil {
 				tt.checkState(t, tr)
 			}
@@ -174,13 +174,13 @@ func TestTagReloader_HandleComplete(t *testing.T) {
 	tr := NewTagReloader()
 	tr.Active = true
 	tr.IsReloading = true
-	
+
 	tr.HandleComplete()
-	
+
 	if tr.Active {
 		t.Error("Should not be active after HandleComplete")
 	}
-	
+
 	if tr.IsReloading {
 		t.Error("Should not be reloading after HandleComplete")
 	}
@@ -195,33 +195,33 @@ func TestTagReloader_Reset(t *testing.T) {
 	tr.TagsFound["test-tag"] = 3
 	tr.ReloadResult = &TagReloadResult{TotalTags: 15}
 	tr.LastError = errors.New("test error")
-	
+
 	tr.Reset()
-	
+
 	if tr.Active {
 		t.Error("Should not be active after Reset")
 	}
-	
+
 	if tr.IsReloading {
 		t.Error("Should not be reloading after Reset")
 	}
-	
+
 	if tr.ComponentsProcessed != 0 {
 		t.Error("ComponentsProcessed should be 0 after Reset")
 	}
-	
+
 	if tr.PipelinesProcessed != 0 {
 		t.Error("PipelinesProcessed should be 0 after Reset")
 	}
-	
+
 	if len(tr.TagsFound) != 0 {
 		t.Error("TagsFound should be empty after Reset")
 	}
-	
+
 	if tr.ReloadResult != nil {
 		t.Error("ReloadResult should be nil after Reset")
 	}
-	
+
 	if tr.LastError != nil {
 		t.Error("LastError should be nil after Reset")
 	}
@@ -229,9 +229,9 @@ func TestTagReloader_Reset(t *testing.T) {
 
 func TestTagReloader_GetStatus(t *testing.T) {
 	tests := []struct {
-		name      string
-		setup     func() *TagReloader
-		wantEmpty bool
+		name         string
+		setup        func() *TagReloader
+		wantEmpty    bool
 		wantContains string
 	}{
 		{
@@ -287,12 +287,12 @@ func TestTagReloader_GetStatus(t *testing.T) {
 			wantContains: "8 total tags",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tr := tt.setup()
 			status := tr.GetStatus()
-			
+
 			if tt.wantEmpty {
 				if status != "" {
 					t.Errorf("Expected empty status, got: %s", status)
@@ -308,13 +308,13 @@ func TestTagReloader_GetStatus(t *testing.T) {
 
 func TestTagReloader_IsActive(t *testing.T) {
 	tr := NewTagReloader()
-	
+
 	if tr.IsActive() {
 		t.Error("New reloader should not be active")
 	}
-	
+
 	tr.Active = true
-	
+
 	if !tr.IsActive() {
 		t.Error("Reloader should be active when Active is true")
 	}
@@ -322,15 +322,15 @@ func TestTagReloader_IsActive(t *testing.T) {
 
 func TestTagReloadRenderer_NewTagReloadRenderer(t *testing.T) {
 	renderer := NewTagReloadRenderer(100, 50)
-	
+
 	if renderer == nil {
 		t.Fatal("NewTagReloadRenderer returned nil")
 	}
-	
+
 	if renderer.Width != 100 {
 		t.Errorf("Width = %d, want 100", renderer.Width)
 	}
-	
+
 	if renderer.Height != 50 {
 		t.Errorf("Height = %d, want 50", renderer.Height)
 	}
@@ -338,13 +338,13 @@ func TestTagReloadRenderer_NewTagReloadRenderer(t *testing.T) {
 
 func TestTagReloadRenderer_SetSize(t *testing.T) {
 	renderer := NewTagReloadRenderer(100, 50)
-	
+
 	renderer.SetSize(200, 75)
-	
+
 	if renderer.Width != 200 {
 		t.Errorf("Width = %d, want 200", renderer.Width)
 	}
-	
+
 	if renderer.Height != 75 {
 		t.Errorf("Height = %d, want 75", renderer.Height)
 	}
@@ -392,8 +392,8 @@ func TestTagReloadRenderer_RenderStatus(t *testing.T) {
 				tr.ReloadResult = &TagReloadResult{
 					ComponentsScanned: 15,
 					PipelinesScanned:  8,
-					TotalTags:        23,
-					NewTags:          []string{"api", "database"},
+					TotalTags:         23,
+					NewTags:           []string{"api", "database"},
 				}
 				return tr
 			},
@@ -415,8 +415,8 @@ func TestTagReloadRenderer_RenderStatus(t *testing.T) {
 				tr.ReloadResult = &TagReloadResult{
 					ComponentsScanned: 10,
 					PipelinesScanned:  5,
-					TotalTags:        15,
-					FailedFiles:      []string{"bad1.yaml", "bad2.yaml"},
+					TotalTags:         15,
+					FailedFiles:       []string{"bad1.yaml", "bad2.yaml"},
 				}
 				return tr
 			},
@@ -425,13 +425,13 @@ func TestTagReloadRenderer_RenderStatus(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewTagReloadRenderer(100, 50)
 			tr := tt.setup()
 			output := renderer.RenderStatus(tr)
-			
+
 			if tt.wantEmpty {
 				if output != "" {
 					t.Errorf("Expected empty output, got: %s", output)
@@ -495,13 +495,13 @@ func TestTagReloadRenderer_RenderInlineStatus(t *testing.T) {
 			wantContains: "1 new tags found",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			renderer := NewTagReloadRenderer(100, 50)
 			tr := tt.setup()
 			output := renderer.RenderInlineStatus(tr)
-			
+
 			if tt.wantEmpty {
 				if output != "" {
 					t.Errorf("Expected empty output, got: %s", output)

@@ -47,13 +47,13 @@ func (po *PipelineOperator) SetPipeline(pipelinePath string) tea.Cmd {
 		if settings == nil {
 			settings = models.DefaultSettings()
 		}
-		
+
 		// Write to configured output file
 		outputPath := pipeline.OutputPath
 		if outputPath == "" {
 			outputPath = filepath.Join(settings.Output.ExportPath, settings.Output.DefaultFilename)
 		}
-		
+
 		// Ensure the directory exists
 		dir := filepath.Dir(outputPath)
 		if dir != "" && dir != "." {
@@ -61,7 +61,7 @@ func (po *PipelineOperator) SetPipeline(pipelinePath string) tea.Cmd {
 				return StatusMsg(fmt.Sprintf("Failed to create output directory '%s': %v", dir, err))
 			}
 		}
-		
+
 		err = composer.WritePLUQQYFile(output, outputPath)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to write output file '%s': %v", outputPath, err))
@@ -79,17 +79,17 @@ func (po *PipelineOperator) DeletePipeline(pipelinePath string, pipelineTags []s
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to delete pipeline '%s': %v", pipelinePath, err))
 		}
-		
+
 		// Reload the pipeline list
 		reloadFunc()
-		
+
 		// Start async tag cleanup if there were tags
 		if len(pipelineTags) > 0 {
 			go func() {
 				tags.CleanupOrphanedTags(pipelineTags)
 			}()
 		}
-		
+
 		// Extract pipeline name from path
 		pipelineName := strings.TrimSuffix(filepath.Base(pipelinePath), ".yaml")
 		return StatusMsg(fmt.Sprintf("✓ Deleted pipeline: %s", pipelineName))
@@ -104,10 +104,10 @@ func (po *PipelineOperator) ArchivePipeline(pipelinePath string, reloadFunc func
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to archive pipeline '%s': %v", pipelinePath, err))
 		}
-		
+
 		// Reload the pipeline list
 		reloadFunc()
-		
+
 		// Extract pipeline name from path
 		pipelineName := strings.TrimSuffix(filepath.Base(pipelinePath), ".yaml")
 		return StatusMsg(fmt.Sprintf("✓ Archived pipeline: %s", pipelineName))
@@ -124,7 +124,7 @@ func (po *PipelineOperator) OpenInEditor(path string, reloadFunc func()) tea.Cmd
 
 		// Construct full path
 		fullPath := filepath.Join(files.PluqqyDir, path)
-		
+
 		// Create command with proper argument parsing for editors with flags
 		cmd := createEditorCommand(editor, fullPath)
 		cmd.Stdin = os.Stdin
@@ -201,17 +201,17 @@ func (po *PipelineOperator) DeleteComponent(comp componentItem, reloadFunc func(
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to delete %s '%s': %v", comp.compType, comp.name, err))
 		}
-		
+
 		// Reload the component list
 		reloadFunc()
-		
+
 		// Start async tag cleanup if there were tags
 		if len(comp.tags) > 0 {
 			go func() {
 				tags.CleanupOrphanedTags(comp.tags)
 			}()
 		}
-		
+
 		return StatusMsg(fmt.Sprintf("✓ Deleted %s: %s", comp.compType, comp.name))
 	}
 }
@@ -224,10 +224,10 @@ func (po *PipelineOperator) ArchiveComponent(comp componentItem, reloadFunc func
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to archive %s '%s': %v", comp.compType, comp.name, err))
 		}
-		
+
 		// Reload the component list
 		reloadFunc()
-		
+
 		return StatusMsg(fmt.Sprintf("✓ Archived %s: %s", comp.compType, comp.name))
 	}
 }
@@ -240,13 +240,13 @@ func (po *PipelineOperator) UnarchivePipeline(pipelinePath string, reloadFunc fu
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to unarchive pipeline '%s': %v", pipelinePath, err))
 		}
-		
+
 		// Reload the pipeline list
 		reloadFunc()
-		
+
 		// Extract pipeline name from path
 		pipelineName := strings.TrimSuffix(filepath.Base(pipelinePath), ".yaml")
-		
+
 		return StatusMsg(fmt.Sprintf("✓ Unarchived pipeline: %s", pipelineName))
 	}
 }
@@ -259,10 +259,10 @@ func (po *PipelineOperator) UnarchiveComponent(comp componentItem, reloadFunc fu
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to unarchive %s '%s': %v", comp.compType, comp.name, err))
 		}
-		
+
 		// Reload the component list
 		reloadFunc()
-		
+
 		return StatusMsg(fmt.Sprintf("✓ Unarchived %s: %s", comp.compType, comp.name))
 	}
 }

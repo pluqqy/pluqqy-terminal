@@ -1,9 +1,9 @@
 package tui
 
 import (
-	"testing"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"testing"
 )
 
 func TestBuilderClipboardYank(t *testing.T) {
@@ -47,7 +47,7 @@ func TestBuilderClipboardYank(t *testing.T) {
 			setup: func() *PipelineBuilderModel {
 				m := &PipelineBuilderModel{
 					pipeline: &models.Pipeline{
-						Name: "empty-pipeline",
+						Name:       "empty-pipeline",
 						Components: []models.ComponentRef{},
 					},
 				}
@@ -65,7 +65,7 @@ func TestBuilderClipboardYank(t *testing.T) {
 			// Simulate the 'y' key handling logic
 			if tt.key.String() == "y" && m.pipeline != nil && len(m.pipeline.Components) > 0 {
 				expectedMsg := m.pipeline.Name + " → clipboard"
-				
+
 				if tt.expectStatus && expectedMsg != tt.expectMsg {
 					t.Errorf("expected status message %q, got %q", tt.expectMsg, expectedMsg)
 				}

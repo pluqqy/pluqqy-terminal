@@ -2,7 +2,7 @@ package tui
 
 import (
 	"testing"
-	
+
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
@@ -43,14 +43,14 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 			description:         "No scrolling needed when cursor is within initial viewport",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create and configure the model
 			m := NewMainListModel()
 			m.stateManager.ShowPreview = tt.previewEnabled
 			m.SetSize(120, 40) // Set a reasonable terminal size
-			
+
 			// Create test components
 			var components []componentItem
 			for i := 0; i < tt.numComponents; i++ {
@@ -60,7 +60,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 				} else if i%3 == 2 {
 					compType = models.ComponentTypeRules
 				}
-				
+
 				components = append(components, componentItem{
 					name:       componentNames[i%len(componentNames)],
 					compType:   compType,
@@ -68,32 +68,32 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 					tags:       []string{"test"},
 				})
 			}
-			
+
 			// Set the components
 			m.filteredComponents = components
 			m.stateManager.UpdateCounts(len(components), 0)
-			
+
 			// Initial render to set up the view
 			initialView := m.View()
 			if initialView == "" {
 				t.Fatal("Initial View() returned empty string")
 			}
-			
+
 			// Verify componentTableRenderer was created
 			if m.componentTableRenderer == nil {
 				t.Fatal("componentTableRenderer should be initialized after View()")
 			}
-			
+
 			// Now move cursor to target position and render again
 			m.stateManager.ComponentCursor = tt.cursorPosition
 			view1 := m.View()
 			if view1 == "" {
 				t.Fatal("First View() after cursor move returned empty string")
 			}
-			
+
 			// Check scroll position after cursor movement
 			firstScrollOffset := m.componentTableRenderer.Viewport.YOffset
-			
+
 			// For large cursor positions, we expect scrolling
 			if tt.cursorPosition > 10 && tt.expectedScrollAfter > 0 {
 				if firstScrollOffset < tt.expectedScrollAfter {
@@ -101,21 +101,21 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 						tt.expectedScrollAfter, firstScrollOffset, tt.cursorPosition)
 				}
 			}
-			
+
 			// Second render - scroll position should persist
 			view2 := m.View()
 			if view2 == "" {
 				t.Fatal("Second View() returned empty string")
 			}
-			
+
 			secondScrollOffset := m.componentTableRenderer.Viewport.YOffset
-			
+
 			// Verify scroll position persisted
 			if firstScrollOffset != secondScrollOffset {
 				t.Errorf("Scroll position changed between renders: first=%d, second=%d",
 					firstScrollOffset, secondScrollOffset)
 			}
-			
+
 			// Move cursor up slightly and verify scroll adjusts appropriately
 			if m.stateManager.ComponentCursor > 0 {
 				m.stateManager.ComponentCursor--
@@ -123,7 +123,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 				if view3 == "" {
 					t.Fatal("Third View() returned empty string")
 				}
-				
+
 				// Scroll should adjust or stay the same, but not jump randomly
 				thirdScrollOffset := m.componentTableRenderer.Viewport.YOffset
 				if thirdScrollOffset > secondScrollOffset+1 {
@@ -167,13 +167,13 @@ func TestComponentTableRenderer_ViewportBehavior(t *testing.T) {
 			description:    "Viewport should handle large cursor jumps",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			// Create renderer
 			renderer := NewComponentTableRenderer(80, 20, true)
 			renderer.Viewport.Height = tt.viewportHeight
-			
+
 			// Create test components with proper type grouping
 			var components []componentItem
 			for i := 0; i < tt.numComponents; i++ {
@@ -183,26 +183,26 @@ func TestComponentTableRenderer_ViewportBehavior(t *testing.T) {
 				} else if i >= 2*tt.numComponents/3 {
 					compType = models.ComponentTypeRules
 				}
-				
+
 				components = append(components, componentItem{
 					name:     componentNames[i%len(componentNames)],
 					compType: compType,
 				})
 			}
-			
+
 			renderer.SetComponents(components)
 			renderer.SetActive(true)
-			
+
 			for i, cursorPos := range tt.cursorMoves {
 				renderer.SetCursor(cursorPos)
-				
+
 				currentOffset := renderer.Viewport.YOffset
-				
+
 				// Basic check: viewport should adjust when cursor moves
 				// We're mainly testing that scrolling happens, not the exact positioning
 				if i > 0 {
 					prevCursor := tt.cursorMoves[i-1]
-					
+
 					// If cursor moved significantly down and was near bottom of viewport,
 					// viewport should have scrolled down
 					if cursorPos > prevCursor+5 && prevCursor > tt.viewportHeight-3 {
@@ -211,7 +211,7 @@ func TestComponentTableRenderer_ViewportBehavior(t *testing.T) {
 								i, prevCursor, cursorPos)
 						}
 					}
-					
+
 					// If cursor jumped to top, viewport should reset
 					if cursorPos == 0 && prevCursor > 20 {
 						if currentOffset > 5 {
@@ -231,7 +231,7 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	// Create model
 	m := NewMainListModel()
 	m.SetSize(120, 40)
-	
+
 	// Create many components to ensure scrolling is needed
 	var components []componentItem
 	for i := 0; i < 40; i++ {
@@ -241,13 +241,13 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 			tokenCount: 100,
 		})
 	}
-	
+
 	m.filteredComponents = components
 	m.stateManager.UpdateCounts(len(components), 0)
-	
+
 	// Move cursor down to trigger scrolling
 	m.stateManager.ComponentCursor = 25
-	
+
 	// Enable preview and render
 	m.stateManager.ShowPreview = true
 	m.updateViewportSizes()
@@ -255,12 +255,12 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	if view1 == "" {
 		t.Fatal("View() with preview returned empty")
 	}
-	
+
 	// Record scroll position with preview
 	if m.componentTableRenderer != nil {
 		_ = m.componentTableRenderer.Viewport.YOffset // Record for comparison if needed
 	}
-	
+
 	// Disable preview and render
 	m.stateManager.ShowPreview = false
 	m.updateViewportSizes()
@@ -268,25 +268,25 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	if view2 == "" {
 		t.Fatal("View() without preview returned empty")
 	}
-	
+
 	// Check scroll position after preview toggle
 	scrollWithoutPreview := 0
 	if m.componentTableRenderer != nil {
 		scrollWithoutPreview = m.componentTableRenderer.Viewport.YOffset
 	}
-	
+
 	// The exact offset might change due to viewport height changes,
 	// but the cursor should still be visible
 	if m.componentTableRenderer != nil {
 		effectiveLine := calculateEffectiveLine(components, m.stateManager.ComponentCursor)
 		viewportHeight := m.componentTableRenderer.Viewport.Height
-		
+
 		if effectiveLine < scrollWithoutPreview || effectiveLine >= scrollWithoutPreview+viewportHeight {
 			t.Errorf("Cursor not visible after preview toggle: line=%d, offset=%d, height=%d",
 				effectiveLine, scrollWithoutPreview, viewportHeight)
 		}
 	}
-	
+
 	// Re-enable preview
 	m.stateManager.ShowPreview = true
 	m.updateViewportSizes()
@@ -294,7 +294,7 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	if view3 == "" {
 		t.Fatal("View() with preview re-enabled returned empty")
 	}
-	
+
 	// Verify renderer is still functional
 	if m.componentTableRenderer == nil {
 		t.Fatal("componentTableRenderer should persist through preview toggles")
@@ -306,10 +306,10 @@ func calculateEffectiveLine(components []componentItem, cursorPos int) int {
 	if cursorPos >= len(components) || cursorPos < 0 {
 		return 0
 	}
-	
+
 	line := 0
 	currentType := ""
-	
+
 	for i := 0; i < len(components); i++ {
 		// Add line for type header if type changes
 		if components[i].compType != currentType {
@@ -319,13 +319,13 @@ func calculateEffectiveLine(components []componentItem, cursorPos int) int {
 			currentType = components[i].compType
 			line++ // Type header line
 		}
-		
+
 		if i == cursorPos {
 			return line
 		}
 		line++ // Component line
 	}
-	
+
 	return line
 }
 

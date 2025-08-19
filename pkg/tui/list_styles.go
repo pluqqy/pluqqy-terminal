@@ -6,102 +6,102 @@ import (
 
 // Color constants
 const (
-	ColorActive       = "170" // Purple/magenta for active elements
-	ColorInactive     = "240" // Gray for inactive elements
-	ColorSelected     = "236" // Dark gray for background selection
-	ColorNormal       = "245" // Light gray for normal text
-	ColorDim          = "241" // Dimmer gray
-	ColorVeryDim      = "242" // Even dimmer gray
-	ColorWarning      = "214" // Orange/yellow for warnings
-	ColorDanger       = "196" // Red for dangerous actions
-	ColorSuccess      = "28"  // Green for success
-	ColorWhite        = "255" // White
-	ColorDark         = "235" // Dark for contrast
-	ColorBorder       = "243" // Border gray
-	ColorPrimary      = "33"  // Blue for primary actions
-	ColorError        = "196" // Red for errors (same as danger)
+	ColorActive   = "170" // Purple/magenta for active elements
+	ColorInactive = "240" // Gray for inactive elements
+	ColorSelected = "236" // Dark gray for background selection
+	ColorNormal   = "245" // Light gray for normal text
+	ColorDim      = "241" // Dimmer gray
+	ColorVeryDim  = "242" // Even dimmer gray
+	ColorWarning  = "214" // Orange/yellow for warnings
+	ColorDanger   = "196" // Red for dangerous actions
+	ColorSuccess  = "28"  // Green for success
+	ColorWhite    = "255" // White
+	ColorDark     = "235" // Dark for contrast
+	ColorBorder   = "243" // Border gray
+	ColorPrimary  = "33"  // Blue for primary actions
+	ColorError    = "196" // Red for errors (same as danger)
 )
 
 // Common styles
 var (
 	// Border styles
 	ActiveBorderStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorActive))
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color(ColorActive))
 
 	InactiveBorderStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorInactive))
+				Border(lipgloss.RoundedBorder()).
+				BorderForeground(lipgloss.Color(ColorInactive))
 
 	// Selection styles
 	SelectedStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorActive)).
-		Background(lipgloss.Color(ColorSelected)).
-		Bold(true)
+			Foreground(lipgloss.Color(ColorActive)).
+			Background(lipgloss.Color(ColorSelected)).
+			Bold(true)
 
 	NormalStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorNormal))
+			Foreground(lipgloss.Color(ColorNormal))
 
 	// Header styles
 	TypeHeaderStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(ColorWarning))
+			Bold(true).
+			Foreground(lipgloss.Color(ColorWarning))
 
 	HeaderStyle = lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color(ColorDim))
+			Bold(true).
+			Foreground(lipgloss.Color(ColorDim))
 
 	// Padding styles
 	HeaderPaddingStyle = lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
+				PaddingLeft(1).
+				PaddingRight(1)
 
 	ContentPaddingStyle = lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
+				PaddingLeft(1).
+				PaddingRight(1)
 
 	// Message styles
 	EmptyActiveStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorWarning)).
-		Bold(true)
+				Foreground(lipgloss.Color(ColorWarning)).
+				Bold(true)
 
 	EmptyInactiveStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorVeryDim))
+				Foreground(lipgloss.Color(ColorVeryDim))
 
 	// Confirmation styles
 	ConfirmDangerStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorDanger)).
-		Bold(true).
-		Padding(1)
+				Foreground(lipgloss.Color(ColorDanger)).
+				Bold(true).
+				Padding(1)
 
 	ConfirmWarningStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorWarning)).
-		Bold(true).
-		Padding(1)
+				Foreground(lipgloss.Color(ColorWarning)).
+				Bold(true).
+				Padding(1)
 
 	// Input styles
 	InputStyle = lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color(ColorActive)).
-		Padding(0, 1)
+			Border(lipgloss.RoundedBorder()).
+			BorderForeground(lipgloss.Color(ColorActive)).
+			Padding(0, 1)
 
 	// Description styles
 	DescriptionStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorDim))
-	
+				Foreground(lipgloss.Color(ColorDim))
+
 	// Error style
 	ErrorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorError))
+			Foreground(lipgloss.Color(ColorError))
 
 	// Cursor style
 	CursorStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorActive)).
-		Bold(true)
+			Foreground(lipgloss.Color(ColorActive)).
+			Bold(true)
 
 	// Placeholder style
 	PlaceholderStyle = lipgloss.NewStyle().
-		Foreground(lipgloss.Color(ColorDim)).
-		Italic(true)
+				Foreground(lipgloss.Color(ColorDim)).
+				Italic(true)
 )
 
 // Token badge styles based on count
@@ -177,23 +177,23 @@ func GetTagChipStyle(color string) lipgloss.Style {
 
 // Mermaid diagram colors (Tokyo Night theme)
 var (
-	MermaidPipelineColor      = "#bb9af7"
-	MermaidPipelineStroke     = "#9a7ecc"
-	MermaidContextColor       = "#7aa2f7"
-	MermaidContextStroke      = "#5a82d7"
-	MermaidPromptColor        = "#9ece6a"
-	MermaidPromptStroke       = "#7eae4a"
-	MermaidRulesColor         = "#f7768e"
-	MermaidRulesStroke        = "#d7566e"
-	MermaidBackgroundColor    = "#1a1b26"
-	MermaidStrokeWidth        = "3px"
+	MermaidPipelineColor       = "#bb9af7"
+	MermaidPipelineStroke      = "#9a7ecc"
+	MermaidContextColor        = "#7aa2f7"
+	MermaidContextStroke       = "#5a82d7"
+	MermaidPromptColor         = "#9ece6a"
+	MermaidPromptStroke        = "#7eae4a"
+	MermaidRulesColor          = "#f7768e"
+	MermaidRulesStroke         = "#d7566e"
+	MermaidBackgroundColor     = "#1a1b26"
+	MermaidStrokeWidth         = "3px"
 	MermaidPipelineStrokeWidth = "4px"
 )
 
 // Mermaid constants
 const (
 	EstimatedTokensPerComponent = 350
-	TokensPerCharacter         = 4
-	MaxFunctionLines           = 50
-	MermaidTmpSubdir          = "diagrams"
+	TokensPerCharacter          = 4
+	MaxFunctionLines            = 50
+	MermaidTmpSubdir            = "diagrams"
 )

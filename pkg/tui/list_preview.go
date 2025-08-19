@@ -2,7 +2,7 @@ package tui
 
 import (
 	"fmt"
-	
+
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
@@ -24,11 +24,11 @@ func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string, isArchived 
 	if !r.ShowPreview {
 		return ""
 	}
-	
+
 	// Load pipeline - use appropriate function based on archive status
 	var pipeline *models.Pipeline
 	var err error
-	
+
 	if isArchived {
 		// For archived pipelines, path is just the filename
 		pipeline, err = files.ReadArchivedPipeline(pipelinePath)
@@ -36,11 +36,11 @@ func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string, isArchived 
 		// For active pipelines, use regular ReadPipeline
 		pipeline, err = files.ReadPipeline(pipelinePath)
 	}
-	
+
 	if err != nil {
 		return fmt.Sprintf("Error loading pipeline: %v", err)
 	}
-	
+
 	// Generate preview
 	output, err := composer.ComposePipeline(pipeline)
 	if err != nil {
@@ -50,7 +50,7 @@ func (r *PreviewRenderer) RenderPipelinePreview(pipelinePath string, isArchived 
 		}
 		return fmt.Sprintf("Error generating preview: %v", err)
 	}
-	
+
 	return output
 }
 
@@ -59,11 +59,11 @@ func (r *PreviewRenderer) RenderComponentPreview(comp componentItem) string {
 	if !r.ShowPreview {
 		return ""
 	}
-	
+
 	// Read component content - use appropriate function based on archive status
 	var content *models.Component
 	var err error
-	
+
 	if comp.isArchived {
 		// For archived components, use ReadArchivedComponent
 		content, err = files.ReadArchivedComponent(comp.path)
@@ -71,11 +71,11 @@ func (r *PreviewRenderer) RenderComponentPreview(comp componentItem) string {
 		// For active components, use ReadComponent
 		content, err = files.ReadComponent(comp.path)
 	}
-	
+
 	if err != nil {
 		return fmt.Sprintf("Error loading component: %v", err)
 	}
-	
+
 	// Return just the component content without metadata
 	return content.Content
 }
@@ -85,7 +85,7 @@ func (r *PreviewRenderer) RenderEmptyPreview(activePane pane, hasPipelines bool,
 	if !r.ShowPreview {
 		return ""
 	}
-	
+
 	if activePane == pipelinesPane {
 		if !hasPipelines {
 			return "No pipelines to preview."
@@ -95,7 +95,7 @@ func (r *PreviewRenderer) RenderEmptyPreview(activePane pane, hasPipelines bool,
 			return "No components to preview."
 		}
 	}
-	
+
 	return ""
 }
 

@@ -7,25 +7,25 @@ import (
 
 func TestStatusManager_ShowFeedback(t *testing.T) {
 	sm := NewStatusManager()
-	
+
 	// Test showing feedback
 	cmd := sm.ShowFeedback("✓", "Test message", StatusTypeSuccess)
 	if cmd == nil {
 		t.Error("ShowFeedback should return a command")
 	}
-	
+
 	if sm.CurrentStatus == nil {
 		t.Fatal("CurrentStatus should not be nil after ShowFeedback")
 	}
-	
+
 	if sm.CurrentStatus.Message != "Test message" {
 		t.Errorf("Expected message 'Test message', got '%s'", sm.CurrentStatus.Message)
 	}
-	
+
 	if sm.CurrentStatus.Icon != "✓" {
 		t.Errorf("Expected icon '✓', got '%s'", sm.CurrentStatus.Icon)
 	}
-	
+
 	if sm.CurrentStatus.Type != StatusTypeSuccess {
 		t.Errorf("Expected type StatusTypeSuccess, got %v", sm.CurrentStatus.Type)
 	}
@@ -33,23 +33,23 @@ func TestStatusManager_ShowFeedback(t *testing.T) {
 
 func TestStatusManager_IsActive(t *testing.T) {
 	sm := NewStatusManager()
-	
+
 	// Initially not active
 	if sm.IsActive() {
 		t.Error("StatusManager should not be active initially")
 	}
-	
+
 	// Show feedback
 	sm.ShowFeedback("✓", "Test", StatusTypeSuccess)
-	
+
 	// Should be active
 	if !sm.IsActive() {
 		t.Error("StatusManager should be active after ShowFeedback")
 	}
-	
+
 	// Simulate expiration
 	sm.CurrentStatus.ShowUntil = time.Now().Add(-1 * time.Second)
-	
+
 	// Should not be active
 	if sm.IsActive() {
 		t.Error("StatusManager should not be active after expiration")
@@ -58,10 +58,10 @@ func TestStatusManager_IsActive(t *testing.T) {
 
 func TestStatusManager_Clear(t *testing.T) {
 	sm := NewStatusManager()
-	
+
 	sm.ShowFeedback("✓", "Test", StatusTypeSuccess)
 	sm.Clear()
-	
+
 	if sm.CurrentStatus != nil {
 		t.Error("CurrentStatus should be nil after Clear")
 	}
@@ -69,7 +69,7 @@ func TestStatusManager_Clear(t *testing.T) {
 
 func TestStatusManager_GetStatus(t *testing.T) {
 	sm := NewStatusManager()
-	
+
 	// No status initially
 	status, ok := sm.GetStatus()
 	if ok {
@@ -78,7 +78,7 @@ func TestStatusManager_GetStatus(t *testing.T) {
 	if status != "" {
 		t.Error("GetStatus should return empty string when no status")
 	}
-	
+
 	// With status
 	sm.ShowFeedback("✓", "Test message", StatusTypeSuccess)
 	status, ok = sm.GetStatus()
@@ -124,7 +124,7 @@ func TestClipboardStatus(t *testing.T) {
 			expected: "📋 10 lines ready (will clean)",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := GetClipboardStatusString(tt.status)
@@ -137,16 +137,16 @@ func TestClipboardStatus(t *testing.T) {
 
 func TestEditorActionFeedback(t *testing.T) {
 	eaf := NewEditorActionFeedback()
-	
+
 	// Initially no feedback
 	feedback, ok := eaf.GetActionFeedback()
 	if ok || feedback != "" {
 		t.Error("Should have no initial feedback")
 	}
-	
+
 	// Record an action
 	eaf.RecordAction("✓ Saved")
-	
+
 	// Should have feedback
 	feedback, ok = eaf.GetActionFeedback()
 	if !ok {
@@ -155,10 +155,10 @@ func TestEditorActionFeedback(t *testing.T) {
 	if feedback != "✓ Saved" {
 		t.Errorf("Expected feedback '✓ Saved', got '%s'", feedback)
 	}
-	
+
 	// Simulate expiration
 	eaf.LastActionTime = time.Now().Add(-3 * time.Second)
-	
+
 	// Should not have feedback
 	feedback, ok = eaf.GetActionFeedback()
 	if ok || feedback != "" {
@@ -172,24 +172,24 @@ func TestStatusMessages(t *testing.T) {
 	if cmd == nil {
 		t.Error("ShowPastedStatus should return a command")
 	}
-	
+
 	cmd = ShowPastedStatus(5, true)
 	if cmd == nil {
 		t.Error("ShowPastedStatus with cleaning should return a command")
 	}
-	
+
 	// Test ShowClearedStatus
 	cmd = ShowClearedStatus()
 	if cmd == nil {
 		t.Error("ShowClearedStatus should return a command")
 	}
-	
+
 	// Test ShowSavedStatus
 	cmd = ShowSavedStatus("test.md")
 	if cmd == nil {
 		t.Error("ShowSavedStatus should return a command")
 	}
-	
+
 	// Test ShowNothingToPasteStatus
 	cmd = ShowNothingToPasteStatus()
 	if cmd == nil {

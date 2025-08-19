@@ -7,7 +7,7 @@ import (
 // Test helpers
 func validateStateManager(t *testing.T, sm *StateManager) {
 	t.Helper()
-	
+
 	// Cursors should be non-negative
 	if sm.ComponentCursor < 0 {
 		t.Error("ComponentCursor is negative")
@@ -15,12 +15,12 @@ func validateStateManager(t *testing.T, sm *StateManager) {
 	if sm.PipelineCursor < 0 {
 		t.Error("PipelineCursor is negative")
 	}
-	
+
 	// LastDataPane should be valid
 	if sm.LastDataPane != componentsPane && sm.LastDataPane != pipelinesPane {
 		t.Errorf("Invalid LastDataPane: %d", sm.LastDataPane)
 	}
-	
+
 	// Only one active pane should be set
 	validPanes := []pane{searchPane, componentsPane, pipelinesPane, previewPane}
 	foundActive := false
@@ -49,7 +49,7 @@ func makeStateManager(activePane pane, compCursor, pipeCursor int, showPreview b
 // Test NewStateManager
 func TestNewStateManager(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	if sm.ComponentCursor != 0 {
 		t.Errorf("ComponentCursor = %d, want 0", sm.ComponentCursor)
 	}
@@ -65,20 +65,20 @@ func TestNewStateManager(t *testing.T) {
 	if !sm.ShowPreview {
 		t.Error("ShowPreview should be true by default")
 	}
-	
+
 	validateStateManager(t, sm)
 }
 
 // Test UpdateCounts
 func TestUpdateCounts(t *testing.T) {
 	tests := []struct {
-		name            string
-		initialCompCur  int
-		initialPipeCur  int
-		componentCount  int
-		pipelineCount   int
-		wantCompCur     int
-		wantPipeCur     int
+		name           string
+		initialCompCur int
+		initialPipeCur int
+		componentCount int
+		pipelineCount  int
+		wantCompCur    int
+		wantPipeCur    int
 	}{
 		{
 			name:           "normal update",
@@ -126,15 +126,15 @@ func TestUpdateCounts(t *testing.T) {
 			wantPipeCur:    0,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := NewStateManager()
 			sm.ComponentCursor = tt.initialCompCur
 			sm.PipelineCursor = tt.initialPipeCur
-			
+
 			sm.UpdateCounts(tt.componentCount, tt.pipelineCount)
-			
+
 			if sm.ComponentCursor != tt.wantCompCur {
 				t.Errorf("ComponentCursor = %d, want %d", sm.ComponentCursor, tt.wantCompCur)
 			}
@@ -147,7 +147,7 @@ func TestUpdateCounts(t *testing.T) {
 			if sm.pipelineCount != tt.pipelineCount {
 				t.Errorf("pipelineCount = %d, want %d", sm.pipelineCount, tt.pipelineCount)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -233,14 +233,14 @@ func TestMoveCursorUp(t *testing.T) {
 			wantPipeCur: 1,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := makeStateManager(tt.activePane, tt.compCursor, tt.pipeCursor, true)
 			sm.UpdateCounts(tt.compCount, tt.pipeCount)
-			
+
 			moved := sm.MoveCursorUp()
-			
+
 			if moved != tt.wantMoved {
 				t.Errorf("MoveCursorUp() = %v, want %v", moved, tt.wantMoved)
 			}
@@ -250,7 +250,7 @@ func TestMoveCursorUp(t *testing.T) {
 			if sm.PipelineCursor != tt.wantPipeCur {
 				t.Errorf("PipelineCursor = %d, want %d", sm.PipelineCursor, tt.wantPipeCur)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -346,14 +346,14 @@ func TestMoveCursorDown(t *testing.T) {
 			wantPipeCur: 0,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := makeStateManager(tt.activePane, tt.compCursor, tt.pipeCursor, true)
 			sm.UpdateCounts(tt.compCount, tt.pipeCount)
-			
+
 			moved := sm.MoveCursorDown()
-			
+
 			if moved != tt.wantMoved {
 				t.Errorf("MoveCursorDown() = %v, want %v", moved, tt.wantMoved)
 			}
@@ -363,7 +363,7 @@ func TestMoveCursorDown(t *testing.T) {
 			if sm.PipelineCursor != tt.wantPipeCur {
 				t.Errorf("PipelineCursor = %d, want %d", sm.PipelineCursor, tt.wantPipeCur)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -430,7 +430,7 @@ func TestHandleTabNavigation_Forward(t *testing.T) {
 			wantLastData: componentsPane,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := NewStateManager()
@@ -440,16 +440,16 @@ func TestHandleTabNavigation_Forward(t *testing.T) {
 			if tt.startPane == componentsPane || tt.startPane == pipelinesPane {
 				sm.LastDataPane = tt.startPane
 			}
-			
+
 			sm.HandleTabNavigation(false)
-			
+
 			if sm.ActivePane != tt.wantPane {
 				t.Errorf("ActivePane = %v, want %v", sm.ActivePane, tt.wantPane)
 			}
 			if sm.LastDataPane != tt.wantLastData {
 				t.Errorf("LastDataPane = %v, want %v", sm.LastDataPane, tt.wantLastData)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -508,7 +508,7 @@ func TestHandleTabNavigation_Reverse(t *testing.T) {
 			wantLastData: componentsPane,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := NewStateManager()
@@ -518,16 +518,16 @@ func TestHandleTabNavigation_Reverse(t *testing.T) {
 			if tt.startPane == componentsPane || tt.startPane == pipelinesPane {
 				sm.LastDataPane = tt.startPane
 			}
-			
+
 			sm.HandleTabNavigation(true)
-			
+
 			if sm.ActivePane != tt.wantPane {
 				t.Errorf("ActivePane = %v, want %v", sm.ActivePane, tt.wantPane)
 			}
 			if sm.LastDataPane != tt.wantLastData {
 				t.Errorf("LastDataPane = %v, want %v", sm.LastDataPane, tt.wantLastData)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -536,48 +536,48 @@ func TestHandleTabNavigation_Reverse(t *testing.T) {
 // Test search mode
 func TestSearchMode(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	// Start in components
 	if sm.ActivePane != componentsPane {
 		t.Error("Should start in components pane")
 	}
-	
+
 	// Switch to search
 	sm.SwitchToSearch()
 	if sm.ActivePane != searchPane {
 		t.Error("Should be in search pane after SwitchToSearch")
 	}
-	
+
 	// Exit search
 	sm.ExitSearch()
 	if sm.ActivePane != componentsPane {
 		t.Error("Should return to components pane after ExitSearch")
 	}
-	
+
 	// Test from pipelines pane
 	sm.ActivePane = pipelinesPane
 	sm.SwitchToSearch()
 	if sm.ActivePane != searchPane {
 		t.Error("Should be in search pane")
 	}
-	
+
 	sm.ExitSearch()
 	if sm.ActivePane != componentsPane {
 		t.Error("Should always return to components pane from search")
 	}
-	
+
 	validateStateManager(t, sm)
 }
 
 // Test state queries
 func TestIsInPreviewPane(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	sm.ActivePane = previewPane
 	if !sm.IsInPreviewPane() {
 		t.Error("IsInPreviewPane should return true when in preview pane")
 	}
-	
+
 	sm.ActivePane = componentsPane
 	if sm.IsInPreviewPane() {
 		t.Error("IsInPreviewPane should return false when not in preview pane")
@@ -586,12 +586,12 @@ func TestIsInPreviewPane(t *testing.T) {
 
 func TestIsInSearchPane(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	sm.ActivePane = searchPane
 	if !sm.IsInSearchPane() {
 		t.Error("IsInSearchPane should return true when in search pane")
 	}
-	
+
 	sm.ActivePane = pipelinesPane
 	if sm.IsInSearchPane() {
 		t.Error("IsInSearchPane should return false when not in search pane")
@@ -630,13 +630,13 @@ func TestGetPreviewPane(t *testing.T) {
 			want:         searchPane,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := NewStateManager()
 			sm.ActivePane = tt.activePane
 			sm.LastDataPane = tt.lastDataPane
-			
+
 			got := sm.GetPreviewPane()
 			if got != tt.want {
 				t.Errorf("GetPreviewPane() = %v, want %v", got, tt.want)
@@ -648,60 +648,60 @@ func TestGetPreviewPane(t *testing.T) {
 // Test deletion and archive state
 func TestDeletionState(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	// Initially no deletion state
 	if sm.DeletingFromPane != nonePane {
 		t.Error("DeletingFromPane should start as nonePane")
 	}
-	
+
 	// Set deletion from components
 	sm.SetDeletingFromPane(componentsPane)
 	if sm.DeletingFromPane != componentsPane {
 		t.Error("DeletingFromPane should be componentsPane")
 	}
-	
+
 	// Clear deletion state
 	sm.ClearDeletionState()
 	if sm.DeletingFromPane != nonePane {
 		t.Error("DeletingFromPane should be nonePane after clear")
 	}
-	
+
 	validateStateManager(t, sm)
 }
 
 func TestArchiveState(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	// Initially no archive state
 	if sm.ArchivingFromPane != nonePane {
 		t.Error("ArchivingFromPane should start as nonePane")
 	}
-	
+
 	// Set archiving from pipelines
 	sm.SetArchivingFromPane(pipelinesPane)
 	if sm.ArchivingFromPane != pipelinesPane {
 		t.Error("ArchivingFromPane should be pipelinesPane")
 	}
-	
+
 	// Clear archive state
 	sm.ClearArchiveState()
 	if sm.ArchivingFromPane != nonePane {
 		t.Error("ArchivingFromPane should be nonePane after clear")
 	}
-	
+
 	validateStateManager(t, sm)
 }
 
 // Test ResetCursorsAfterSearch
 func TestResetCursorsAfterSearch(t *testing.T) {
 	tests := []struct {
-		name             string
-		initialCompCur   int
-		initialPipeCur   int
-		filteredCompCnt  int
-		filteredPipeCnt  int
-		expectedCompCur  int
-		expectedPipeCur  int
+		name            string
+		initialCompCur  int
+		initialPipeCur  int
+		filteredCompCnt int
+		filteredPipeCnt int
+		expectedCompCur int
+		expectedPipeCur int
 	}{
 		{
 			name:            "cursors within bounds",
@@ -740,22 +740,22 @@ func TestResetCursorsAfterSearch(t *testing.T) {
 			expectedPipeCur: 0,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := NewStateManager()
 			sm.ComponentCursor = tt.initialCompCur
 			sm.PipelineCursor = tt.initialPipeCur
-			
+
 			sm.ResetCursorsAfterSearch(tt.filteredCompCnt, tt.filteredPipeCnt)
-			
+
 			if sm.ComponentCursor != tt.expectedCompCur {
 				t.Errorf("ComponentCursor = %d, want %d", sm.ComponentCursor, tt.expectedCompCur)
 			}
 			if sm.PipelineCursor != tt.expectedPipeCur {
 				t.Errorf("PipelineCursor = %d, want %d", sm.PipelineCursor, tt.expectedPipeCur)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -922,14 +922,14 @@ func TestHandleKeyNavigation(t *testing.T) {
 			wantActivePane: searchPane,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			sm := makeStateManager(tt.activePane, tt.compCursor, tt.pipeCursor, true)
 			sm.UpdateCounts(tt.compCount, tt.pipeCount)
-			
+
 			handled, updatePreview := sm.HandleKeyNavigation(tt.key)
-			
+
 			if handled != tt.wantHandled {
 				t.Errorf("handled = %v, want %v", handled, tt.wantHandled)
 			}
@@ -945,7 +945,7 @@ func TestHandleKeyNavigation(t *testing.T) {
 			if sm.ActivePane != tt.wantActivePane {
 				t.Errorf("ActivePane = %v, want %v", sm.ActivePane, tt.wantActivePane)
 			}
-			
+
 			validateStateManager(t, sm)
 		})
 	}
@@ -956,10 +956,10 @@ func TestStateTransitions_TabCycle(t *testing.T) {
 	// Test that tab navigation forms a cycle
 	sm := NewStateManager()
 	sm.ShowPreview = true
-	
+
 	startPane := sm.ActivePane
 	paneSequence := []pane{startPane}
-	
+
 	// Tab through all panes until we return to start
 	for i := 0; i < 10; i++ { // Safety limit
 		sm.HandleTabNavigation(false)
@@ -968,24 +968,24 @@ func TestStateTransitions_TabCycle(t *testing.T) {
 			break
 		}
 	}
-	
+
 	// Verify we completed a cycle
 	expectedCycle := []pane{componentsPane, pipelinesPane, previewPane, componentsPane}
 	if len(paneSequence) != len(expectedCycle) {
 		t.Errorf("Tab cycle length = %d, want %d", len(paneSequence), len(expectedCycle))
 	}
-	
+
 	for i, pane := range expectedCycle {
 		if i < len(paneSequence) && paneSequence[i] != pane {
 			t.Errorf("Tab cycle[%d] = %v, want %v", i, paneSequence[i], pane)
 		}
 	}
-	
+
 	// Test reverse cycle
 	sm = NewStateManager()
 	sm.ShowPreview = true
 	reverseSequence := []pane{componentsPane}
-	
+
 	for i := 0; i < 10; i++ {
 		sm.HandleTabNavigation(true)
 		reverseSequence = append(reverseSequence, sm.ActivePane)
@@ -993,7 +993,7 @@ func TestStateTransitions_TabCycle(t *testing.T) {
 			break
 		}
 	}
-	
+
 	expectedReverse := []pane{componentsPane, previewPane, pipelinesPane, componentsPane}
 	if len(reverseSequence) != len(expectedReverse) {
 		t.Errorf("Reverse tab cycle length = %d, want %d", len(reverseSequence), len(expectedReverse))
@@ -1002,34 +1002,34 @@ func TestStateTransitions_TabCycle(t *testing.T) {
 
 func TestStateTransitions_PreviewToggle(t *testing.T) {
 	sm := NewStateManager()
-	
+
 	// Start with preview enabled
 	sm.ShowPreview = true
 	sm.ActivePane = pipelinesPane
-	
+
 	// Tab should go to preview
 	sm.HandleTabNavigation(false)
 	if sm.ActivePane != previewPane {
 		t.Error("Should navigate to preview when enabled")
 	}
-	
+
 	// Now test with preview disabled from the beginning
 	sm = NewStateManager()
 	sm.ShowPreview = false
 	sm.ActivePane = pipelinesPane
-	
+
 	// Tab should skip preview and go to components
 	sm.HandleTabNavigation(false)
 	if sm.ActivePane != componentsPane {
 		t.Error("Should skip to components when preview disabled")
 	}
-	
+
 	// Verify preview is skipped in cycle
 	sm.HandleTabNavigation(false)
 	if sm.ActivePane != pipelinesPane {
 		t.Error("Should go to pipelines")
 	}
-	
+
 	sm.HandleTabNavigation(false)
 	if sm.ActivePane != componentsPane {
 		t.Error("Should skip preview and return to components")
@@ -1040,9 +1040,9 @@ func TestStateTransitions_PreviewToggle(t *testing.T) {
 func TestStateManager_ConcurrentAccess(t *testing.T) {
 	sm := NewStateManager()
 	sm.UpdateCounts(100, 50)
-	
+
 	done := make(chan bool)
-	
+
 	// Simulate concurrent cursor movements
 	go func() {
 		for i := 0; i < 50; i++ {
@@ -1051,7 +1051,7 @@ func TestStateManager_ConcurrentAccess(t *testing.T) {
 		}
 		done <- true
 	}()
-	
+
 	// Simulate concurrent pane switches
 	go func() {
 		for i := 0; i < 50; i++ {
@@ -1060,7 +1060,7 @@ func TestStateManager_ConcurrentAccess(t *testing.T) {
 		}
 		done <- true
 	}()
-	
+
 	// Simulate concurrent state queries
 	go func() {
 		for i := 0; i < 50; i++ {
@@ -1070,12 +1070,12 @@ func TestStateManager_ConcurrentAccess(t *testing.T) {
 		}
 		done <- true
 	}()
-	
+
 	// Wait for all goroutines
 	for i := 0; i < 3; i++ {
 		<-done
 	}
-	
+
 	// Final state should still be valid
 	validateStateManager(t, sm)
 }
@@ -1084,7 +1084,7 @@ func TestStateManager_ConcurrentAccess(t *testing.T) {
 func BenchmarkMoveCursor(b *testing.B) {
 	sm := NewStateManager()
 	sm.UpdateCounts(1000, 1000)
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		if i%2 == 0 {
@@ -1098,7 +1098,7 @@ func BenchmarkMoveCursor(b *testing.B) {
 func BenchmarkTabNavigation(b *testing.B) {
 	sm := NewStateManager()
 	sm.ShowPreview = true
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		sm.HandleTabNavigation(i%2 == 0)
@@ -1109,7 +1109,7 @@ func BenchmarkHandleKeyNavigation(b *testing.B) {
 	sm := NewStateManager()
 	sm.UpdateCounts(100, 100)
 	keys := []string{"up", "down", "tab", "shift+tab", "j", "k"}
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		key := keys[i%len(keys)]

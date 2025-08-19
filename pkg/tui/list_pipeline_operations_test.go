@@ -55,17 +55,17 @@ func createTestPipeline(t *testing.T, name string, tags []string) string {
 		Path: name + ".yaml",
 		Tags: tags,
 	}
-	
+
 	pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", pipeline.Path)
 	data, err := yaml.Marshal(pipeline)
 	if err != nil {
 		t.Fatalf("Failed to marshal pipeline: %v", err)
 	}
-	
+
 	if err := os.WriteFile(pipelinePath, data, 0644); err != nil {
 		t.Fatalf("Failed to write pipeline: %v", err)
 	}
-	
+
 	return pipeline.Path // Return just the filename, not the full path
 }
 
@@ -73,7 +73,7 @@ func createTestPipeline(t *testing.T, name string, tags []string) string {
 func createTestComponent(t *testing.T, name, compType string, componentTags []string) componentItem {
 	componentPath := filepath.Join("components", compType, name+".md")
 	fullPath := filepath.Join(files.PluqqyDir, componentPath)
-	
+
 	// Create component with YAML front matter
 	content := "---\n"
 	if len(componentTags) > 0 {
@@ -87,11 +87,11 @@ func createTestComponent(t *testing.T, name, compType string, componentTags []st
 		content += "]\n"
 	}
 	content += "---\nTest content for " + name
-	
+
 	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
 		t.Fatalf("Failed to write component: %v", err)
 	}
-	
+
 	return componentItem{
 		name:     name,
 		path:     componentPath,
@@ -105,20 +105,20 @@ func createTestRegistry(t *testing.T, testTags []string) {
 	registry := &models.TagRegistry{
 		Tags: make([]models.Tag, len(testTags)),
 	}
-	
+
 	for i, tag := range testTags {
 		registry.Tags[i] = models.Tag{
 			Name:  tag,
 			Color: "#3498db",
 		}
 	}
-	
+
 	registryPath := filepath.Join(files.PluqqyDir, tags.TagsRegistryFile)
 	data, err := yaml.Marshal(registry)
 	if err != nil {
 		t.Fatalf("Failed to marshal registry: %v", err)
 	}
-	
+
 	if err := os.WriteFile(registryPath, data, 0644); err != nil {
 		t.Fatalf("Failed to write registry: %v", err)
 	}
@@ -137,24 +137,24 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 			setupFunc: func(t *testing.T) (string, []string) {
 				// Create registry with tags
 				createTestRegistry(t, []string{"tag1", "tag2", "orphaned-tag"})
-				
+
 				// Create pipelines
 				createTestPipeline(t, "test-pipeline", []string{"tag1", "orphaned-tag"})
 				createTestPipeline(t, "other-pipeline", []string{"tag1", "tag2"})
-				
+
 				return "test-pipeline.yaml", []string{"tag1", "orphaned-tag"}
 			},
 			expectedStatus: "✓ Deleted pipeline: test-pipeline",
 			verifyFunc: func(t *testing.T) {
 				// Wait for async cleanup
 				time.Sleep(100 * time.Millisecond)
-				
+
 				// Verify pipeline was deleted
 				pipelinePath := filepath.Join(files.PluqqyDir, "pipelines/test-pipeline.yaml")
 				if _, err := os.Stat(pipelinePath); !os.IsNotExist(err) {
 					t.Error("Pipeline file should have been deleted")
 				}
-				
+
 				// Verify orphaned tag was removed from registry
 				registry, _ := tags.NewRegistry()
 				for _, tag := range registry.ListTags() {
@@ -162,7 +162,7 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 						t.Error("Orphaned tag should have been removed from registry")
 					}
 				}
-				
+
 				// Verify used tags remain
 				foundTag1 := false
 				foundTag2 := false
@@ -197,18 +197,18 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 			name: "delete pipeline with shared tags",
 			setupFunc: func(t *testing.T) (string, []string) {
 				createTestRegistry(t, []string{"shared-tag", "unique-tag"})
-				
+
 				// Create multiple pipelines sharing tags
 				createTestPipeline(t, "pipeline1", []string{"shared-tag", "unique-tag"})
 				createTestPipeline(t, "pipeline2", []string{"shared-tag"})
-				
+
 				return "pipeline1.yaml", []string{"shared-tag", "unique-tag"}
 			},
 			expectedStatus: "✓ Deleted pipeline: pipeline1",
 			verifyFunc: func(t *testing.T) {
 				// Wait for async cleanup
 				time.Sleep(100 * time.Millisecond)
-				
+
 				// Verify shared tag remains
 				registry, _ := tags.NewRegistry()
 				foundShared := false
@@ -220,7 +220,7 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 				if !foundShared {
 					t.Error("Shared tag should remain in registry")
 				}
-				
+
 				// Verify unique tag was removed
 				for _, tag := range registry.ListTags() {
 					if tag.Name == "unique-tag" {
@@ -238,20 +238,20 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 
 			// Setup test case
 			pipelinePath, pipelineTags := tt.setupFunc(t)
-			
+
 			// Create pipeline operator
 			po := NewPipelineOperator()
-			
+
 			// Track if reload was called
 			reloadCalled := false
 			reloadFunc := func() {
 				reloadCalled = true
 			}
-			
+
 			// Execute delete
 			cmd := po.DeletePipeline(pipelinePath, pipelineTags, reloadFunc)
 			msg := cmd()
-			
+
 			// Verify status message
 			if statusMsg, ok := msg.(StatusMsg); ok {
 				if string(statusMsg) != tt.expectedStatus {
@@ -260,12 +260,12 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 			} else if !tt.expectError {
 				t.Error("Expected StatusMsg, got different message type")
 			}
-			
+
 			// Verify reload was called
 			if !reloadCalled {
 				t.Error("Reload function should have been called")
 			}
-			
+
 			// Run additional verifications
 			if tt.verifyFunc != nil {
 				tt.verifyFunc(t)
@@ -285,24 +285,24 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 			name: "delete component with orphaned tags",
 			setupFunc: func(t *testing.T) componentItem {
 				createTestRegistry(t, []string{"comp-tag1", "comp-tag2", "orphaned-comp-tag"})
-				
+
 				// Create components
 				comp1 := createTestComponent(t, "test-prompt", "prompts", []string{"comp-tag1", "orphaned-comp-tag"})
 				createTestComponent(t, "other-prompt", "prompts", []string{"comp-tag1", "comp-tag2"})
-				
+
 				return comp1
 			},
 			expectedStatus: "✓ Deleted prompts: test-prompt",
 			verifyFunc: func(t *testing.T) {
 				// Wait for async cleanup
 				time.Sleep(100 * time.Millisecond)
-				
+
 				// Verify component was deleted
 				componentPath := filepath.Join(files.PluqqyDir, "components/prompts/test-prompt.md")
 				if _, err := os.Stat(componentPath); !os.IsNotExist(err) {
 					t.Error("Component file should have been deleted")
 				}
-				
+
 				// Verify orphaned tag was removed
 				registry, _ := tags.NewRegistry()
 				for _, tag := range registry.ListTags() {
@@ -329,17 +329,17 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 			name: "delete rule component with shared tags",
 			setupFunc: func(t *testing.T) componentItem {
 				createTestRegistry(t, []string{"rule-shared", "rule-unique"})
-				
+
 				comp1 := createTestComponent(t, "rule1", "rules", []string{"rule-shared", "rule-unique"})
 				createTestComponent(t, "rule2", "rules", []string{"rule-shared"})
-				
+
 				return comp1
 			},
 			expectedStatus: "✓ Deleted rules: rule1",
 			verifyFunc: func(t *testing.T) {
 				// Wait for async cleanup
 				time.Sleep(100 * time.Millisecond)
-				
+
 				// Verify shared tag remains
 				registry, _ := tags.NewRegistry()
 				foundShared := false
@@ -351,7 +351,7 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 				if !foundShared {
 					t.Error("Shared tag should remain in registry")
 				}
-				
+
 				// Verify unique tag was removed
 				for _, tag := range registry.ListTags() {
 					if tag.Name == "rule-unique" {
@@ -369,20 +369,20 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 
 			// Setup test case
 			comp := tt.setupFunc(t)
-			
+
 			// Create pipeline operator
 			po := NewPipelineOperator()
-			
+
 			// Track if reload was called
 			reloadCalled := false
 			reloadFunc := func() {
 				reloadCalled = true
 			}
-			
+
 			// Execute delete
 			cmd := po.DeleteComponent(comp, reloadFunc)
 			msg := cmd()
-			
+
 			// Verify status message
 			if statusMsg, ok := msg.(StatusMsg); ok {
 				if string(statusMsg) != tt.expectedStatus {
@@ -391,12 +391,12 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 			} else {
 				t.Error("Expected StatusMsg")
 			}
-			
+
 			// Verify reload was called
 			if !reloadCalled {
 				t.Error("Reload function should have been called")
 			}
-			
+
 			// Run additional verifications
 			if tt.verifyFunc != nil {
 				tt.verifyFunc(t)
@@ -422,11 +422,11 @@ func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 				// Verify pipeline was moved to archive
 				originalPath := filepath.Join(files.PluqqyDir, "pipelines/test-pipeline.yaml")
 				archivePath := filepath.Join(files.PluqqyDir, "archive/pipelines/test-pipeline.yaml")
-				
+
 				if _, err := os.Stat(originalPath); !os.IsNotExist(err) {
 					t.Error("Original pipeline file should have been moved")
 				}
-				
+
 				if _, err := os.Stat(archivePath); os.IsNotExist(err) {
 					t.Error("Archived pipeline file should exist")
 				}
@@ -441,32 +441,32 @@ func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 
 			// Setup test case
 			pipelinePath := tt.setupFunc(t)
-			
+
 			// Create pipeline operator
 			po := NewPipelineOperator()
-			
+
 			// Track if reload was called
 			reloadCalled := false
 			reloadFunc := func() {
 				reloadCalled = true
 			}
-			
+
 			// Execute archive
 			cmd := po.ArchivePipeline(pipelinePath, reloadFunc)
 			msg := cmd()
-			
+
 			// Verify status message
 			if statusMsg, ok := msg.(StatusMsg); ok {
 				if string(statusMsg) != tt.expectedStatus {
 					t.Errorf("Expected status '%s', got '%s'", tt.expectedStatus, string(statusMsg))
 				}
 			}
-			
+
 			// Verify reload was called
 			if !reloadCalled {
 				t.Error("Reload function should have been called")
 			}
-			
+
 			// Run additional verifications
 			if tt.verifyFunc != nil {
 				tt.verifyFunc(t)
@@ -483,11 +483,11 @@ func TestPipelineOperator_Confirmations(t *testing.T) {
 		if po.IsDeleteConfirmActive() {
 			t.Error("Delete confirmation should not be active initially")
 		}
-		
+
 		// Show confirmation
 		confirmCalled := false
 		cancelCalled := false
-		
+
 		po.ShowDeleteConfirmation(
 			"Delete test?",
 			func() tea.Cmd {
@@ -499,19 +499,19 @@ func TestPipelineOperator_Confirmations(t *testing.T) {
 				return nil
 			},
 		)
-		
+
 		// Should now be active
 		if !po.IsDeleteConfirmActive() {
 			t.Error("Delete confirmation should be active after showing")
 		}
-		
+
 		// Simulate pressing 'y'
 		cmd := po.UpdateDeleteConfirm(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 		if cmd != nil {
 			// Execute the command if it exists
 			cmd()
 		}
-		
+
 		// Verify confirm was called
 		if !confirmCalled {
 			t.Error("Confirm callback should have been called")
@@ -526,11 +526,11 @@ func TestPipelineOperator_Confirmations(t *testing.T) {
 		if po.IsArchiveConfirmActive() {
 			t.Error("Archive confirmation should not be active initially")
 		}
-		
+
 		// Show confirmation
 		confirmCalled := false
 		cancelCalled := false
-		
+
 		po.ShowArchiveConfirmation(
 			"Archive test?",
 			func() tea.Cmd {
@@ -542,19 +542,19 @@ func TestPipelineOperator_Confirmations(t *testing.T) {
 				return nil
 			},
 		)
-		
+
 		// Should now be active
 		if !po.IsArchiveConfirmActive() {
 			t.Error("Archive confirmation should be active after showing")
 		}
-		
+
 		// Simulate pressing 'n'
 		cmd := po.UpdateArchiveConfirm(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 		if cmd != nil {
 			// Execute the command if it exists
 			cmd()
 		}
-		
+
 		// Verify cancel was called
 		if confirmCalled {
 			t.Error("Confirm callback should not have been called")

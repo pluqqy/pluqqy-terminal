@@ -2,38 +2,38 @@ package tui
 
 import (
 	"testing"
-	
+
 	tea "github.com/charmbracelet/bubbletea"
 )
 
 // Integration test helpers
 func createFullyInitializedModel(t *testing.T) *MainListModel {
 	t.Helper()
-	
+
 	// Use the proper constructor to ensure all fields are initialized
 	m := NewMainListModel()
 	m.width = 100
 	m.height = 50
-	
+
 	// Initialize with test data
 	m.prompts = makeTestComponents("prompts", "greeting", "farewell", "question")
 	m.contexts = makeTestComponents("contexts", "general", "technical", "creative")
 	m.rules = makeTestComponents("rules", "format", "style", "security")
 	m.pipelines = makeTestPipelines("basic", "advanced", "custom")
-	
+
 	// Set up business logic
 	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
-	
+
 	// Initialize filtered lists
 	m.filteredComponents = m.getAllComponents()
 	m.filteredPipelines = m.pipelines
-	
+
 	// Update counts
 	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
-	
+
 	// Initialize viewports
 	m.updateViewportSizes()
-	
+
 	return m
 }
 
@@ -98,20 +98,20 @@ func TestCompleteInitialization(t *testing.T) {
 				m.width = 100
 				m.height = 50
 				m.updateViewportSizes()
-				
+
 				// Check viewport sizes
 				if m.componentsViewport.Width <= 0 || m.componentsViewport.Height <= 0 {
-					t.Errorf("Components viewport has invalid dimensions: %dx%d", 
+					t.Errorf("Components viewport has invalid dimensions: %dx%d",
 						m.componentsViewport.Width, m.componentsViewport.Height)
 				}
 				if m.pipelinesViewport.Width <= 0 || m.pipelinesViewport.Height <= 0 {
-					t.Errorf("Pipelines viewport has invalid dimensions: %dx%d", 
+					t.Errorf("Pipelines viewport has invalid dimensions: %dx%d",
 						m.pipelinesViewport.Width, m.pipelinesViewport.Height)
 				}
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMainListModel()
@@ -124,7 +124,7 @@ func TestCompleteInitialization(t *testing.T) {
 			m.filteredComponents = m.getAllComponents()
 			m.filteredPipelines = m.pipelines
 			m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
-			
+
 			tt.validate(t, m)
 		})
 	}
@@ -152,7 +152,7 @@ func TestModuleInteractions(t *testing.T) {
 				if m.stateManager.ComponentCursor != 1 {
 					t.Errorf("Expected cursor at 1, got %d", m.stateManager.ComponentCursor)
 				}
-				
+
 				// Verify we can get the selected component
 				components := m.getCurrentComponents()
 				if m.stateManager.ComponentCursor >= len(components) {
@@ -177,7 +177,7 @@ func TestModuleInteractions(t *testing.T) {
 			validate: func(t *testing.T, m *MainListModel) {
 				// Simulate search
 				m.performSearch()
-				
+
 				// Verify filtered lists are populated
 				if len(m.filteredComponents) == 0 && len(m.getAllComponents()) > 0 {
 					t.Error("Search should not filter out all components")
@@ -185,7 +185,7 @@ func TestModuleInteractions(t *testing.T) {
 				if len(m.filteredPipelines) == 0 && len(m.pipelines) > 0 {
 					t.Error("Search should not filter out all pipelines")
 				}
-				
+
 				// Verify cursors are reset if needed
 				if m.stateManager.ComponentCursor >= len(m.filteredComponents) && len(m.filteredComponents) > 0 {
 					t.Error("Component cursor should be reset after search")
@@ -209,16 +209,16 @@ func TestModuleInteractions(t *testing.T) {
 				if m.stateManager.ComponentCursor < len(components) {
 					initialComp = &components[m.stateManager.ComponentCursor]
 				}
-				
+
 				// Move cursor
 				m.Update(tea.KeyMsg{Type: tea.KeyDown})
-				
+
 				// Get new selection
 				var newComp *componentItem
 				if m.stateManager.ComponentCursor < len(components) {
 					newComp = &components[m.stateManager.ComponentCursor]
 				}
-				
+
 				// Verify selection changed
 				if initialComp != nil && newComp != nil && initialComp.name == newComp.name {
 					t.Error("Selected component should have changed")
@@ -226,7 +226,7 @@ func TestModuleInteractions(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := createFullyInitializedModel(t)
@@ -252,7 +252,7 @@ func TestUserWorkflows(t *testing.T) {
 			name: "Basic search entry and exit",
 			workflow: []tea.Msg{
 				tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}}, // Enter search mode
-				tea.KeyMsg{Type: tea.KeyEsc}, // Exit search mode immediately
+				tea.KeyMsg{Type: tea.KeyEsc},                       // Exit search mode immediately
 			},
 			validate: func(t *testing.T, m *MainListModel) {
 				// Should be back in components pane after escape
@@ -268,11 +268,11 @@ func TestUserWorkflows(t *testing.T) {
 		{
 			name: "Basic navigation workflow",
 			workflow: []tea.Msg{
-				tea.KeyMsg{Type: tea.KeyDown},       // Navigate down
-				tea.KeyMsg{Type: tea.KeyDown},       // Navigate down again
-				tea.KeyMsg{Type: tea.KeyUp},         // Navigate up
-				tea.KeyMsg{Type: tea.KeyTab},        // Switch to pipelines
-				tea.KeyMsg{Type: tea.KeyDown},       // Navigate in pipelines
+				tea.KeyMsg{Type: tea.KeyDown}, // Navigate down
+				tea.KeyMsg{Type: tea.KeyDown}, // Navigate down again
+				tea.KeyMsg{Type: tea.KeyUp},   // Navigate up
+				tea.KeyMsg{Type: tea.KeyTab},  // Switch to pipelines
+				tea.KeyMsg{Type: tea.KeyDown}, // Navigate in pipelines
 			},
 			validate: func(t *testing.T, m *MainListModel) {
 				// Should be in pipelines pane
@@ -290,16 +290,16 @@ func TestUserWorkflows(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := createFullyInitializedModel(t)
-			
+
 			// Execute workflow
 			for _, msg := range tt.workflow {
 				_, _ = m.Update(msg)
 			}
-			
+
 			tt.validate(t, m)
 		})
 	}
@@ -343,7 +343,7 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 				// Cursor should be adjusted to valid range
 				maxValid := len(m.filteredComponents) - 1
 				if m.stateManager.ComponentCursor > maxValid {
-					t.Errorf("Cursor %d exceeds max valid index %d", 
+					t.Errorf("Cursor %d exceeds max valid index %d",
 						m.stateManager.ComponentCursor, maxValid)
 				}
 			},
@@ -362,7 +362,7 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := createFullyInitializedModel(t)
@@ -376,25 +376,25 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 // Test state preservation across operations
 func TestStatePreservation(t *testing.T) {
 	m := createFullyInitializedModel(t)
-	
+
 	// Set up initial state
 	m.stateManager.ActivePane = componentsPane
 	m.stateManager.ComponentCursor = 2
 	m.stateManager.PipelineCursor = 1
 	m.stateManager.ShowPreview = true
-	
+
 	// Perform various operations
 	operations := []tea.Msg{
-		tea.KeyMsg{Type: tea.KeyTab},        // Switch pane
+		tea.KeyMsg{Type: tea.KeyTab},                       // Switch pane
 		tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}}, // Toggle preview
-		tea.KeyMsg{Type: tea.KeyTab},        // Switch back
-		tea.WindowSizeMsg{Width: 120, Height: 60}, // Resize
+		tea.KeyMsg{Type: tea.KeyTab},                       // Switch back
+		tea.WindowSizeMsg{Width: 120, Height: 60},          // Resize
 	}
-	
+
 	for _, op := range operations {
 		m.Update(op)
 	}
-	
+
 	// Verify state is preserved appropriately
 	if m.stateManager.ComponentCursor != 2 {
 		t.Errorf("Component cursor changed unexpectedly: %d", m.stateManager.ComponentCursor)
@@ -402,7 +402,7 @@ func TestStatePreservation(t *testing.T) {
 	if m.stateManager.PipelineCursor != 1 {
 		t.Errorf("Pipeline cursor changed unexpectedly: %d", m.stateManager.PipelineCursor)
 	}
-	
+
 	// Window resize is handled via SetSize method, not Update
 }
 
@@ -410,20 +410,20 @@ func TestStatePreservation(t *testing.T) {
 func TestNoRegressionInRefactoring(t *testing.T) {
 	// This test ensures the refactored code maintains backward compatibility
 	tests := []struct {
-		name     string
-		test     func(*testing.T, *MainListModel)
+		name string
+		test func(*testing.T, *MainListModel)
 	}{
 		{
 			name: "getAllComponents returns components in correct order",
 			test: func(t *testing.T, m *MainListModel) {
 				components := m.getAllComponents()
-				
+
 				// Verify we have all components
 				expectedCount := len(m.prompts) + len(m.contexts) + len(m.rules)
 				if len(components) != expectedCount {
 					t.Errorf("Expected %d components, got %d", expectedCount, len(components))
 				}
-				
+
 				// Verify components are ordered correctly (prompts, contexts, rules)
 				// The business logic should return them in the correct order based on settings
 				if len(components) > 0 {
@@ -431,7 +431,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 					foundPrompt := false
 					foundContext := false
 					foundRule := false
-					
+
 					for _, comp := range components {
 						switch comp.compType {
 						case "prompts":
@@ -446,7 +446,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 							foundRule = true
 						}
 					}
-					
+
 					if !foundPrompt && len(m.prompts) > 0 {
 						t.Error("No prompts found in components list")
 					}
@@ -467,7 +467,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 				if view == "" {
 					t.Error("View() returned empty string")
 				}
-				
+
 				// Verify view contains expected sections
 				if m.stateManager.ShowPreview {
 					// Should have preview section
@@ -499,7 +499,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 						},
 					},
 				}
-				
+
 				for _, kt := range keyTests {
 					m.Update(kt.key)
 					if !kt.validate() {
@@ -509,7 +509,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := createFullyInitializedModel(t)
@@ -520,7 +520,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 
 // Helper function to check if string contains substring
 func contains(s, substr string) bool {
-	return len(s) > 0 && len(substr) > 0 && 
+	return len(s) > 0 && len(substr) > 0 &&
 		(s == substr || len(s) > len(substr) && containsSubstring(s, substr))
 }
 
@@ -536,7 +536,7 @@ func containsSubstring(s, substr string) bool {
 // Test concurrent operations
 func TestConcurrentOperations(t *testing.T) {
 	m := createFullyInitializedModel(t)
-	
+
 	// Simulate rapid key presses
 	keys := []tea.KeyMsg{
 		{Type: tea.KeyDown},
@@ -546,15 +546,15 @@ func TestConcurrentOperations(t *testing.T) {
 		{Type: tea.KeyTab},
 		{Type: tea.KeyEnter},
 	}
-	
+
 	// Process all keys rapidly
 	for _, key := range keys {
 		m.Update(key)
 	}
-	
+
 	// Verify state is consistent
 	validateStateManager(t, m.stateManager)
-	
+
 	// Verify we can still render
 	view := m.View()
 	if view == "" {
@@ -584,7 +584,7 @@ func BenchmarkViewRendering(b *testing.B) {
 	m.width = 100
 	m.height = 50
 	m.updateViewportSizes()
-	
+
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		_ = m.View()

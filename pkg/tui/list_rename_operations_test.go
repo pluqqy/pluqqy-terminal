@@ -14,11 +14,11 @@ func makeTestRenameOperator() *RenameOperator {
 
 func TestNewRenameOperator(t *testing.T) {
 	ro := NewRenameOperator()
-	
+
 	if ro == nil {
 		t.Fatal("NewRenameOperator() returned nil")
 	}
-	
+
 	if ro.confirmDialog == nil {
 		t.Error("confirmDialog should be initialized")
 	}
@@ -72,17 +72,17 @@ func TestRenameOperator_ValidateDisplayName(t *testing.T) {
 			wantErr:  false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			err := ro.ValidateDisplayName(tt.newName, tt.itemType)
-			
+
 			if (err != nil) != tt.wantErr {
 				t.Errorf("ValidateDisplayName() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			
+
 			if tt.wantErr && err != nil {
 				if !containsString(err.Error(), tt.errMsg) {
 					t.Errorf("error message = %q, want to contain %q", err.Error(), tt.errMsg)
@@ -123,20 +123,20 @@ func TestRenameOperator_PrepareRenameComponent(t *testing.T) {
 			wantArchived:    true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			displayName, path, isArchived := ro.PrepareRenameComponent(tt.item)
-			
+
 			if displayName != tt.wantDisplayName {
 				t.Errorf("displayName = %q, want %q", displayName, tt.wantDisplayName)
 			}
-			
+
 			if path != tt.wantPath {
 				t.Errorf("path = %q, want %q", path, tt.wantPath)
 			}
-			
+
 			if isArchived != tt.wantArchived {
 				t.Errorf("isArchived = %v, want %v", isArchived, tt.wantArchived)
 			}
@@ -175,20 +175,20 @@ func TestRenameOperator_PrepareRenamePipeline(t *testing.T) {
 			wantArchived:    true,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			displayName, path, isArchived := ro.PrepareRenamePipeline(tt.item)
-			
+
 			if displayName != tt.wantDisplayName {
 				t.Errorf("displayName = %q, want %q", displayName, tt.wantDisplayName)
 			}
-			
+
 			if path != tt.wantPath {
 				t.Errorf("path = %q, want %q", path, tt.wantPath)
 			}
-			
+
 			if isArchived != tt.wantArchived {
 				t.Errorf("isArchived = %v, want %v", isArchived, tt.wantArchived)
 			}
@@ -222,17 +222,17 @@ func TestRenameOperator_HandleInput(t *testing.T) {
 			wantHandled: false,
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			state := tt.setup()
 			handled, err := ro.HandleInput(tt.input, state)
-			
+
 			if err != nil {
 				t.Errorf("unexpected error: %v", err)
 			}
-			
+
 			if handled != tt.wantHandled {
 				t.Errorf("handled = %v, want %v", handled, tt.wantHandled)
 			}
@@ -242,16 +242,16 @@ func TestRenameOperator_HandleInput(t *testing.T) {
 
 func TestRenameOperator_GetSuccessMessage(t *testing.T) {
 	tests := []struct {
-		name    string
-		msg     RenameSuccessMsg
-		want    string
+		name string
+		msg  RenameSuccessMsg
+		want string
 	}{
 		{
 			name: "component rename",
 			msg: RenameSuccessMsg{
-				ItemType: "component",
-				OldName:  "old-component.md",
-				NewName:  "New Component",
+				ItemType:   "component",
+				OldName:    "old-component.md",
+				NewName:    "New Component",
 				IsArchived: false,
 			},
 			want: "✓ Renamed component to: New Component",
@@ -259,9 +259,9 @@ func TestRenameOperator_GetSuccessMessage(t *testing.T) {
 		{
 			name: "pipeline rename",
 			msg: RenameSuccessMsg{
-				ItemType: "pipeline",
-				OldName:  "old-pipeline.yaml",
-				NewName:  "New Pipeline",
+				ItemType:   "pipeline",
+				OldName:    "old-pipeline.yaml",
+				NewName:    "New Pipeline",
 				IsArchived: false,
 			},
 			want: "✓ Renamed pipeline to: New Pipeline",
@@ -269,9 +269,9 @@ func TestRenameOperator_GetSuccessMessage(t *testing.T) {
 		{
 			name: "archived component rename",
 			msg: RenameSuccessMsg{
-				ItemType: "component",
-				OldName:  "old-component.md",
-				NewName:  "Renamed Archived",
+				ItemType:   "component",
+				OldName:    "old-component.md",
+				NewName:    "Renamed Archived",
 				IsArchived: true,
 			},
 			want: "✓ Renamed archived component to: Renamed Archived",
@@ -279,20 +279,20 @@ func TestRenameOperator_GetSuccessMessage(t *testing.T) {
 		{
 			name: "archived pipeline rename",
 			msg: RenameSuccessMsg{
-				ItemType: "pipeline",
-				OldName:  "old-pipeline.yaml",
-				NewName:  "Renamed Archived Pipeline",
+				ItemType:   "pipeline",
+				OldName:    "old-pipeline.yaml",
+				NewName:    "Renamed Archived Pipeline",
 				IsArchived: true,
 			},
 			want: "✓ Renamed archived pipeline to: Renamed Archived Pipeline",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			got := ro.GetSuccessMessage(tt.msg)
-			
+
 			if got != tt.want {
 				t.Errorf("GetSuccessMessage() = %q, want %q", got, tt.want)
 			}
@@ -302,9 +302,9 @@ func TestRenameOperator_GetSuccessMessage(t *testing.T) {
 
 func TestRenameOperator_GetErrorMessage(t *testing.T) {
 	tests := []struct {
-		name    string
-		err     error
-		want    string
+		name string
+		err  error
+		want string
 	}{
 		{
 			name: "simple error",
@@ -317,12 +317,12 @@ func TestRenameOperator_GetErrorMessage(t *testing.T) {
 			want: "✗ Rename failed: component with name 'test' already exists",
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			got := ro.GetErrorMessage(tt.err)
-			
+
 			if got != tt.want {
 				t.Errorf("GetErrorMessage() = %q, want %q", got, tt.want)
 			}
@@ -378,19 +378,19 @@ func TestRenameOperator_ExecuteRename(t *testing.T) {
 			},
 		},
 	}
-	
+
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ro := makeTestRenameOperator()
 			cmd := ro.ExecuteRename(tt.oldPath, tt.newDisplayName, tt.itemType, tt.isArchived)
-			
+
 			if cmd == nil {
 				t.Fatal("ExecuteRename() returned nil command")
 			}
-			
+
 			// Execute the command
 			msg := cmd()
-			
+
 			if !tt.checkMsgType(msg) {
 				t.Errorf("unexpected message type: %T", msg)
 			}

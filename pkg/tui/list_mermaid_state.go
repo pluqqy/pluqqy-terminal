@@ -24,13 +24,13 @@ func (ms *MermaidState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) 
 	if !ms.Active {
 		return false, nil
 	}
-	
+
 	// Handle escape to cancel generation
 	if msg.String() == "esc" && ms.GeneratingDiagram {
 		ms.GeneratingDiagram = false
 		return true, nil
 	}
-	
+
 	return false, nil
 }
 

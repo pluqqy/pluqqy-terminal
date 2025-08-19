@@ -10,18 +10,18 @@ type StateManager struct {
 	// Cursor positions
 	ComponentCursor int
 	PipelineCursor  int
-	
+
 	// Active pane tracking
-	ActivePane    pane
-	LastDataPane  pane
-	
+	ActivePane   pane
+	LastDataPane pane
+
 	// View state
-	ShowPreview   bool
-	
+	ShowPreview bool
+
 	// Deletion/Archive state
 	DeletingFromPane  pane
 	ArchivingFromPane pane
-	
+
 	// Item counts (for bounds checking)
 	componentCount int
 	pipelineCount  int
@@ -44,14 +44,14 @@ func (sm *StateManager) UpdateCounts(componentCount, pipelineCount int) {
 	defer sm.mu.Unlock()
 	sm.componentCount = componentCount
 	sm.pipelineCount = pipelineCount
-	
+
 	// Reset cursors if they're out of bounds
 	if sm.ComponentCursor >= componentCount && componentCount > 0 {
 		sm.ComponentCursor = componentCount - 1
 	} else if componentCount == 0 {
 		sm.ComponentCursor = 0
 	}
-	
+
 	if sm.PipelineCursor >= pipelineCount && pipelineCount > 0 {
 		sm.PipelineCursor = pipelineCount - 1
 	} else if pipelineCount == 0 {
@@ -133,7 +133,7 @@ func (sm *StateManager) navigateForward() {
 			sm.ActivePane = componentsPane
 		}
 	}
-	
+
 	// Track last data pane when switching
 	if sm.ActivePane == pipelinesPane || sm.ActivePane == componentsPane {
 		sm.LastDataPane = sm.ActivePane
@@ -165,7 +165,7 @@ func (sm *StateManager) navigateBackward() {
 			sm.ActivePane = componentsPane
 		}
 	}
-	
+
 	// Track last data pane when switching
 	if sm.ActivePane == pipelinesPane || sm.ActivePane == componentsPane {
 		sm.LastDataPane = sm.ActivePane
@@ -286,6 +286,6 @@ func (sm *StateManager) HandleKeyNavigation(key string) (handled bool, updatePre
 		sm.mu.RUnlock()
 		return true, updatePreview
 	}
-	
+
 	return false, false
 }

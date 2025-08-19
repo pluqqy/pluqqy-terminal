@@ -40,41 +40,41 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 	case "ctrl+z":
 		// Undo last action
 		return true, undoLastAction(state)
-	
+
 	case "ctrl+k":
 		// Clear all content
 		return true, clearAllContent(state)
-	
+
 	case "ctrl+shift+v", "ctrl+l":
 		// Clean current content (remove TUI borders, line numbers, etc)
 		return true, cleanCurrentContent(state)
-	
+
 	case "ctrl+s":
 		// Save component
 		return true, saveEnhancedComponent(state)
-	
+
 	case "ctrl+x":
 		// Show persistent status message
 		state.StatusManager.SetPersistentMessage("Editing in external editor - save your changes and close the editor window/tab to return here and continue", StatusTypeInfo)
 		// Open in external editor
 		return true, openInExternalEditor(state)
-	
+
 	case "pgup":
 		// Page up navigation
 		return true, handlePageUp(state, false)
-	
+
 	case "pgdown":
 		// Page down navigation
 		return true, handlePageDown(state, false)
-	
+
 	case "shift+pgup":
 		// Page up with text selection
 		return true, handlePageUp(state, true)
-	
+
 	case "shift+pgdown":
 		// Page down with text selection
 		return true, handlePageDown(state, true)
-	
+
 	case "esc":
 		// Handle exit with unsaved changes check
 		if state.HasUnsavedChanges() {
@@ -95,7 +95,7 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		// No changes, exit immediately
 		state.Reset()
 		return true, nil
-	
+
 	case "@":
 		// Check if the previous character is a backslash (escape)
 		content := state.Textarea.Value()
@@ -104,7 +104,7 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 			state.SetContent(content[:len(content)-1] + "@")
 			return true, nil
 		}
-		
+
 		// Not escaped, trigger file picker
 		// First, add the @ to the textarea so user sees it
 		cmd := state.UpdateTextarea(msg)
@@ -114,7 +114,7 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		initCmd := InitializeEnhancedFilePicker(state)
 		// Return both commands
 		return true, tea.Batch(cmd, initCmd)
-	
+
 	default:
 		// Delegate to textarea for normal text editing
 		cmd := state.UpdateTextarea(msg)
@@ -134,7 +134,7 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 			state.SetContent(content[:len(content)-1])
 		}
 		return true, nil
-	
+
 	case "1", "2", "3", "4", "5":
 		// Quick select recent file by number
 		num := int(msg.String()[0] - '0')
@@ -148,11 +148,11 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 		}
 		// Fall through if no recent file at this number
 		fallthrough
-	
+
 	default:
 		// Update file picker
 		cmd := state.UpdateFilePicker(msg)
-		
+
 		// Check if a file was selected
 		if didSelect, selected := state.FilePicker.DidSelectFile(msg); didSelect {
 			// Insert the file reference
@@ -162,7 +162,7 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 			state.StopFilePicker()
 			return true, insertCmd
 		}
-		
+
 		return true, cmd
 	}
 }
@@ -170,12 +170,12 @@ func handleFilePickerInput(state *EnhancedEditorState, msg tea.KeyMsg) (bool, te
 // DetectAtTrigger checks if @ was just typed and should trigger file picker
 func DetectAtTrigger(state *EnhancedEditorState) bool {
 	content := state.Textarea.Value()
-	
+
 	// Check if the last character typed is @
 	if len(content) > 0 && content[len(content)-1] == '@' {
 		return true
 	}
-	
+
 	return false
 }
 
@@ -187,7 +187,7 @@ func InitializeEnhancedFilePicker(state *EnhancedEditorState) tea.Cmd {
 		// Fallback to current directory
 		dir = "."
 	}
-	
+
 	// Update the existing file picker's settings without replacing it
 	state.FilePicker.CurrentDirectory = dir
 	state.FilePicker.AllowedTypes = []string{} // Empty means all files are allowed
@@ -196,7 +196,7 @@ func InitializeEnhancedFilePicker(state *EnhancedEditorState) tea.Cmd {
 	state.FilePicker.FileAllowed = true
 	state.FilePicker.AutoHeight = false
 	state.FilePicker.Height = 20 // Set a reasonable height
-	
+
 	// Now initialize it to read the directory
 	return state.FilePicker.Init()
 }
@@ -205,7 +205,7 @@ func InitializeEnhancedFilePicker(state *EnhancedEditorState) tea.Cmd {
 func ProcessFileSelection(path string) string {
 	// Clean the path
 	cleanPath := filepath.Clean(path)
-	
+
 	// Format as @reference
 	return fmt.Sprintf("@%s", cleanPath)
 }
@@ -213,16 +213,16 @@ func ProcessFileSelection(path string) string {
 // InsertFileReference inserts a file reference at the current position
 func InsertFileReference(state *EnhancedEditorState, reference string) tea.Cmd {
 	content := state.Content
-	
+
 	// Remove the @ that triggered the picker (it's at the end)
 	if len(content) > 0 && content[len(content)-1] == '@' {
 		content = content[:len(content)-1]
 	}
-	
+
 	// Insert the reference
 	newContent := content + reference
 	state.SetContent(newContent)
-	
+
 	return nil
 }
 
@@ -241,13 +241,13 @@ func clearAllContent(state *EnhancedEditorState) tea.Cmd {
 	if state.Content != "" {
 		state.SaveUndoState("Clear all")
 	}
-	
+
 	state.SetContent("")
 	state.Textarea.Reset()
 	state.Textarea.Focus()
 	state.ActionFeedback.RecordAction("✓ Cleared - ready for paste")
 	state.UpdateStats()
-	
+
 	// Return status feedback
 	return ShowClearedStatus()
 }
@@ -259,21 +259,21 @@ func cleanCurrentContent(state *EnhancedEditorState) tea.Cmd {
 	if currentContent == "" {
 		return ShowNothingToPasteStatus()
 	}
-	
+
 	// Clean the content
 	cleanedContent := state.PasteHelper.CleanPastedContent(currentContent)
-	
+
 	// Check if anything was cleaned
 	if cleanedContent != currentContent {
 		// Save for undo
 		state.SaveUndoState("Clean content")
-		
+
 		// Update the content
 		state.SetContent(cleanedContent)
 		state.Textarea.SetValue(cleanedContent)
 		state.Textarea.Focus()
 		state.UpdateStats()
-		
+
 		// Show feedback
 		lineCount := CountLines(cleanedContent)
 		state.ActionFeedback.RecordAction(fmt.Sprintf("✓ Cleaned %d lines", lineCount))
@@ -290,18 +290,18 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 	return func() tea.Msg {
 		// Get content from textarea
 		content := state.Textarea.Value()
-		
+
 		// Auto-trim and clean content before saving
 		content = state.PasteHelper.CleanForSave(content)
-		
+
 		// Validate content
 		if err := ValidateComponentContent(content); err != nil {
 			return StatusMsg(fmt.Sprintf("× Validation failed: %v", err))
 		}
-		
+
 		// Write component - always use WriteComponentWithNameAndTags to preserve both name and tags
 		err := files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
-		
+
 		// After first save, it's no longer a new component
 		if state.IsNewComponent {
 			state.IsNewComponent = false
@@ -309,17 +309,17 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
 		}
-		
+
 		// Update original content to reflect saved state
 		state.OriginalContent = content
 		state.Content = content
-		state.UnsavedChanges = false  // Mark as saved
-		
+		state.UnsavedChanges = false // Mark as saved
+
 		// Mark as no longer new after first save
 		if state.IsNewComponent {
 			state.IsNewComponent = false
 		}
-		
+
 		// Return a status message without closing the editor
 		savedName := state.ComponentName
 		return StatusMsg(fmt.Sprintf("✓ Saved: %s", savedName))
@@ -348,39 +348,39 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 				return StatusMsg(fmt.Sprintf("× Failed to save before external edit: %v", err))
 			}
 		}
-		
+
 		editor := os.Getenv("EDITOR")
 		if editor == "" {
 			return StatusMsg("Error: $EDITOR environment variable not set")
 		}
-		
+
 		// Construct full path
 		fullPath := filepath.Join(files.PluqqyDir, state.ComponentPath)
-		
+
 		// Create command with proper argument parsing for editors with flags
 		cmd := createEditorCommand(editor, fullPath)
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
-		
+
 		err := cmd.Run()
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to open editor: %v", err))
 		}
-		
+
 		// Reload the content from the file after external editing
 		content, err := files.ReadComponent(state.ComponentPath)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to reload content after editing: %v", err))
 		}
-		
+
 		// Update the textarea with the new content
 		state.Textarea.SetValue(content.Content)
-		
+
 		// Update the original content to match what's now in the file
 		state.OriginalContent = content.Content
 		state.Content = content.Content
-		
+
 		// Update name and tags if they were changed in the external editor
 		if content.Name != "" {
 			state.ComponentName = content.Name
@@ -388,16 +388,16 @@ func openInExternalEditor(state *EnhancedEditorState) tea.Cmd {
 		if content.Tags != nil {
 			state.ComponentTags = content.Tags
 		}
-		
+
 		// Clear unsaved changes flag since we just loaded from disk
 		state.UnsavedChanges = false
-		
+
 		// Clear the persistent message about external editor
 		state.StatusManager.ClearPersistentMessage()
-		
+
 		// Show temporary success message
 		state.StatusManager.ShowSuccess("Content reloaded from external editor")
-		
+
 		// Return a status message
 		return StatusMsg(fmt.Sprintf("✓ Reloaded: %s", filepath.Base(state.ComponentPath)))
 	}
@@ -409,7 +409,7 @@ func ValidateComponentContent(content string) error {
 	if strings.TrimSpace(content) == "" {
 		return fmt.Errorf("component cannot be empty")
 	}
-	
+
 	// Check for basic YAML validity if it looks like frontmatter
 	if strings.HasPrefix(strings.TrimSpace(content), "---") {
 		// Basic check for frontmatter structure - needs closing ---
@@ -418,7 +418,7 @@ func ValidateComponentContent(content string) error {
 			return fmt.Errorf("invalid frontmatter structure")
 		}
 	}
-	
+
 	// Check file references are valid
 	refs := ExtractFileReferences(content)
 	for _, ref := range refs {
@@ -426,7 +426,7 @@ func ValidateComponentContent(content string) error {
 			return fmt.Errorf("invalid file reference %s: %v", ref, err)
 		}
 	}
-	
+
 	return nil
 }
 
@@ -434,7 +434,7 @@ func ValidateComponentContent(content string) error {
 func ExtractFileReferences(content string) []string {
 	var refs []string
 	lines := strings.Split(content, "\n")
-	
+
 	for _, line := range lines {
 		// Find all @ references in the line
 		for i := 0; i < len(line); i++ {
@@ -450,7 +450,7 @@ func ExtractFileReferences(content string) []string {
 			}
 		}
 	}
-	
+
 	return refs
 }
 
@@ -459,17 +459,17 @@ func ValidateFileReference(ref string) error {
 	if !strings.HasPrefix(ref, "@") {
 		return fmt.Errorf("reference must start with @")
 	}
-	
+
 	path := strings.TrimPrefix(ref, "@")
 	if path == "" {
 		return fmt.Errorf("empty path")
 	}
-	
+
 	// Check for dangerous path elements
 	if strings.Contains(path, "..") {
 		return fmt.Errorf("path traversal not allowed")
 	}
-	
+
 	return nil
 }
 
@@ -478,12 +478,12 @@ func ParseFileReference(ref string) (string, error) {
 	if !strings.HasPrefix(ref, "@") {
 		return "", fmt.Errorf("invalid reference format")
 	}
-	
+
 	path := strings.TrimPrefix(ref, "@")
 	if path == "" {
 		return "", fmt.Errorf("empty path")
 	}
-	
+
 	return path, nil
 }
 
@@ -495,7 +495,7 @@ func InsertTextAtCursor(content string, text string, pos int) string {
 	if pos > len(content) {
 		pos = len(content)
 	}
-	
+
 	before := content[:pos]
 	after := content[pos:]
 	return before + text + after
@@ -508,13 +508,13 @@ func handlePageUp(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 	if visibleLines <= 0 {
 		visibleLines = 20 // Default if not set
 	}
-	
+
 	// Leave a few lines of overlap for context
 	scrollAmount := visibleLines - 3
 	if scrollAmount < 1 {
 		scrollAmount = 1
 	}
-	
+
 	// Move cursor up by scroll amount
 	for i := 0; i < scrollAmount; i++ {
 		if withSelection {
@@ -527,7 +527,7 @@ func handlePageUp(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 			state.Textarea.CursorUp()
 		}
 	}
-	
+
 	// Update stats and provide feedback
 	state.UpdateStats()
 	if withSelection {
@@ -535,7 +535,7 @@ func handlePageUp(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 	} else {
 		state.ActionFeedback.RecordAction("Page Up")
 	}
-	
+
 	return nil
 }
 
@@ -546,13 +546,13 @@ func handlePageDown(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 	if visibleLines <= 0 {
 		visibleLines = 20 // Default if not set
 	}
-	
+
 	// Leave a few lines of overlap for context
 	scrollAmount := visibleLines - 3
 	if scrollAmount < 1 {
 		scrollAmount = 1
 	}
-	
+
 	// Move cursor down by scroll amount
 	for i := 0; i < scrollAmount; i++ {
 		if withSelection {
@@ -565,7 +565,7 @@ func handlePageDown(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 			state.Textarea.CursorDown()
 		}
 	}
-	
+
 	// Update stats and provide feedback
 	state.UpdateStats()
 	if withSelection {
@@ -573,6 +573,6 @@ func handlePageDown(state *EnhancedEditorState, withSelection bool) tea.Cmd {
 	} else {
 		state.ActionFeedback.RecordAction("Page Down")
 	}
-	
+
 	return nil
 }

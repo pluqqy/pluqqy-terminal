@@ -119,7 +119,7 @@ func (ro *RenameOperator) GetSuccessMessage(msg RenameSuccessMsg) string {
 	if msg.IsArchived {
 		itemType = "archived " + itemType
 	}
-	
+
 	return fmt.Sprintf("✓ Renamed %s to: %s", itemType, msg.NewName)
 }
 
@@ -132,10 +132,10 @@ func (ro *RenameOperator) GetErrorMessage(err error) string {
 func (ro *RenameOperator) HandleInput(msg tea.KeyMsg, state *RenameState) (handled bool, err error) {
 	// Delegate to the state's HandleInput method
 	handled, cmd := state.HandleInput(msg)
-	
+
 	// If a command was returned, we can't execute it here
 	// Instead we return handled status
 	_ = cmd // Ignore the command for now
-	
+
 	return handled, nil
 }
