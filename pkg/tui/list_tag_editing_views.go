@@ -11,17 +11,18 @@ import (
 
 // TagEditingViewRenderer handles the rendering of tag editing views
 type TagEditingViewRenderer struct {
-	Width            int
-	Height           int
-	ItemName         string
-	CurrentTags      []string
-	TagInput         string
-	TagCursor        int
-	ShowSuggestions  bool
-	SuggestionCursor int
-	TagCloudActive   bool
-	TagCloudCursor   int
-	AvailableTags    []string
+	Width                   int
+	Height                  int
+	ItemName                string
+	CurrentTags             []string
+	TagInput                string
+	TagCursor               int
+	ShowSuggestions         bool
+	SuggestionCursor        int
+	HasNavigatedSuggestions bool // Track if user actively navigated suggestions
+	TagCloudActive          bool
+	TagCloudCursor          int
+	AvailableTags           []string
 
 	// Tag deletion state
 	TagDeleteConfirm *ConfirmationModel
@@ -254,6 +255,9 @@ func (r *TagEditingViewRenderer) renderSuggestions(padding lipgloss.Style) strin
 	selectedSuggestionStyle := lipgloss.NewStyle().
 		Background(lipgloss.Color("236")).
 		Foreground(lipgloss.Color("170"))
+	indicatorStyle := lipgloss.NewStyle().
+		Foreground(lipgloss.Color("170")).
+		Bold(true)
 
 	var content strings.Builder
 	for i, suggestion := range suggestions {
@@ -262,13 +266,20 @@ func (r *TagEditingViewRenderer) renderSuggestions(padding lipgloss.Style) strin
 		}
 		var suggestionLine string
 		if i == r.SuggestionCursor {
-			// Selected suggestion with background
-			suggestionLine = selectedSuggestionStyle.
-				Padding(0, 1).
-				Render(suggestion)
+			if r.HasNavigatedSuggestions {
+				// Actively selected - show with arrow indicators like selected tags
+				suggestionLine = indicatorStyle.Render("▶ ") + 
+					selectedSuggestionStyle.Padding(0, 1).Render(suggestion) +
+					indicatorStyle.Render(" ◀")
+			} else {
+				// Just highlighted (default position) - subtle background, no arrows
+				suggestionLine = "  " + selectedSuggestionStyle.
+					Padding(0, 1).
+					Render(suggestion) + "  "
+			}
 		} else {
-			// Regular suggestion
-			suggestionLine = suggestionStyle.Render("  " + suggestion)
+			// Regular suggestion - maintain spacing for alignment
+			suggestionLine = "  " + suggestionStyle.Render(suggestion) + "  "
 		}
 		content.WriteString(padding.Render(suggestionLine))
 		content.WriteString("\n")
@@ -305,9 +316,9 @@ func (r *TagEditingViewRenderer) renderHelpSection() string {
 		help = []string{
 			"tab switch pane",
 			"enter add tag",
-			"←/→ select tag",
+			"←→ select tag",
 			"↑↓ navigate suggestions",
-			"^d delete tag",
+			"^d remove tag",
 			"^t reload tags",
 			"^s save",
 			"esc cancel",

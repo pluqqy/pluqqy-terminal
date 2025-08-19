@@ -88,21 +88,23 @@ type PipelineBuilderModel struct {
 	enhancedEditor *EnhancedEditorState
 
 	// Tag editing state
-	editingTags        bool
-	editingTagsPath    string
-	currentTags        []string
-	originalTags       []string // Store original tags to check for changes
-	tagInput           string
-	tagCursor          int
-	availableTags      []string
-	showTagSuggestions bool
-	tagCloudActive     bool
-	tagCloudCursor     int
-	tagDeleteConfirm   *ConfirmationModel
-	deletingTag        string
-	deletingTagUsage   []string
-	editSaveTimer      *time.Timer
-	editViewport       viewport.Model
+	editingTags             bool
+	editingTagsPath         string
+	currentTags             []string
+	originalTags            []string // Store original tags to check for changes
+	tagInput                string
+	tagCursor               int
+	availableTags           []string
+	showTagSuggestions      bool
+	tagSuggestionCursor     int  // Track selected suggestion
+	hasNavigatedSuggestions bool // Track if user actively navigated suggestions
+	tagCloudActive          bool
+	tagCloudCursor          int
+	tagDeleteConfirm        *ConfirmationModel
+	deletingTag             string
+	deletingTagUsage        []string
+	editSaveTimer           *time.Timer
+	editViewport            viewport.Model
 
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
@@ -3033,14 +3035,37 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 					m.currentTags = append(m.currentTags, tag)
 				}
 			}
-		} else {
-			if m.tagInput != "" {
+		} else if m.tagInput != "" {
+			// Only use suggestion if user actively navigated to select it
+			if m.hasNavigatedSuggestions && m.showTagSuggestions {
+				suggestions := m.getFilteredSuggestions()
+				if m.tagSuggestionCursor >= 0 && m.tagSuggestionCursor < len(suggestions) {
+					// Limit to 5 suggestions as per the view
+					maxIndex := len(suggestions)
+					if maxIndex > 5 {
+						maxIndex = 5
+					}
+					if m.tagSuggestionCursor < maxIndex {
+						tag := suggestions[m.tagSuggestionCursor]
+						if !m.hasTag(tag) {
+							m.currentTags = append(m.currentTags, tag)
+						}
+						m.tagInput = ""
+						m.tagCursor = len(m.currentTags)
+						m.tagSuggestionCursor = 0
+						m.hasNavigatedSuggestions = false
+					}
+				}
+			} else {
+				// User just typed and hit enter - add exactly what they typed
 				normalized := models.NormalizeTagName(m.tagInput)
 				if normalized != "" && !m.hasTag(normalized) {
 					m.currentTags = append(m.currentTags, normalized)
 				}
 				m.tagInput = ""
 				m.tagCursor = len(m.currentTags)
+				m.tagSuggestionCursor = 0
+				m.hasNavigatedSuggestions = false
 			}
 		}
 		return m, nil
@@ -3049,6 +3074,44 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		m.tagCloudActive = !m.tagCloudActive
 		if m.tagCloudActive {
 			m.tagCloudCursor = 0
+		}
+		return m, nil
+
+	case "up":
+		if !m.tagCloudActive && m.showTagSuggestions && m.tagInput != "" {
+			// Navigate up in suggestions
+			if m.tagSuggestionCursor > 0 {
+				m.tagSuggestionCursor--
+			}
+			// Mark as navigated even if cursor doesn't move (for single suggestion case)
+			m.hasNavigatedSuggestions = true
+		} else if m.tagCloudActive {
+			// Navigate in tag cloud
+			if m.tagCloudCursor > 0 {
+				m.tagCloudCursor--
+			}
+		}
+		return m, nil
+
+	case "down":
+		if !m.tagCloudActive && m.showTagSuggestions && m.tagInput != "" {
+			// Navigate down in suggestions
+			suggestions := m.getFilteredSuggestions()
+			maxSuggestions := len(suggestions)
+			if maxSuggestions > 5 {
+				maxSuggestions = 5 // Limit to 5 suggestions as per the view
+			}
+			if m.tagSuggestionCursor < maxSuggestions-1 {
+				m.tagSuggestionCursor++
+			}
+			// Mark as navigated even if cursor doesn't move (for single suggestion case)
+			m.hasNavigatedSuggestions = true
+		} else if m.tagCloudActive {
+			// Navigate in tag cloud
+			availableForSelection := m.getAvailableTagsForCloud()
+			if m.tagCloudCursor < len(availableForSelection)-1 {
+				m.tagCloudCursor++
+			}
 		}
 		return m, nil
 
@@ -3086,6 +3149,9 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			if m.tagInput != "" {
 				if len(m.tagInput) > 0 {
 					m.tagInput = m.tagInput[:len(m.tagInput)-1]
+					m.showTagSuggestions = len(m.tagInput) > 0
+					m.tagSuggestionCursor = 0
+					m.hasNavigatedSuggestions = false
 				}
 			} else if m.tagCursor > 0 && m.tagCursor <= len(m.currentTags) {
 				m.currentTags = append(m.currentTags[:m.tagCursor-1], m.currentTags[m.tagCursor:]...)
@@ -3144,27 +3210,12 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		}
 		return m, nil
 
-	case "up":
-		if m.tagCloudActive {
-			if m.tagCloudCursor > 0 {
-				m.tagCloudCursor--
-			}
-		}
-		return m, nil
-
-	case "down":
-		if m.tagCloudActive {
-			availableForSelection := m.getAvailableTagsForCloud()
-			if m.tagCloudCursor < len(availableForSelection)-1 {
-				m.tagCloudCursor++
-			}
-		}
-		return m, nil
-
 	case " ":
 		if !m.tagCloudActive {
 			m.tagInput += " "
 			m.showTagSuggestions = m.tagInput != ""
+			m.tagSuggestionCursor = 0
+			m.hasNavigatedSuggestions = false
 		}
 		return m, nil
 
@@ -3173,6 +3224,8 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		if !m.tagCloudActive && len(msg.String()) == 1 {
 			m.tagInput += msg.String()
 			m.showTagSuggestions = m.tagInput != ""
+			m.tagSuggestionCursor = 0
+			m.hasNavigatedSuggestions = false
 		}
 	}
 
@@ -3187,6 +3240,32 @@ func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
 		}
 	}
 	return available
+}
+
+func (m *PipelineBuilderModel) getFilteredSuggestions() []string {
+	if m.tagInput == "" {
+		return []string{}
+	}
+	
+	input := strings.ToLower(m.tagInput)
+	var suggestions []string
+	
+	// First, exact prefix matches
+	for _, tag := range m.availableTags {
+		if strings.HasPrefix(strings.ToLower(tag), input) && !m.hasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	// Then, contains matches
+	for _, tag := range m.availableTags {
+		lowerTag := strings.ToLower(tag)
+		if !strings.HasPrefix(lowerTag, input) && strings.Contains(lowerTag, input) && !m.hasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	return suggestions
 }
 
 func (m *PipelineBuilderModel) getTagUsage(tag string) []string {
@@ -3246,6 +3325,8 @@ func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string
 	m.tagInput = ""
 	m.tagCursor = 0
 	m.showTagSuggestions = false
+	m.tagSuggestionCursor = 0
+	m.hasNavigatedSuggestions = false
 	m.tagCloudActive = false
 	m.tagCloudCursor = 0
 
@@ -3262,6 +3343,8 @@ func (m *PipelineBuilderModel) startPipelineTagEditing(currentTags []string) {
 	copy(m.originalTags, currentTags)
 	m.tagInput = ""
 	m.tagCursor = 0
+	m.tagSuggestionCursor = 0
+	m.hasNavigatedSuggestions = false
 	m.showTagSuggestions = false
 	m.tagCloudActive = false
 	m.tagCloudCursor = 0
@@ -3484,12 +3567,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		mainContent.WriteString("\n\n")
 		mainContent.WriteString(headerPadding.Render("Suggestions:\n"))
 
-		var suggestions []string
-		for _, tag := range m.availableTags {
-			if m.tagInput != "" && strings.HasPrefix(strings.ToLower(tag), strings.ToLower(m.tagInput)) && !m.hasTag(tag) {
-				suggestions = append(suggestions, tag)
-			}
-		}
+		suggestions := m.getFilteredSuggestions()
 
 		if len(suggestions) > 0 {
 			maxSuggestions := 5
@@ -3497,12 +3575,28 @@ func (m *PipelineBuilderModel) tagEditView() string {
 				maxSuggestions = len(suggestions)
 			}
 
+			// Style for arrow indicators
+			indicatorStyle := lipgloss.NewStyle().
+				Foreground(lipgloss.Color("170")).
+				Bold(true)
+			
 			for i := 0; i < maxSuggestions; i++ {
-				if i == 0 {
-					mainContent.WriteString(headerPadding.Render(selectedSuggestionStyle.Render(suggestions[i])))
+				var suggestionLine string
+				if i == m.tagSuggestionCursor {
+					if m.hasNavigatedSuggestions {
+						// Actively selected - show with arrow indicators
+						suggestionLine = indicatorStyle.Render("▶ ") + 
+							selectedSuggestionStyle.Render(suggestions[i]) +
+							indicatorStyle.Render(" ◀")
+					} else {
+						// Just highlighted (default position) - no arrows
+						suggestionLine = "  " + selectedSuggestionStyle.Render(suggestions[i]) + "  "
+					}
 				} else {
-					mainContent.WriteString(headerPadding.Render(suggestionStyle.Render(suggestions[i])))
+					// Regular suggestion - maintain spacing for alignment
+					suggestionLine = "  " + suggestionStyle.Render(suggestions[i]) + "  "
 				}
+				mainContent.WriteString(headerPadding.Render(suggestionLine))
 				mainContent.WriteString("\n")
 			}
 		}
@@ -3645,7 +3739,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		help = []string{
 			"tab switch pane",
 			"enter add tag",
-			"←/→ navigate",
+			"←→ navigate",
 			"^d delete tag",
 			"^s save",
 			"esc cancel",
@@ -3654,8 +3748,10 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		help = []string{
 			"tab switch pane",
 			"enter add tag",
-			"←/→ select tag",
-			"^d delete tag",
+			"←→ select tag",
+			"↑↓ navigate suggestions",
+			"^d remove tag",
+			"^t reload tags",
 			"^s save",
 			"esc cancel",
 		}

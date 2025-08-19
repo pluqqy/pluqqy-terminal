@@ -20,10 +20,11 @@ type TagEditor struct {
 	OriginalTags []string
 
 	// Input state
-	TagInput         string
-	TagCursor        int
-	ShowSuggestions  bool
-	SuggestionCursor int
+	TagInput                string
+	TagCursor               int
+	ShowSuggestions         bool
+	SuggestionCursor        int
+	HasNavigatedSuggestions bool // Track if user actively navigated suggestions
 
 	// Tag cloud state
 	TagCloudActive bool
@@ -68,6 +69,7 @@ func (t *TagEditor) Start(path string, currentTags []string, itemType string) {
 	t.TagCursor = 0
 	t.ShowSuggestions = false
 	t.SuggestionCursor = 0
+	t.HasNavigatedSuggestions = false
 	t.TagCloudActive = false
 	t.TagCloudCursor = 0
 
@@ -86,6 +88,7 @@ func (t *TagEditor) Reset() {
 	t.TagCursor = 0
 	t.ShowSuggestions = false
 	t.SuggestionCursor = 0
+	t.HasNavigatedSuggestions = false
 	t.TagCloudActive = false
 	t.TagCloudCursor = 0
 	t.DeletingTag = ""
@@ -212,12 +215,12 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			// Add tag from cloud
 			t.AddTagFromCloud()
 		} else if t.ShowSuggestions && t.TagInput != "" {
-			// Try to add selected suggestion if there are any
+			// Only use suggestion if user actively navigated to select it
 			suggestions := t.GetSuggestions()
-			if len(suggestions) > 0 && t.SuggestionCursor < len(suggestions) {
+			if t.HasNavigatedSuggestions && len(suggestions) > 0 && t.SuggestionCursor < len(suggestions) {
 				t.AddSelectedSuggestion()
 			} else {
-				// No suggestions or no valid selection, add raw input
+				// User just typed and hit enter - add exactly what they typed
 				t.AddTagFromInput()
 			}
 		} else {
@@ -243,6 +246,8 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			if t.SuggestionCursor > 0 {
 				t.SuggestionCursor--
 			}
+			// Mark as navigated even if cursor doesn't move (for single suggestion case)
+			t.HasNavigatedSuggestions = true
 		}
 		return true, nil
 
@@ -257,6 +262,8 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			if t.SuggestionCursor < maxSuggestions-1 {
 				t.SuggestionCursor++
 			}
+			// Mark as navigated even if cursor doesn't move (for single suggestion case)
+			t.HasNavigatedSuggestions = true
 		}
 		return true, nil
 
@@ -306,6 +313,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 				t.TagInput = t.TagInput[:len(t.TagInput)-1]
 				t.ShowSuggestions = len(t.TagInput) > 0
 				t.SuggestionCursor = 0 // Reset to first suggestion
+				t.HasNavigatedSuggestions = false // Reset navigation flag when editing
 			}
 		}
 		return true, nil
@@ -316,6 +324,7 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			t.TagInput += msg.String()
 			t.ShowSuggestions = true
 			t.SuggestionCursor = 0 // Reset to first suggestion
+			t.HasNavigatedSuggestions = false // Reset navigation flag when typing
 		}
 		return true, nil
 	}
@@ -338,6 +347,7 @@ func (t *TagEditor) AddSelectedSuggestion() {
 			t.TagInput = ""
 			t.ShowSuggestions = false
 			t.SuggestionCursor = 0
+			t.HasNavigatedSuggestions = false
 		}
 	}
 }
@@ -353,6 +363,7 @@ func (t *TagEditor) AddTagFromInput() {
 		t.TagInput = ""
 		t.ShowSuggestions = false
 		t.SuggestionCursor = 0
+		t.HasNavigatedSuggestions = false
 	}
 }
 

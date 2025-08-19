@@ -149,7 +149,7 @@ func (r *TagCloudRenderer) GetHelpText() []string {
 	return []string{
 		"tab switch pane",
 		"enter add tag",
-		"←/→ navigate",
+		"←→ navigate",
 		"^d delete tag",
 		"^s save",
 		"esc cancel",

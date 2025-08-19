@@ -905,6 +905,7 @@ func (m *MainListModel) View() string {
 		renderer.TagCursor = m.tagEditor.TagCursor
 		renderer.ShowSuggestions = m.tagEditor.ShowSuggestions
 		renderer.SuggestionCursor = m.tagEditor.SuggestionCursor
+		renderer.HasNavigatedSuggestions = m.tagEditor.HasNavigatedSuggestions
 		renderer.TagCloudActive = m.tagEditor.TagCloudActive
 		renderer.TagCloudCursor = m.tagEditor.TagCloudCursor
 		renderer.AvailableTags = m.tagEditor.AvailableTags
