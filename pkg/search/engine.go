@@ -2,6 +2,7 @@ package search
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -157,6 +158,14 @@ func (e *Engine) BuildIndexWithOptions(includeArchived bool) error {
 			continue // Skip pipelines that can't be read
 		}
 		
+		// Get actual modified time from file system
+		pipelinePath := filepath.Join(files.PluqqyDir, files.PipelinesDir, pipelineFile)
+		fileInfo, err := os.Stat(pipelinePath)
+		modTime := time.Now() // Fallback to current time if stat fails
+		if err == nil {
+			modTime = fileInfo.ModTime()
+		}
+		
 		// Create searchable content from pipeline name and tags
 		// This allows pipelines to be found by content searches
 		searchableContent := pipeline.Name
@@ -170,7 +179,7 @@ func (e *Engine) BuildIndexWithOptions(includeArchived bool) error {
 			Name:       pipeline.Name,
 			Tags:       pipeline.Tags,
 			Content:    searchableContent,
-			Modified:   time.Now(), // TODO: Get actual modified time
+			Modified:   modTime,
 			IsArchived: false,
 		}
 		
@@ -187,6 +196,14 @@ func (e *Engine) BuildIndexWithOptions(includeArchived bool) error {
 					continue // Skip pipelines that can't be read
 				}
 				
+				// Get actual modified time from file system
+				archivedPath := filepath.Join(files.PluqqyDir, files.ArchiveDir, files.PipelinesDir, pipelineFile)
+				fileInfo, err := os.Stat(archivedPath)
+				modTime := time.Now() // Fallback to current time if stat fails
+				if err == nil {
+					modTime = fileInfo.ModTime()
+				}
+				
 				// Create searchable content from pipeline name and tags
 				searchableContent := pipeline.Name
 				if len(pipeline.Tags) > 0 {
@@ -199,7 +216,7 @@ func (e *Engine) BuildIndexWithOptions(includeArchived bool) error {
 					Name:       pipeline.Name,
 					Tags:       pipeline.Tags,
 					Content:    searchableContent,
-					Modified:   time.Now(), // TODO: Get actual modified time
+					Modified:   modTime,
 					IsArchived: true,
 				}
 				
