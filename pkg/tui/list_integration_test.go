@@ -62,8 +62,8 @@ func TestCompleteInitialization(t *testing.T) {
 				if m.componentCreator == nil {
 					t.Error("ComponentCreator not initialized")
 				}
-				if m.componentEditor == nil {
-					t.Error("ComponentEditor not initialized")
+				if m.enhancedEditor == nil {
+					t.Error("EnhancedEditor not initialized")
 				}
 				if m.tagEditor == nil {
 					t.Error("TagEditor not initialized")

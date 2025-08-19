@@ -87,12 +87,6 @@ type PipelineBuilderModel struct {
 	// - Consistent with the Main List view editing experience
 	enhancedEditor        *EnhancedEditorState
 	
-	// Feature flag to enable/disable the enhanced editor
-	// When true: Uses the enhanced editor with advanced features
-	// When false: Falls back to the legacy simple text editor
-	// Default: true (can be changed in NewPipelineBuilderModel)
-	useEnhancedEditor     bool
-	
 	// Tag editing state
 	editingTags           bool
 	editingTagsPath       string
@@ -534,7 +528,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msgStr := string(msg)
 		if strings.HasPrefix(msgStr, "✓ Saved:") {
 			// A component was saved successfully
-			if m.editingComponent && m.useEnhancedEditor {
+			if m.editingComponent {
 				// Reload components but keep editor open
 				m.loadAvailableComponents()
 				// Update preview
@@ -546,7 +540,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	case ReloadMsg:
 		// Legacy path - might still be used by other components
-		if m.editingComponent && m.useEnhancedEditor {
+		if m.editingComponent {
 			// Exit editing mode
 			m.editingComponent = false
 			// Set success message
@@ -1148,11 +1142,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		
 		case "e":
-			// Edit component in the TUI editor
-			// This integration point determines whether to use the enhanced editor
-			// or fall back to the legacy editor based on the useEnhancedEditor flag
-			if m.useEnhancedEditor {
-				// Enhanced editor path: provides advanced editing features
+			// Edit component in the TUI editor using the enhanced editor
+			// Enhanced editor provides advanced editing features
 				if m.activeColumn == leftColumn {
 					components := m.getAllAvailableComponents()
 					if m.leftCursor >= 0 && m.leftCursor < len(components) {
@@ -1218,67 +1209,6 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 				}
-			} else {
-				// Legacy editor code (kept for backward compatibility)
-				if m.activeColumn == leftColumn {
-					components := m.getAllAvailableComponents()
-					if m.leftCursor >= 0 && m.leftCursor < len(components) {
-						comp := components[m.leftCursor]
-						// Read the component content
-						content, err := files.ReadComponent(comp.path)
-						if err != nil {
-							m.err = err
-							return m, nil
-						}
-						// Enter editing mode
-						m.editingComponent = true
-						m.editingComponentPath = comp.path
-						m.editingComponentName = comp.name
-						m.componentContent = content.Content
-						m.originalContent = content.Content // Store original for change detection
-						
-						// Initialize edit viewport
-						m.editViewport = viewport.New(m.width-8, m.height-10)
-						m.editViewport.SetContent(content.Content)
-						
-						return m, nil
-					}
-				} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
-					// Edit component in TUI editor from right column
-					if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
-						selected := m.selectedComponents[m.rightCursor]
-						// Convert path from relative to component path
-						componentPath := strings.TrimPrefix(selected.Path, "../")
-						
-						// Read the component content
-						content, err := files.ReadComponent(componentPath)
-						if err != nil {
-							m.err = err
-							return m, nil
-						}
-						
-						// Extract component name from path
-						parts := strings.Split(componentPath, "/")
-						componentName := ""
-						if len(parts) >= 2 {
-							componentName = strings.TrimSuffix(parts[1], ".md")
-						}
-						
-						// Enter editing mode
-						m.editingComponent = true
-						m.editingComponentPath = componentPath
-						m.editingComponentName = componentName
-						m.componentContent = content.Content
-						m.originalContent = content.Content // Store original for change detection
-						
-						// Initialize edit viewport
-						m.editViewport = viewport.New(m.width-8, m.height-10)
-						m.editViewport.SetContent(content.Content)
-						
-						return m, nil
-					}
-				}
-			}
 		}
 	}
 
@@ -1308,7 +1238,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		// Handle enhanced editor for non-KeyMsg message types
 		// This is crucial for filepicker which needs to process internal messages like directory reads
-		if m.useEnhancedEditor && m.enhancedEditor.IsActive() && m.editingComponent {
+		if m.enhancedEditor.IsActive() && m.editingComponent {
 			if m.enhancedEditor.IsFilePicking() {
 				// Filepicker needs to process internal messages for directory reading
 				cmd := m.enhancedEditor.UpdateFilePicker(msg)
@@ -1354,10 +1284,9 @@ func (m *PipelineBuilderModel) View() string {
 		return m.componentCreationView()
 	}
 	
-	// Integration point: Render the appropriate editor view based on configuration
-	// If enhanced editor is enabled and active, use the enhanced editor renderer
-	// which provides a richer editing experience with file browsing and better text manipulation
-	if m.editingComponent && m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+	// Render the enhanced editor view if editing a component
+	// The enhanced editor provides a richer editing experience with file browsing and better text manipulation
+	if m.editingComponent && m.enhancedEditor.IsActive() {
 		// Handle exit confirmation dialog
 		if m.enhancedEditor.ExitConfirmActive {
 			// Add padding to match other views
@@ -1370,11 +1299,6 @@ func (m *PipelineBuilderModel) View() string {
 		// Render enhanced editor view
 		renderer := NewEnhancedEditorRenderer(m.width, m.height)
 		return renderer.Render(m.enhancedEditor)
-	}
-	
-	// If editing component with legacy editor, show legacy edit view
-	if m.editingComponent && !m.useEnhancedEditor {
-		return m.componentEditView()
 	}
 	
 	// If editing tags, show tag edit view
@@ -3000,25 +2924,10 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 				}
 				return m, cmd
 			}
-		} else {
-			// Fallback to simple editor
-			handled, err := m.componentCreator.HandleContentEdit(msg)
-			if handled {
-				if err != nil {
-					return m, func() tea.Msg {
-						return StatusMsg(fmt.Sprintf("✗ Failed to save: %v", err))
-					}
-				}
-				if !m.componentCreator.IsActive() {
-					// Component was saved successfully
-					m.loadAvailableComponents()
-					return m, func() tea.Msg {
-						return StatusMsg(m.componentCreator.GetStatusMessage())
-					}
-				}
-				return m, nil
-			}
 		}
+		// If we get here, the enhanced editor didn't handle the input
+		// which shouldn't happen, but return anyway
+		return m, nil
 	}
 	
 	return m, nil
@@ -3100,9 +3009,8 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 // This is a key integration point that routes input to either the enhanced
 // editor or the legacy editor based on configuration
 func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	// Integration point: Check if enhanced editor is enabled and active
-	// The enhanced editor handles its own input processing through HandleEnhancedEditorInput
-	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+	// Handle input through the enhanced editor
+	if m.enhancedEditor.IsActive() {
 		handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
 		if handled {
 			// Check if editor is still active after handling input
@@ -3117,72 +3025,10 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 		return m, nil
 	}
 	
-	// Legacy editor handling (kept for backward compatibility)
-	var cmd tea.Cmd
-	
-	// Handle viewport scrolling
-	switch msg.String() {
-	case "up", "k", "pgup":
-		m.editViewport, cmd = m.editViewport.Update(msg)
-		return m, cmd
-	case "down", "j", "pgdown":
-		m.editViewport, cmd = m.editViewport.Update(msg)
-		return m, cmd
-	case "ctrl+s":
-		// Save component but don't exit yet
-		return m, m.saveEditedComponent()
-	case "ctrl+x":
-		// Save current content and open in external editor
-		// First save any unsaved changes
-		if m.componentContent != m.originalContent {
-			// Save changes before opening external editor
-			return m, tea.Batch(
-				m.saveBeforeExternalEdit(),
-				m.openInEditor(m.editingComponentPath),
-			)
-		}
-		// Open in external editor
-		return m, m.openInEditor(m.editingComponentPath)
-	case "esc":
-		// Check if content has changed
-		if m.componentContent != m.originalContent {
-			// Show confirmation dialog
-			m.exitConfirmationType = "component-edit"
-			m.exitConfirm.ShowDialog(
-				"⚠️  Unsaved Changes",
-				"You have unsaved changes to this component.",
-				"Exit without saving?",
-				true, // destructive
-				m.width - 4,
-				10,
-				func() tea.Cmd {
-					// Exit without saving - return a message to clear state
-					return func() tea.Msg {
-						return componentEditExitMsg{}
-					}
-				},
-				nil, // onCancel
-			)
-			return m, nil
-		}
-		// No changes, exit immediately
-		return m, func() tea.Msg {
-			return componentEditExitMsg{}
-		}
-	case "enter":
-		m.componentContent += "\n"
-	case "backspace":
-		if len(m.componentContent) > 0 {
-			m.componentContent = m.componentContent[:len(m.componentContent)-1]
-		}
-	case "tab":
-		m.componentContent += "    "
-	case " ":
-		m.componentContent += " "
-	default:
-		if msg.Type == tea.KeyRunes {
-			m.componentContent += string(msg.Runes)
-		}
+	// If enhanced editor is not active but we're in editing mode, something is wrong
+	// Exit editing mode
+	if m.editingComponent {
+		m.editingComponent = false
 	}
 	
 	return m, nil
@@ -3422,164 +3268,7 @@ func (m *PipelineBuilderModel) deleteTagFromRegistry() tea.Cmd {
 	}
 }
 
-func (m *PipelineBuilderModel) componentEditView() string {
-	// Styles
-	borderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("170"))
 
-	titleStyle := lipgloss.NewStyle().
-		Bold(true).
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-
-	// Calculate dimensions  
-	contentWidth := m.width - 4 // Match help pane width
-	contentHeight := m.height - 9 // Reserve space for help pane (3) + save message (2) + spacing (3) + status bar (1)
-
-	// Build main content
-	var mainContent strings.Builder
-
-	// Header with colons
-	headerPadding := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	heading := fmt.Sprintf("EDITING: %s", m.editingComponentName)
-	remainingWidth := contentWidth - len(heading) - 5
-	if remainingWidth < 0 {
-		remainingWidth = 0
-	}
-	colonStyle := lipgloss.NewStyle().
-		Foreground(lipgloss.Color("170")) // Purple for active single pane
-	mainContent.WriteString(headerPadding.Render(titleStyle.Render(heading) + " " + colonStyle.Render(strings.Repeat(":", remainingWidth))))
-	mainContent.WriteString("\n\n")
-
-	// Update viewport dimensions if needed
-	viewportWidth := contentWidth - 4 // 2 for border, 2 for headerPadding
-	viewportHeight := contentHeight - 5 // Account for header and spacing
-	if m.editViewport.Width != viewportWidth || m.editViewport.Height != viewportHeight {
-		m.editViewport.Width = viewportWidth
-		m.editViewport.Height = viewportHeight
-	}
-	
-	// Editor content with cursor
-	content := m.componentContent + "│" // cursor
-	
-	// Preprocess content to handle carriage returns and ensure proper line breaks
-	processedContent := strings.ReplaceAll(content, "\r\r", "\n\n")
-	processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
-	
-	// Wrap content to viewport width to prevent overflow
-	wrappedContent := wordwrap.String(processedContent, viewportWidth)
-	
-	// Update viewport content
-	m.editViewport.SetContent(wrappedContent)
-	
-	// Use viewport for scrollable content
-	mainContent.WriteString(headerPadding.Render(m.editViewport.View()))
-
-	// Apply border to main content
-	mainPane := borderStyle.
-		Width(contentWidth).
-		Height(contentHeight).
-		Render(mainContent.String())
-
-	// Help section
-	help := []string{
-		"↑↓ scroll",
-		"^s save",
-		"E edit external",
-		"esc cancel",
-	}
-
-	helpBorderStyle := lipgloss.NewStyle().
-		Border(lipgloss.RoundedBorder()).
-		BorderForeground(lipgloss.Color("240")).
-		Width(m.width - 4).
-		Padding(0, 1)
-
-	helpContent := formatHelpText(help)
-	// Right-align help text
-	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
-		Align(lipgloss.Right).
-		Render(helpContent)
-	helpContent = alignedHelp
-
-	// Combine all elements
-	var s strings.Builder
-
-	// Add top margin to ensure content is not cut off
-	s.WriteString("\n")
-
-	// Add padding around content
-	contentStyle := lipgloss.NewStyle().
-		PaddingLeft(1).
-		PaddingRight(1)
-
-	s.WriteString(contentStyle.Render(mainPane))
-	s.WriteString("\n")
-	s.WriteString(contentStyle.Render(helpBorderStyle.Render(helpContent)))
-
-	// Save message area - always render to maintain consistent layout
-	saveMessageStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color("236")).
-		Foreground(lipgloss.Color("82")). // Green for success
-		Width(m.width).
-		Align(lipgloss.Center).
-		Padding(0, 1).
-		MarginTop(1)
-
-	// Empty status style for maintaining layout
-	emptyStatusStyle := lipgloss.NewStyle().
-		Width(m.width).
-		Height(1).
-		MarginTop(1)
-
-	s.WriteString("\n")
-	if m.editSaveMessage != "" {
-		s.WriteString(saveMessageStyle.Render(m.editSaveMessage))
-	} else {
-		// Render empty space to maintain layout with same dimensions
-		s.WriteString(emptyStatusStyle.Render(" "))
-	}
-
-	return s.String()
-}
-
-func (m *PipelineBuilderModel) saveEditedComponent() tea.Cmd {
-	return func() tea.Msg {
-		// Write component
-		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
-		if err != nil {
-			return componentSaveResultMsg{
-				success: false,
-				message: fmt.Sprintf("❌ Failed to save: %v", err),
-			}
-		}
-		
-		return componentSaveResultMsg{
-			success:       true,
-			message:       fmt.Sprintf("✓ Saved: %s", m.editingComponentName),
-			componentPath: m.editingComponentPath,
-			componentName: m.editingComponentName,
-			savedContent:  m.componentContent,
-		}
-	}
-}
-
-func (m *PipelineBuilderModel) saveBeforeExternalEdit() tea.Cmd {
-	return func() tea.Msg {
-		// Write component
-		err := files.WriteComponent(m.editingComponentPath, m.componentContent)
-		if err != nil {
-			// Return error message to be shown temporarily
-			return StatusMsg(fmt.Sprintf("❌ Failed to save before external edit: %v", err))
-		}
-		// Return a message to update original content
-		return externalEditSaveMsg{savedContent: m.componentContent}
-	}
-}
 
 func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string) {
 	m.editingTags = true

@@ -8,10 +8,6 @@ import (
 
 // PipelineBuilderConfig holds configuration options for the Pipeline Builder
 type PipelineBuilderConfig struct {
-	// UseEnhancedEditor determines whether to use the enhanced editor
-	// for component editing (default: true)
-	UseEnhancedEditor bool
-	
 	// ShowPreviewByDefault controls whether the preview pane is shown
 	// automatically when the builder opens (default: true)
 	ShowPreviewByDefault bool
@@ -20,7 +16,6 @@ type PipelineBuilderConfig struct {
 // DefaultPipelineBuilderConfig returns the default configuration
 func DefaultPipelineBuilderConfig() *PipelineBuilderConfig {
 	return &PipelineBuilderConfig{
-		UseEnhancedEditor:    true,  // Enhanced editor enabled by default
 		ShowPreviewByDefault: true,  // Preview shown by default
 	}
 }
@@ -51,7 +46,6 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		archiveConfirm:     NewConfirmation(),
 		componentCreator:   NewComponentCreator(),
 		enhancedEditor:     NewEnhancedEditorState(),
-		useEnhancedEditor:  config.UseEnhancedEditor,
 		renameState:        NewRenameState(),
 		renameRenderer:     NewRenameRenderer(),
 		renameOperator:     NewRenameOperator(),

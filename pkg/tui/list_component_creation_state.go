@@ -23,14 +23,12 @@ type ComponentCreator struct {
 	
 	// Enhanced editor integration
 	enhancedEditor        *EnhancedEditorState
-	useEnhancedEditor     bool
 }
 
 // NewComponentCreator creates a new component creator instance
 func NewComponentCreator() *ComponentCreator {
 	return &ComponentCreator{
 		enhancedEditor:    NewEnhancedEditorState(),
-		useEnhancedEditor: true, // Enable enhanced editor by default
 	}
 }
 
@@ -120,9 +118,7 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 		if c.componentName != "" {
 			c.creationStep = 2
 			// Initialize enhanced editor for content editing
-			if c.useEnhancedEditor {
-				c.initializeEnhancedEditor()
-			}
+			c.initializeEnhancedEditor()
 		}
 		return true
 	case "backspace":
@@ -142,42 +138,6 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 	return false
 }
 
-// HandleContentEdit handles keyboard input for content editing step
-func (c *ComponentCreator) HandleContentEdit(msg tea.KeyMsg) (bool, error) {
-	switch msg.String() {
-	case "esc":
-		c.creationStep = 1
-		c.componentContent = ""
-		return true, nil
-	case "ctrl+s":
-		err := c.SaveComponent()
-		if err != nil {
-			return true, err
-		}
-		c.Reset()
-		return true, nil
-	case "backspace":
-		if len(c.componentContent) > 0 {
-			c.componentContent = c.componentContent[:len(c.componentContent)-1]
-		}
-		return true, nil
-	case "enter":
-		c.componentContent += "\n"
-		return true, nil
-	case "tab":
-		c.componentContent += "    "
-		return true, nil
-	case " ":
-		c.componentContent += " "
-		return true, nil
-	default:
-		if msg.Type == tea.KeyRunes {
-			c.componentContent += string(msg.Runes)
-			return true, nil
-		}
-	}
-	return false, nil
-}
 
 // SaveComponent saves the component to disk
 func (c *ComponentCreator) SaveComponent() error {
@@ -277,7 +237,7 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 
 // HandleEnhancedEditorInput handles input when enhanced editor is active
 func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) (bool, tea.Cmd) {
-	if !c.useEnhancedEditor || c.enhancedEditor == nil || !c.enhancedEditor.Active {
+	if c.enhancedEditor == nil || !c.enhancedEditor.Active {
 		return false, nil
 	}
 	
@@ -306,7 +266,7 @@ func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) 
 
 // IsEnhancedEditorActive returns true if the enhanced editor is currently active
 func (c *ComponentCreator) IsEnhancedEditorActive() bool {
-	return c.useEnhancedEditor && c.enhancedEditor != nil && c.enhancedEditor.Active && c.creationStep == 2
+	return c.enhancedEditor != nil && c.enhancedEditor.Active && c.creationStep == 2
 }
 
 // GetEnhancedEditor returns the enhanced editor instance

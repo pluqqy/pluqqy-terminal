@@ -186,9 +186,7 @@ func TestPipelineBuilderModel_EnhancedEditorConsistency(t *testing.T) {
 	m := NewPipelineBuilderModel()
 	
 	// Verify initial state
-	if m.useEnhancedEditor != true {
-		t.Error("Expected useEnhancedEditor to be true by default")
-	}
+	// Enhanced editor is always enabled now
 	
 	if m.enhancedEditor == nil {
 		t.Fatal("Expected enhancedEditor to be initialized")

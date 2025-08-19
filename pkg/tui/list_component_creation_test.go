@@ -154,35 +154,6 @@ func TestComponentCreator_EnhancedEditorCancel(t *testing.T) {
 	}
 }
 
-func TestComponentCreator_FallbackToSimpleEditor(t *testing.T) {
-	// Create component creator with enhanced editor disabled
-	creator := NewComponentCreator()
-	creator.useEnhancedEditor = false
-	
-	// Start creation process
-	creator.Start()
-	creator.componentCreationType = models.ComponentTypeRules
-	creator.creationStep = 2 // Jump to content step
-	creator.componentName = "Test Fallback"
-	
-	// Should not be using enhanced editor
-	if creator.IsEnhancedEditorActive() {
-		t.Error("Enhanced editor should not be active when disabled")
-	}
-	
-	// Test simple editor input
-	creator.componentContent = ""
-	keyA := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}}
-	handled, _ := creator.HandleContentEdit(keyA)
-	
-	if !handled {
-		t.Error("Simple editor should handle key input")
-	}
-	
-	if creator.componentContent != "a" {
-		t.Errorf("Expected content 'a', got '%s'", creator.componentContent)
-	}
-}
 
 func TestComponentCreator_ExternalEditorPath(t *testing.T) {
 	// Create component creator

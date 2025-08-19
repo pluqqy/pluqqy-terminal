@@ -50,13 +50,9 @@ type MainListModel struct {
 	// Component creation
 	componentCreator *ComponentCreator
 	
-	// Component editing
-	componentEditor  *ComponentEditor
-	
 	// Enhanced component editor
 	enhancedEditor   *EnhancedEditorState
 	fileReference    *FileReferenceState
-	useEnhancedEditor bool // Feature flag for enhanced editor
 	
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
@@ -248,7 +244,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		
 		// Handle search input when search pane is active
-		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.componentEditor.IsActive() && !m.renameState.Active && !m.cloneState.Active {
+		if m.stateManager.IsInSearchPane() && !m.tagEditor.Active && !m.componentCreator.IsActive() && !m.renameState.Active && !m.cloneState.Active {
 			var cmd tea.Cmd
 			m.searchBar, cmd = m.searchBar.Update(msg)
 			
@@ -285,8 +281,8 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleComponentCreation(msg)
 		}
 		
-		// Handle enhanced editor mode if enabled
-		if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+		// Handle enhanced editor mode
+		if m.enhancedEditor.IsActive() {
 			handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
 			if handled {
 				// Check if editor is still active after handling input
@@ -297,24 +293,6 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 				return m, cmd
 			}
-		}
-		
-		// Handle component editing mode (old editor)
-		if !m.useEnhancedEditor && m.componentEditor.IsActive() {
-			// Handle exit confirmation first
-			if m.componentEditor.ExitConfirmActive {
-				_, cmd := m.componentEditor.HandleInput(msg, m.width, m.height)
-				return m, cmd
-			}
-			
-			_, cmd := m.componentEditor.HandleInput(msg, m.width, m.height)
-			// Check if editor is still active after handling input
-			if !m.componentEditor.IsActive() {
-				// Reload components after editing
-				m.reloadComponents()
-				m.performSearch()
-			}
-			return m, cmd
 		}
 		
 		// Handle tag editing mode
@@ -436,13 +414,8 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						return m, nil
 					}
 					
-					// Use enhanced editor if enabled
-					if m.useEnhancedEditor {
-						m.enhancedEditor.StartEditing(comp.path, comp.name, comp.compType, content.Content, comp.tags)
-					} else {
-						// Use old editor
-						m.componentEditor.StartEditing(comp.path, comp.name, content.Content)
-					}
+					// Use enhanced editor
+					m.enhancedEditor.StartEditing(comp.path, comp.name, comp.compType, content.Content, comp.tags)
 					
 					return m, nil
 				}
@@ -756,7 +729,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msgStr := string(msg)
 		if strings.HasPrefix(msgStr, "✓ Saved:") {
 			// A component was saved successfully
-			if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+			if m.enhancedEditor.IsActive() {
 				// Reload components but keep editor open
 				m.reloadComponents()
 				m.performSearch()
@@ -809,7 +782,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	
 	// Handle enhanced editor for non-KeyMsg message types
 	// This is crucial for filepicker which needs to process internal messages like directory reads
-	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+	if m.enhancedEditor.IsActive() {
 		// Only handle non-KeyMsg types here (KeyMsg types are handled in the switch above)
 		if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
 			if m.enhancedEditor.IsFilePicking() {
@@ -908,7 +881,7 @@ func (m *MainListModel) View() string {
 	}
 	
 	// If editing component with enhanced editor, show enhanced edit view
-	if m.useEnhancedEditor && m.enhancedEditor.IsActive() {
+	if m.enhancedEditor.IsActive() {
 		// Handle exit confirmation dialog
 		if m.enhancedEditor.ExitConfirmActive {
 			// Add padding to match other views
@@ -920,29 +893,6 @@ func (m *MainListModel) View() string {
 		
 		renderer := NewEnhancedEditorRenderer(m.width, m.height)
 		return renderer.Render(m.enhancedEditor)
-	}
-	
-	// If editing component with old editor, show edit view
-	if !m.useEnhancedEditor && m.componentEditor.IsActive() {
-		// Update viewport dimensions
-		m.componentEditor.UpdateViewport(m.width, m.height)
-		
-		// Handle exit confirmation dialog
-		if m.componentEditor.ExitConfirmActive {
-			// Add padding to match other views
-			contentStyle := lipgloss.NewStyle().
-				PaddingLeft(1).
-				PaddingRight(1)
-			return contentStyle.Render(m.componentEditor.ExitConfirm.View())
-		}
-		
-		// Create the component editing view renderer
-		renderer := NewComponentEditingViewRenderer(m.width, m.height)
-		return renderer.RenderEditView(
-			m.componentEditor.ComponentName, 
-			m.componentEditor.Content,
-			m.componentEditor.GetViewport(),
-		)
 	}
 	
 	// If editing tags, show tag edit view
@@ -1176,22 +1126,6 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 					)
 				}
 				return m, cmd
-			}
-		} else {
-			// Fallback to simple editor
-			handled, err := m.componentCreator.HandleContentEdit(msg)
-			if err != nil {
-				return m, func() tea.Msg { return StatusMsg(fmt.Sprintf("✗ %s", err.Error())) }
-			}
-			
-			if handled {
-				// Check if component was saved (creator will be reset)
-				if !m.componentCreator.IsActive() {
-					// Component was saved, reload components
-					m.reloadComponents()
-					return m, func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) }
-				}
-				return m, nil
 			}
 		}
 	}

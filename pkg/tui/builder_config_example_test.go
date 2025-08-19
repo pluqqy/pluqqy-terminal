@@ -14,23 +14,14 @@ func ExamplePipelineBuilderConfig() {
 	defaultBuilder := NewPipelineBuilderModel()
 	_ = defaultBuilder // Use the builder...
 	
-	// Example 2: Create a Pipeline Builder with legacy editor
-	legacyConfig := &PipelineBuilderConfig{
-		UseEnhancedEditor:    false, // Use legacy editor
-		ShowPreviewByDefault: true,  // Still show preview
-	}
-	legacyBuilder := NewPipelineBuilderModelWithConfig(legacyConfig)
-	_ = legacyBuilder // Use the builder...
-	
-	// Example 3: Create a Pipeline Builder without preview by default
+	// Example 2: Create a Pipeline Builder without preview by default
 	noPreviewConfig := &PipelineBuilderConfig{
-		UseEnhancedEditor:    true,  // Use enhanced editor
 		ShowPreviewByDefault: false, // Hide preview initially
 	}
 	noPreviewBuilder := NewPipelineBuilderModelWithConfig(noPreviewConfig)
 	_ = noPreviewBuilder // Use the builder...
 	
-	// Example 4: Load an existing pipeline with custom configuration
+	// Example 3: Load an existing pipeline with custom configuration
 	existingPipeline := &models.Pipeline{
 		Name: "My Pipeline",
 		Components: []models.ComponentRef{
@@ -38,7 +29,6 @@ func ExamplePipelineBuilderConfig() {
 		},
 	}
 	customConfig := &PipelineBuilderConfig{
-		UseEnhancedEditor:    true,
 		ShowPreviewByDefault: true,
 	}
 	loadedBuilder := LoadPipelineWithConfig(existingPipeline, customConfig)
@@ -49,9 +39,6 @@ func ExamplePipelineBuilderConfig() {
 func TestPipelineBuilderConfig_Defaults(t *testing.T) {
 	config := DefaultPipelineBuilderConfig()
 	
-	if !config.UseEnhancedEditor {
-		t.Error("Expected UseEnhancedEditor to be true by default")
-	}
 	
 	if !config.ShowPreviewByDefault {
 		t.Error("Expected ShowPreviewByDefault to be true by default")
@@ -60,17 +47,12 @@ func TestPipelineBuilderConfig_Defaults(t *testing.T) {
 
 // TestPipelineBuilderConfig_CustomSettings verifies custom configuration is applied
 func TestPipelineBuilderConfig_CustomSettings(t *testing.T) {
-	// Test with legacy editor configuration
-	legacyConfig := &PipelineBuilderConfig{
-		UseEnhancedEditor:    false,
+	// Test with custom configuration
+	customConfig := &PipelineBuilderConfig{
 		ShowPreviewByDefault: false,
 	}
 	
-	m := NewPipelineBuilderModelWithConfig(legacyConfig)
-	
-	if m.useEnhancedEditor {
-		t.Error("Expected useEnhancedEditor to be false with legacy config")
-	}
+	m := NewPipelineBuilderModelWithConfig(customConfig)
 	
 	if m.showPreview {
 		t.Error("Expected showPreview to be false with custom config")
@@ -81,9 +63,6 @@ func TestPipelineBuilderConfig_CustomSettings(t *testing.T) {
 func TestPipelineBuilderConfig_NilConfig(t *testing.T) {
 	m := NewPipelineBuilderModelWithConfig(nil)
 	
-	if !m.useEnhancedEditor {
-		t.Error("Expected useEnhancedEditor to be true with nil config")
-	}
 	
 	if !m.showPreview {
 		t.Error("Expected showPreview to be true with nil config")
@@ -101,16 +80,11 @@ func TestLoadPipelineWithConfig(t *testing.T) {
 	}
 	
 	config := &PipelineBuilderConfig{
-		UseEnhancedEditor:    false, // Use legacy editor
 		ShowPreviewByDefault: true,
 	}
 	
 	m := LoadPipelineWithConfig(pipeline, config)
 	
-	// Verify configuration was applied
-	if m.useEnhancedEditor {
-		t.Error("Expected useEnhancedEditor to be false")
-	}
 	
 	// Verify pipeline data was loaded
 	if m.pipeline.Name != "Test Pipeline" {
