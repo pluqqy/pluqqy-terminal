@@ -3487,12 +3487,18 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	mainContent.WriteString(headerPadding.Render(mainHeaderStyle.Render(heading) + " " + mainColonStyle.Render(strings.Repeat(":", remainingWidth))))
 	mainContent.WriteString("\n\n")
 
-	mainContent.WriteString(headerPadding.Render("Current tags:\n"))
+	mainContent.WriteString(headerPadding.Render("Current tags:"))
+	mainContent.WriteString("\n\n")
 	if len(m.currentTags) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		mainContent.WriteString(headerPadding.Render(dimStyle.Render("(no tags)")))
 	} else {
-		var tagDisplay strings.Builder
+		var rows strings.Builder
+		rowTags := 0
+		currentRowWidth := 0
+		// Calculate max width for tags (account for padding and border)
+		maxRowWidth := m.width/2 - 6 // Half width minus padding
+		
 		for i, tag := range m.currentTags {
 			registry, _ := tags.NewRegistry()
 			color := models.GetTagColor(tag, "")
@@ -3504,28 +3510,42 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 			style := lipgloss.NewStyle().Background(lipgloss.Color(color)).Foreground(lipgloss.Color("255")).Padding(0, 1)
 
-			// Add selection indicators with consistent spacing
+			// Build tag display with selection indicators
+			var tagDisplay string
 			if i == m.tagCursor && m.tagInput == "" {
 				// Selected tag with triangle indicators
 				indicatorStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("170")). // Bright green for indicators
 					Bold(true)
-				tagDisplay.WriteString(indicatorStyle.Render("▶ "))
-				tagDisplay.WriteString(style.Render(tag))
-				tagDisplay.WriteString(indicatorStyle.Render(" ◀"))
+				tagDisplay = indicatorStyle.Render("▶ ") + 
+					style.Render(tag) + 
+					indicatorStyle.Render(" ◀")
 			} else {
-				// Add invisible spacers to maintain consistent width
-				tagDisplay.WriteString("  ")
-				tagDisplay.WriteString(style.Render(tag))
-				tagDisplay.WriteString("  ")
+				// Regular tag with spacers for consistent width
+				tagDisplay = "  " + style.Render(tag) + "  "
 			}
 
-			// Add spacing between tags
-			if i < len(m.currentTags)-1 {
-				tagDisplay.WriteString("  ")
+			// Calculate actual display width
+			tagWidth := lipgloss.Width(tagDisplay) + 2 // Add spacing
+
+			// Check if we need a new row
+			if rowTags > 0 && currentRowWidth + tagWidth > maxRowWidth {
+				rows.WriteString("\n\n") // Double newline for vertical spacing between rows
+				rowTags = 0
+				currentRowWidth = 0
 			}
+
+			rows.WriteString(tagDisplay)
+			
+			// Add space between tags (but not at end of row)
+			if i < len(m.currentTags)-1 {
+				rows.WriteString("  ")
+			}
+			
+			currentRowWidth += tagWidth + 2
+			rowTags++
 		}
-		mainContent.WriteString(headerPadding.Render(tagDisplay.String()))
+		mainContent.WriteString(headerPadding.Render(rows.String()))
 	}
 	mainContent.WriteString("\n\n")
 
