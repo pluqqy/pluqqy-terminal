@@ -284,11 +284,11 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	switch mode {
 	case EditorModeNormal:
 		help = []string{
+			"@ insert file ref",
+			"\\@ literal @",
 			"^s save",
 			"^x external",
 			"esc cancel",
-			"@ insert file ref",
-			"\\@ literal @",
 		}
 	case EditorModeFilePicking:
 		help = []string{

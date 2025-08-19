@@ -59,6 +59,22 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		// Open in external editor
 		return true, openInExternalEditor(state)
 	
+	case "pgup":
+		// Page up navigation
+		return true, handlePageUp(state, false)
+	
+	case "pgdown":
+		// Page down navigation
+		return true, handlePageDown(state, false)
+	
+	case "shift+pgup":
+		// Page up with text selection
+		return true, handlePageUp(state, true)
+	
+	case "shift+pgdown":
+		// Page down with text selection
+		return true, handlePageDown(state, true)
+	
 	case "esc":
 		// Handle exit with unsaved changes check
 		if state.HasUnsavedChanges() {
@@ -484,4 +500,80 @@ func InsertTextAtCursor(content string, text string, pos int) string {
 	before := content[:pos]
 	after := content[pos:]
 	return before + text + after
+}
+
+// handlePageUp handles page up navigation with optional text selection
+func handlePageUp(state *EnhancedEditorState, withSelection bool) tea.Cmd {
+	// Get the visible height of the textarea
+	visibleLines := state.Textarea.Height()
+	if visibleLines <= 0 {
+		visibleLines = 20 // Default if not set
+	}
+	
+	// Leave a few lines of overlap for context
+	scrollAmount := visibleLines - 3
+	if scrollAmount < 1 {
+		scrollAmount = 1
+	}
+	
+	// Move cursor up by scroll amount
+	for i := 0; i < scrollAmount; i++ {
+		if withSelection {
+			// Use shift+up to select text while moving
+			state.Textarea, _ = state.Textarea.Update(tea.KeyMsg{
+				Type: tea.KeyShiftUp,
+			})
+		} else {
+			// Regular cursor movement
+			state.Textarea.CursorUp()
+		}
+	}
+	
+	// Update stats and provide feedback
+	state.UpdateStats()
+	if withSelection {
+		state.ActionFeedback.RecordAction("Page Up (selecting)")
+	} else {
+		state.ActionFeedback.RecordAction("Page Up")
+	}
+	
+	return nil
+}
+
+// handlePageDown handles page down navigation with optional text selection
+func handlePageDown(state *EnhancedEditorState, withSelection bool) tea.Cmd {
+	// Get the visible height of the textarea
+	visibleLines := state.Textarea.Height()
+	if visibleLines <= 0 {
+		visibleLines = 20 // Default if not set
+	}
+	
+	// Leave a few lines of overlap for context
+	scrollAmount := visibleLines - 3
+	if scrollAmount < 1 {
+		scrollAmount = 1
+	}
+	
+	// Move cursor down by scroll amount
+	for i := 0; i < scrollAmount; i++ {
+		if withSelection {
+			// Use shift+down to select text while moving
+			state.Textarea, _ = state.Textarea.Update(tea.KeyMsg{
+				Type: tea.KeyShiftDown,
+			})
+		} else {
+			// Regular cursor movement
+			state.Textarea.CursorDown()
+		}
+	}
+	
+	// Update stats and provide feedback
+	state.UpdateStats()
+	if withSelection {
+		state.ActionFeedback.RecordAction("Page Down (selecting)")
+	} else {
+		state.ActionFeedback.RecordAction("Page Down")
+	}
+	
+	return nil
 }
