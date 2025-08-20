@@ -296,6 +296,33 @@ func (t *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		}
 		return true, nil
 
+	case "home":
+		if t.TagCloudActive {
+			// Jump to first tag in cloud
+			t.TagCloudCursor = 0
+		} else {
+			// Jump to first tag in current tags
+			if t.TagInput == "" && len(t.CurrentTags) > 0 {
+				t.TagCursor = 0
+			}
+		}
+		return true, nil
+
+	case "end":
+		if t.TagCloudActive {
+			// Jump to last tag in cloud
+			availableForSelection := t.GetAvailableTagsForCloud()
+			if len(availableForSelection) > 0 {
+				t.TagCloudCursor = len(availableForSelection) - 1
+			}
+		} else {
+			// Jump to last tag in current tags
+			if t.TagInput == "" && len(t.CurrentTags) > 0 {
+				t.TagCursor = len(t.CurrentTags) - 1
+			}
+		}
+		return true, nil
+
 	case "ctrl+d":
 		if t.TagCloudActive {
 			// Delete tag from registry

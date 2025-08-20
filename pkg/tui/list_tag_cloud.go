@@ -151,6 +151,7 @@ func (r *TagCloudRenderer) GetHelpText() []string {
 		"enter add tag",
 		"←→ navigate",
 		"^d delete tag",
+		"^t reload tags",
 		"^s save",
 		"esc cancel",
 	}

@@ -248,9 +248,9 @@ func (r *TagEditingViewRenderer) renderInputField() string {
 			Foreground(lipgloss.Color("241")).
 			Italic(true)
 		if !r.TagCloudActive {
-			inputDisplay = placeholderStyle.Render("Type to add a new tag...") + cursorStyle.Render("│")
+			inputDisplay = placeholderStyle.Render("Type to add a new or existing tag...") + cursorStyle.Render("│")
 		} else {
-			inputDisplay = placeholderStyle.Render("Type to add a new tag...")
+			inputDisplay = placeholderStyle.Render("Type to add a new or existing tag...")
 		}
 	}
 
@@ -336,8 +336,7 @@ func (r *TagEditingViewRenderer) renderHelpSection() string {
 		help = []string{
 			"tab switch pane",
 			"enter add tag",
-			"←→ select tag",
-			"↑↓ navigate suggestions",
+			"←↑↓→ navigate",
 			"^d remove tag",
 			"^t reload tags",
 			"^s save",
