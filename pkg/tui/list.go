@@ -393,11 +393,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.stateManager.ActivePane == pipelinesPane {
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
+					pipeline := pipelines[m.stateManager.PipelineCursor]
+					if pipeline.isArchived {
+						return m, func() tea.Msg {
+							return StatusMsg("You must unarchive this pipeline before editing")
+						}
+					}
 					// Edit the selected pipeline
 					return m, func() tea.Msg {
 						return SwitchViewMsg{
 							view:     pipelineBuilderView,
-							pipeline: pipelines[m.stateManager.PipelineCursor].path, // Use path (filename) not name
+							pipeline: pipeline.path, // Use path (filename) not name
 						}
 					}
 				}
@@ -406,6 +412,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				components := m.getCurrentComponents()
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
+					if comp.isArchived {
+						return m, func() tea.Msg {
+							return StatusMsg("You must unarchive this component before editing")
+						}
+					}
 					// Read the component content
 					content, err := files.ReadComponent(comp.path)
 					if err != nil {
@@ -426,6 +437,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				components := m.getCurrentComponents()
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
+					if comp.isArchived {
+						return m, func() tea.Msg {
+							return StatusMsg("You must unarchive this component before editing")
+						}
+					}
 					return m, m.pipelineOperator.OpenInEditor(comp.path, m.reloadComponents)
 				}
 			}
@@ -470,7 +486,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// Set selected pipeline (generate PLUQQY.md)
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
-					return m, m.pipelineOperator.SetPipeline(pipelines[m.stateManager.PipelineCursor].path)
+					pipeline := pipelines[m.stateManager.PipelineCursor]
+					if pipeline.isArchived {
+						return m, func() tea.Msg {
+							return StatusMsg("You must unarchive this pipeline before setting it as active")
+						}
+					}
+					return m, m.pipelineOperator.SetPipeline(pipeline.path)
 				}
 			}
 
@@ -480,8 +502,8 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					selectedPipeline := pipelines[m.stateManager.PipelineCursor]
-					// Load and compose the pipeline
-					pipeline, err := files.ReadPipeline(selectedPipeline.path)
+					// Load and compose the pipeline (works for both archived and active)
+					pipeline, err := files.ReadArchivedOrActivePipeline(selectedPipeline.path, selectedPipeline.isArchived)
 					if err == nil && pipeline != nil {
 						output, err := composer.ComposePipeline(pipeline)
 						if err == nil {
@@ -501,6 +523,11 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				pipelines := m.getCurrentPipelines()
 				if len(pipelines) > 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					pipeline := pipelines[m.stateManager.PipelineCursor]
+					if pipeline.isArchived {
+						return m, func() tea.Msg {
+							return StatusMsg("You must unarchive this pipeline before generating a diagram")
+						}
+					}
 					return m, m.mermaidOperator.GeneratePipelineDiagram(pipeline)
 				}
 			}
@@ -520,7 +547,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()
-							return m.pipelineOperator.DeletePipeline(pipelinePath, pipelineTags, m.reloadPipelinesWithSearch)
+							return m.pipelineOperator.DeletePipeline(pipelinePath, pipelineTags, pipeline.isArchived, m.reloadPipelinesWithSearch)
 						},
 						func() tea.Cmd {
 							m.stateManager.ClearDeletionState()

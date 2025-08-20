@@ -172,7 +172,7 @@ func (cs *CloneState) nameExistsInternal(name string) bool {
 		var targetPath string
 
 		if cs.CloneToArchive {
-			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, ".archive", targetFilename)
+			targetPath = filepath.Join(files.PluqqyDir, "archive", "components", componentType, targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, targetFilename)
 		}
@@ -186,7 +186,7 @@ func (cs *CloneState) nameExistsInternal(name string) bool {
 		var targetPath string
 
 		if cs.CloneToArchive {
-			targetPath = filepath.Join(files.PluqqyDir, "pipelines", ".archive", targetFilename)
+			targetPath = filepath.Join(files.PluqqyDir, "archive", "pipelines", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", targetFilename)
 		}
@@ -248,7 +248,7 @@ func (cs *CloneState) validateClone() error {
 		var targetPath string
 
 		if cs.CloneToArchive {
-			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, ".archive", targetFilename)
+			targetPath = filepath.Join(files.PluqqyDir, "archive", "components", componentType, targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "components", componentType, targetFilename)
 		}
@@ -263,7 +263,7 @@ func (cs *CloneState) validateClone() error {
 		var targetPath string
 
 		if cs.CloneToArchive {
-			targetPath = filepath.Join(files.PluqqyDir, "pipelines", ".archive", targetFilename)
+			targetPath = filepath.Join(files.PluqqyDir, "archive", "pipelines", targetFilename)
 		} else {
 			targetPath = filepath.Join(files.PluqqyDir, "pipelines", targetFilename)
 		}
@@ -356,18 +356,30 @@ func (cs *CloneState) cloneComponent() error {
 	var targetPath string
 
 	if cs.CloneToArchive {
-		targetPath = fmt.Sprintf("components/%s/.archive/%s", componentType, newFilename)
-		// Ensure archive directory exists
-		archiveDir := filepath.Join(files.PluqqyDir, "components", componentType, ".archive")
-		if err := os.MkdirAll(archiveDir, 0755); err != nil {
-			return fmt.Errorf("failed to create archive directory: %w", err)
+		// Write directly to archive using the new function
+		targetPath = fmt.Sprintf("components/%s/%s", componentType, newFilename)
+		
+		// Build full content with frontmatter if needed
+		fullContent := content.Content
+		if cs.NewName != "" || len(content.Tags) > 0 {
+			frontmatter := "---\n"
+			if cs.NewName != "" {
+				frontmatter += fmt.Sprintf("name: %s\n", cs.NewName)
+			}
+			if len(content.Tags) > 0 {
+				frontmatter += "tags:\n"
+				for _, tag := range content.Tags {
+					frontmatter += fmt.Sprintf("  - %s\n", tag)
+				}
+			}
+			frontmatter += "---\n\n"
+			fullContent = frontmatter + content.Content
 		}
+		err = files.WriteComponentToArchive(targetPath, fullContent)
 	} else {
 		targetPath = fmt.Sprintf("components/%s/%s", componentType, newFilename)
+		err = files.WriteComponentWithNameAndTags(targetPath, content.Content, cs.NewName, content.Tags)
 	}
-
-	// Write the component with new name and existing tags
-	err = files.WriteComponentWithNameAndTags(targetPath, content.Content, cs.NewName, content.Tags)
 	if err != nil {
 		return fmt.Errorf("failed to write cloned component: %w", err)
 	}
@@ -402,20 +414,15 @@ func (cs *CloneState) clonePipeline() error {
 	// Generate the new filename
 	newFilename := files.Slugify(cs.NewName) + ".yaml"
 
-	// Set the appropriate path based on destination
-	if cs.CloneToArchive {
-		newPipeline.Path = fmt.Sprintf("pipelines/.archive/%s", newFilename)
-		// Ensure archive directory exists
-		archiveDir := filepath.Join(files.PluqqyDir, "pipelines", ".archive")
-		if err := os.MkdirAll(archiveDir, 0755); err != nil {
-			return fmt.Errorf("failed to create archive directory: %w", err)
-		}
-	} else {
-		newPipeline.Path = newFilename // WritePipeline expects just the filename for active pipelines
-	}
+	// Set the appropriate path - just the filename
+	newPipeline.Path = newFilename
 
-	// Write the pipeline
-	err = files.WritePipeline(newPipeline)
+	// Write the pipeline to the appropriate location
+	if cs.CloneToArchive {
+		err = files.WritePipelineToArchive(newPipeline)
+	} else {
+		err = files.WritePipeline(newPipeline)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to write cloned pipeline: %w", err)
 	}

@@ -248,8 +248,8 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 				reloadCalled = true
 			}
 
-			// Execute delete
-			cmd := po.DeletePipeline(pipelinePath, pipelineTags, reloadFunc)
+			// Execute delete (pass false for isArchived in tests)
+			cmd := po.DeletePipeline(pipelinePath, pipelineTags, false, reloadFunc)
 			msg := cmd()
 
 			// Verify status message

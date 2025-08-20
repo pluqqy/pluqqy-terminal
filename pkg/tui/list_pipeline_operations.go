@@ -72,10 +72,16 @@ func (po *PipelineOperator) SetPipeline(pipelinePath string) tea.Cmd {
 }
 
 // DeletePipeline deletes a pipeline and returns a command to reload the list
-func (po *PipelineOperator) DeletePipeline(pipelinePath string, pipelineTags []string, reloadFunc func()) tea.Cmd {
+func (po *PipelineOperator) DeletePipeline(pipelinePath string, pipelineTags []string, isArchived bool, reloadFunc func()) tea.Cmd {
 	return func() tea.Msg {
-		// Delete the pipeline file
-		err := files.DeletePipeline(pipelinePath)
+		// Delete the pipeline file based on whether it's archived
+		var err error
+		if isArchived {
+			err = files.DeleteArchivedPipeline(pipelinePath)
+		} else {
+			err = files.DeletePipeline(pipelinePath)
+		}
+		
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to delete pipeline '%s': %v", pipelinePath, err))
 		}
@@ -83,8 +89,8 @@ func (po *PipelineOperator) DeletePipeline(pipelinePath string, pipelineTags []s
 		// Reload the pipeline list
 		reloadFunc()
 
-		// Start async tag cleanup if there were tags
-		if len(pipelineTags) > 0 {
+		// Start async tag cleanup if there were tags (only for active items)
+		if len(pipelineTags) > 0 && !isArchived {
 			go func() {
 				tags.CleanupOrphanedTags(pipelineTags)
 			}()
@@ -196,8 +202,14 @@ func (po *PipelineOperator) ViewArchiveConfirm(width int) string {
 // DeleteComponent deletes a component file
 func (po *PipelineOperator) DeleteComponent(comp componentItem, reloadFunc func()) tea.Cmd {
 	return func() tea.Msg {
-		// Delete the component file
-		err := files.DeleteComponent(comp.path)
+		// Delete the component file based on whether it's archived
+		var err error
+		if comp.isArchived {
+			err = files.DeleteArchivedComponent(comp.path)
+		} else {
+			err = files.DeleteComponent(comp.path)
+		}
+		
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to delete %s '%s': %v", comp.compType, comp.name, err))
 		}
@@ -205,8 +217,8 @@ func (po *PipelineOperator) DeleteComponent(comp componentItem, reloadFunc func(
 		// Reload the component list
 		reloadFunc()
 
-		// Start async tag cleanup if there were tags
-		if len(comp.tags) > 0 {
+		// Start async tag cleanup if there were tags (only for active items)
+		if len(comp.tags) > 0 && !comp.isArchived {
 			go func() {
 				tags.CleanupOrphanedTags(comp.tags)
 			}()

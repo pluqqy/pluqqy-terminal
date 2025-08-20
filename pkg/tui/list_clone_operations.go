@@ -55,9 +55,9 @@ func (co *CloneOperator) ValidateComponentClone(originalPath, newName string, to
 	var targetPath string
 
 	if toArchive {
-		targetPath = filepath.Join(files.ComponentsDir, componentType, ".archive", targetFilename)
+		targetPath = filepath.Join(files.PluqqyDir, "archive", files.ComponentsDir, componentType, targetFilename)
 	} else {
-		targetPath = filepath.Join(files.ComponentsDir, componentType, targetFilename)
+		targetPath = filepath.Join(files.PluqqyDir, files.ComponentsDir, componentType, targetFilename)
 	}
 
 	// Check if file already exists
@@ -82,9 +82,9 @@ func (co *CloneOperator) ValidatePipelineClone(newName string, toArchive bool) e
 	// Build the target path
 	var targetPath string
 	if toArchive {
-		targetPath = filepath.Join(files.PipelinesDir, ".archive", targetFilename)
+		targetPath = filepath.Join(files.PluqqyDir, "archive", files.PipelinesDir, targetFilename)
 	} else {
-		targetPath = filepath.Join(files.PipelinesDir, targetFilename)
+		targetPath = filepath.Join(files.PluqqyDir, files.PipelinesDir, targetFilename)
 	}
 
 	// Check if file already exists
@@ -132,13 +132,36 @@ func (co *CloneOperator) CloneComponent(originalPath, newName string, fromArchiv
 	// Build the target path
 	var targetPath string
 	if toArchive {
-		targetPath = filepath.Join(files.ComponentsDir, componentType, ".archive", newFilename)
+		// Clone to archive: .pluqqy/archive/components/type/filename.md
+		targetPath = filepath.Join(files.ComponentsDir, componentType, newFilename)
+		// WriteComponentWithNameAndTags will handle the archive path
 	} else {
 		targetPath = filepath.Join(files.ComponentsDir, componentType, newFilename)
 	}
 
 	// Write the component to the target location with new name and existing tags
-	err = files.WriteComponentWithNameAndTags(targetPath, content.Content, newName, content.Tags)
+	if toArchive {
+		// Write directly to archive
+		fullContent := content.Content
+		if content.Name != "" || len(content.Tags) > 0 {
+			// Add YAML frontmatter if we have metadata
+			frontmatter := "---\n"
+			if content.Name != "" {
+				frontmatter += fmt.Sprintf("name: %s\n", newName)
+			}
+			if len(content.Tags) > 0 {
+				frontmatter += "tags:\n"
+				for _, tag := range content.Tags {
+					frontmatter += fmt.Sprintf("  - %s\n", tag)
+				}
+			}
+			frontmatter += "---\n\n"
+			fullContent = frontmatter + content.Content
+		}
+		err = files.WriteComponentToArchive(targetPath, fullContent)
+	} else {
+		err = files.WriteComponentWithNameAndTags(targetPath, content.Content, newName, content.Tags)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to write cloned component: %w", err)
 	}
@@ -168,13 +191,8 @@ func (co *CloneOperator) ClonePipeline(originalPath, newName string, fromArchive
 	// Generate the new filename
 	newFilename := files.Slugify(newName) + ".yaml"
 
-	// Build the target path
-	var targetPath string
-	if toArchive {
-		targetPath = filepath.Join(files.PipelinesDir, ".archive", newFilename)
-	} else {
-		targetPath = filepath.Join(files.PipelinesDir, newFilename)
-	}
+	// Build the target path - just the filename for pipelines
+	targetPath := newFilename
 
 	// Create new pipeline with updated name and path
 	newPipeline := &models.Pipeline{
@@ -186,7 +204,11 @@ func (co *CloneOperator) ClonePipeline(originalPath, newName string, fromArchive
 	}
 
 	// Write the pipeline
-	err = files.WritePipeline(newPipeline)
+	if toArchive {
+		err = files.WritePipelineToArchive(newPipeline)
+	} else {
+		err = files.WritePipeline(newPipeline)
+	}
 	if err != nil {
 		return fmt.Errorf("failed to write cloned pipeline: %w", err)
 	}
