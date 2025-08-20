@@ -103,6 +103,7 @@ pluqqy
 | ------------- | ------------------------------------------------------------------ |
 | `Tab`         | Switch between pipelines and components panes                      |
 | `↑↓` or `j/k` | Navigate items                                                     |
+| `/`           | Enter search mode (use `^a` for archived, `^t` to cycle types)    |
 | `e`           | Edit component in built-in editor / Edit pipeline in builder       |
 | `^x`          | Edit component with external editor (components pane only)         |
 | `t`           | Edit tags for selected component or pipeline                       |
@@ -124,6 +125,7 @@ pluqqy
 | -------------- | ------------------------------------------------------------------------- |
 | `Tab`          | Switch between panes (available components, pipeline components, preview) |
 | `↑↓`           | Navigate items                                                            |
+| `/`            | Enter search mode (use `^a` for archived, `^t` to cycle types)           |
 | `Enter`        | Add/remove component (toggles)                                            |
 | `n`            | Create new component                                                      |
 | `e`            | Edit component in built-in editor                                         |
@@ -272,7 +274,7 @@ Pluqqy includes a tagging system to help organize and find your components and p
 
 ### Search Capabilities
 
-The built-in search engine supports queries:
+The built-in search engine supports powerful queries with keyboard shortcuts:
 
 | Query                      | Description                   |
 | -------------------------- | ----------------------------- |
@@ -284,6 +286,17 @@ The built-in search engine supports queries:
 | `status:archived`          | Show all archived items       |
 | `tag:api AND type:context` | Combine filters               |
 | `content:"error handling"` | Full-text search in content   |
+
+**Search Shortcuts:**
+
+| Key    | Action                                                              |
+| ------ | ------------------------------------------------------------------- |
+| `/`    | Activate search mode                                                |
+| `^a`   | Toggle archived filter (adds/removes `status:archived`)            |
+| `^t`   | Cycle type filter (All → Pipelines → Prompts → Contexts → Rules)   |
+| `Esc`  | Clear search and exit search mode                                  |
+
+Note: In Pipeline Builder, `^t` cycles through component types only (skips pipelines).
 
 <br>
 

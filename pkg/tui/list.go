@@ -94,6 +94,9 @@ type MainListModel struct {
 	cloneState    *CloneState
 	cloneRenderer *CloneRenderer
 	cloneOperator *CloneOperator
+	
+	// Search filter helper
+	searchFilterHelper *SearchFilterHelper
 }
 
 func (m *MainListModel) performSearch() {
@@ -263,6 +266,20 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.performSearch()
 				m.stateManager.ExitSearch()
 				m.searchBar.SetActive(false)
+				return m, nil
+			case "ctrl+a":
+				// Toggle archived filter
+				newQuery := m.searchFilterHelper.ToggleArchivedFilter(m.searchBar.Value())
+				m.searchBar.SetValue(newQuery)
+				m.searchQuery = newQuery
+				m.performSearch()
+				return m, nil
+			case "ctrl+t":
+				// Cycle type filter
+				newQuery := m.searchFilterHelper.CycleTypeFilter(m.searchBar.Value())
+				m.searchBar.SetValue(newQuery)
+				m.searchQuery = newQuery
+				m.performSearch()
 				return m, nil
 			case "tab":
 				// Let tab handling below take care of navigation

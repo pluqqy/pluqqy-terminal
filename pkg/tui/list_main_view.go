@@ -45,8 +45,8 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 	if searchActive {
 		// Show search syntax help when search is active
 		helpRows = [][]string{
-			{"tab switch pane", "esc clear+exit search"},
-			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
+			{"tab switch pane", "esc clear+exit"},
+			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces", "^a toggle archived", "^t cycle type"},
 		}
 	} else {
 		// Show normal navigation help - grouped by function

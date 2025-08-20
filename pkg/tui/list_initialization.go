@@ -43,6 +43,7 @@ func NewMainListModel() *MainListModel {
 		cloneState:             NewCloneState(),
 		cloneRenderer:          NewCloneRenderer(),
 		cloneOperator:          NewCloneOperator(),
+		searchFilterHelper:     NewSearchFilterHelper(),
 	}
 	// Set initial preview state
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'

@@ -134,12 +134,13 @@ type PipelineBuilderModel struct {
 	originalContent    string                // Original content for component editing
 
 	// Search state
-	searchBar        *SearchBar
-	searchQuery      string
-	searchEngine     *search.Engine
-	filteredPrompts  []componentItem
-	filteredContexts []componentItem
-	filteredRules    []componentItem
+	searchBar          *SearchBar
+	searchQuery        string
+	searchEngine       *search.Engine
+	filteredPrompts    []componentItem
+	filteredContexts   []componentItem
+	filteredRules      []componentItem
+	searchFilterHelper *SearchFilterHelper
 }
 
 type componentItem struct {
@@ -697,6 +698,20 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			case "tab":
 				// Let tab be handled by the main navigation logic
 				// Don't process it here
+			case "ctrl+a":
+				// Toggle archived filter
+				newQuery := m.searchFilterHelper.ToggleArchivedFilter(m.searchBar.Value())
+				m.searchBar.SetValue(newQuery)
+				m.searchQuery = newQuery
+				m.performSearch()
+				return m, nil
+			case "ctrl+t":
+				// Cycle type filter (skip pipelines since we're in pipeline builder)
+				newQuery := m.searchFilterHelper.CycleTypeFilterForComponents(m.searchBar.Value())
+				m.searchBar.SetValue(newQuery)
+				m.searchQuery = newQuery
+				m.performSearch()
+				return m, nil
 			default:
 				// For all other keys, update the search bar
 				var cmd tea.Cmd
@@ -1755,7 +1770,7 @@ func (m *PipelineBuilderModel) View() string {
 		// Show search syntax help when search is active
 		helpRows = [][]string{
 			{"tab switch pane", "esc clear+exit search"},
-			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces"},
+			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces", "^a toggle archived", "^t cycle type"},
 		}
 	} else {
 		// Show normal navigation help - grouped by function
