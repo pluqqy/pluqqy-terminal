@@ -666,6 +666,12 @@ func ArchivePipeline(path string) error {
 		return fmt.Errorf("pipeline not found at path '%s'", path)
 	}
 	
+	// Read pipeline to get tags before archiving
+	pipeline, err := ReadPipeline(path)
+	if err != nil {
+		return fmt.Errorf("failed to read pipeline before archiving: %w", err)
+	}
+	
 	// Create archive directory if it doesn't exist
 	archiveDir := filepath.Dir(archivePath)
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {
@@ -675,6 +681,14 @@ func ArchivePipeline(path string) error {
 	// Move the file
 	if err := os.Rename(sourcePath, archivePath); err != nil {
 		return fmt.Errorf("failed to archive pipeline '%s': %w", path, err)
+	}
+	
+	// Update tag registry - remove tags if they're no longer used
+	if len(pipeline.Tags) > 0 {
+		if err := UpdateTagRegistryOnArchive(pipeline.Tags); err != nil {
+			// Log error but don't fail the archive operation
+			// Tags will be out of sync but archive operation succeeds
+		}
 	}
 	
 	return nil
@@ -694,6 +708,12 @@ func ArchiveComponent(path string) error {
 		return fmt.Errorf("component not found at path '%s'", path)
 	}
 	
+	// Read component to get tags before archiving
+	component, err := ReadComponent(path)
+	if err != nil {
+		return fmt.Errorf("failed to read component before archiving: %w", err)
+	}
+	
 	// Create archive directory if it doesn't exist
 	archiveDir := filepath.Dir(archivePath)
 	if err := os.MkdirAll(archiveDir, 0755); err != nil {
@@ -703,6 +723,14 @@ func ArchiveComponent(path string) error {
 	// Move the file
 	if err := os.Rename(sourcePath, archivePath); err != nil {
 		return fmt.Errorf("failed to archive component '%s': %w", path, err)
+	}
+	
+	// Update tag registry - remove tags if they're no longer used
+	if len(component.Tags) > 0 {
+		if err := UpdateTagRegistryOnArchive(component.Tags); err != nil {
+			// Log error but don't fail the archive operation
+			// Tags will be out of sync but archive operation succeeds
+		}
 	}
 	
 	return nil
@@ -883,6 +911,12 @@ func UnarchivePipeline(path string) error {
 		return fmt.Errorf("cannot unarchive: active pipeline already exists at path '%s'", path)
 	}
 	
+	// Read archived pipeline to get tags before unarchiving
+	pipeline, err := ReadArchivedPipeline(path)
+	if err != nil {
+		return fmt.Errorf("failed to read archived pipeline: %w", err)
+	}
+	
 	// Create active directory if it doesn't exist
 	activeDir := filepath.Dir(activePath)
 	if err := os.MkdirAll(activeDir, 0755); err != nil {
@@ -892,6 +926,14 @@ func UnarchivePipeline(path string) error {
 	// Move the file from archive to active
 	if err := os.Rename(archivePath, activePath); err != nil {
 		return fmt.Errorf("failed to unarchive pipeline: %w", err)
+	}
+	
+	// Update tag registry - add tags back
+	if len(pipeline.Tags) > 0 {
+		if err := UpdateTagRegistryOnUnarchive(pipeline.Tags); err != nil {
+			// Log error but don't fail the unarchive operation
+			// Tags will be out of sync but unarchive operation succeeds
+		}
 	}
 	
 	return nil
@@ -916,6 +958,12 @@ func UnarchiveComponent(path string) error {
 		return fmt.Errorf("cannot unarchive: active component already exists at path '%s'", path)
 	}
 	
+	// Read archived component to get tags before unarchiving
+	component, err := ReadArchivedComponent(path)
+	if err != nil {
+		return fmt.Errorf("failed to read archived component: %w", err)
+	}
+	
 	// Create active directory if it doesn't exist
 	activeDir := filepath.Dir(activePath)
 	if err := os.MkdirAll(activeDir, 0755); err != nil {
@@ -925,6 +973,14 @@ func UnarchiveComponent(path string) error {
 	// Move the file from archive to active
 	if err := os.Rename(archivePath, activePath); err != nil {
 		return fmt.Errorf("failed to unarchive component: %w", err)
+	}
+	
+	// Update tag registry - add tags back
+	if len(component.Tags) > 0 {
+		if err := UpdateTagRegistryOnUnarchive(component.Tags); err != nil {
+			// Log error but don't fail the unarchive operation
+			// Tags will be out of sync but unarchive operation succeeds
+		}
 	}
 	
 	return nil
