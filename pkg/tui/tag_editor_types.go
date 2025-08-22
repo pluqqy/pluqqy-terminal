@@ -163,5 +163,8 @@ func (tds *TagDeletionState) View() string {
 		return ""
 	}
 	
-	return fmt.Sprintf("%s %s", tds.Spinner.View(), tds.Progress)
+	// Add padding to avoid overlaying on borders
+	spinnerLine := fmt.Sprintf("  %s %s", tds.Spinner.View(), tds.Progress)
+	// Return with a newline at the beginning to position below the border
+	return "\n" + spinnerLine
 }

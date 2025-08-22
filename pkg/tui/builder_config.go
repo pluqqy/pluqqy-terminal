@@ -42,6 +42,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		searchBar:          NewSearchBar(),
 		exitConfirm:        NewConfirmation(),
 		tagEditor:          NewTagEditor(),
+		tagDeleteConfirm:    NewConfirmation(), // Initialize for compatibility
 		deleteConfirm:      NewConfirmation(),
 		archiveConfirm:     NewConfirmation(),
 		componentCreator:   NewComponentCreator(),

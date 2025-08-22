@@ -315,9 +315,8 @@ func TestGetEditingItemName(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			tagEditor := &TagEditor{
-				ItemType: tt.itemType,
-			}
+			tagEditor := NewTagEditor()
+			tagEditor.ItemType = tt.itemType
 
 			stateManager := &StateManager{
 				ComponentCursor: tt.componentCursor,
@@ -421,14 +420,18 @@ func TestGetEditingItemName_EdgeCases(t *testing.T) {
 		{
 			name: "nil state manager",
 			setupFunc: func() (*TagEditor, *StateManager, []componentItem, []pipelineItem) {
-				return &TagEditor{ItemType: "component"}, nil, makeTestComponents("prompt", "comp1"), makeTestPipelines("pipe1")
+				te := NewTagEditor()
+				te.ItemType = "component"
+				return te, nil, makeTestComponents("prompt", "comp1"), makeTestPipelines("pipe1")
 			},
 			want: "",
 		},
 		{
 			name: "large cursor value",
 			setupFunc: func() (*TagEditor, *StateManager, []componentItem, []pipelineItem) {
-				return &TagEditor{ItemType: "component"},
+				te := NewTagEditor()
+				te.ItemType = "component"
+				return te,
 					&StateManager{ComponentCursor: 999999},
 					makeTestComponents("prompt", "comp1"),
 					makeTestPipelines("pipe1")

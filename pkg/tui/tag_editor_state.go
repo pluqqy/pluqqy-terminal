@@ -86,6 +86,17 @@ func (te *TagEditor) Reset() {
 	te.DeletingTag = ""
 	te.DeletingTagUsage = nil
 	te.PendingExit = false
+	te.Mode = TagEditorModeNormal
+	
+	// Reset tag reloader if it exists
+	if te.TagReloader != nil {
+		te.TagReloader.Reset()
+	}
+	
+	// Reset tag deletion state if it exists
+	if te.TagDeletionState != nil {
+		te.TagDeletionState.Active = false
+	}
 }
 
 // LoadAvailableTags loads tags from the registry
@@ -166,13 +177,15 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			// Show exit confirmation if there are unsaved changes
 			te.PendingExit = true
 			te.ExitConfirm.Show(ConfirmationConfig{
-				Title:       "Unsaved Changes",
-				Message:     "You have unsaved changes. Exit without saving?",
+				Title:       "⚠️  Unsaved Changes",
+				Message:     "You have unsaved tag changes.",
+				Warning:     "Exit without saving?",
 				YesLabel:    "Exit",
 				NoLabel:     "Cancel",
 				Destructive: true,
-				Width:       60,
-				Height:      8,
+				Type:        ConfirmTypeDialog,
+				Width:       te.Width - 4,
+				Height:      10,
 			}, nil, nil)
 		} else {
 			// No changes, exit directly
@@ -495,13 +508,14 @@ func (te *TagEditor) StartTagDeletion() tea.Cmd {
 		)
 		
 		te.TagDeleteConfirm.Show(ConfirmationConfig{
-			Title:       "Delete Tag",
+			Title:       "⚠️  Delete Tag",
 			Message:     message,
 			YesLabel:    "Delete",
 			NoLabel:     "Cancel",
 			Destructive: true,
-			Width:       60,
-			Height:      12,
+			Type:        ConfirmTypeDialog,
+			Width:       te.Width - 4,
+			Height:      10,
 		}, func() tea.Cmd {
 			return te.DeleteTagFromRegistry()
 		}, func() tea.Cmd {
@@ -535,21 +549,21 @@ func (te *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 		return false, nil
 	}
 	
-	// Handle tag deletion messages
-	if te.TagDeletionState != nil && te.TagDeletionState.Active {
-		handled, cmd := te.TagDeletionState.Update(msg)
-		if handled {
-			return true, cmd
-		}
-	}
-	
-	// Handle specific message types
+	// Handle specific message types first, before delegating to sub-components
 	switch msg := msg.(type) {
 	case tagDeletionCompleteMsg:
 		te.TagDeletionState.Active = false
 		te.Mode = TagEditorModeNormal
 		
-		// Update available tags
+		// Clear deletion state
+		te.DeletingTag = ""
+		te.DeletingTagUsage = nil
+		
+		// Clear the available tags completely first
+		te.AvailableTags = []string{}
+		
+		// Then reload from registry to get the updated state
+		// The registry has been updated by DeleteTagCompletely
 		te.LoadAvailableTags()
 		
 		// Adjust cursor if needed
@@ -558,13 +572,8 @@ func (te *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 			te.TagCloudCursor = len(availableForCloud) - 1
 		}
 		
-		// Clear deletion state
-		te.DeletingTag = ""
-		te.DeletingTagUsage = nil
-		
-		// Return status message
-		statusMsg := formatDeletionResult(msg.Result)
-		return true, func() tea.Msg { return StatusMsg(statusMsg) }
+		// Return nil to trigger re-render
+		return true, nil
 		
 	case tagDeletionProgressMsg:
 		if te.TagDeletionState != nil {

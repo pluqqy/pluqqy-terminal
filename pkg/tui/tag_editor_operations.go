@@ -270,7 +270,7 @@ func DeleteTagCompletely(tagToDelete string, showProgress func(string, int, int)
 // formatDeletionResult creates a user-friendly message from deletion results
 func formatDeletionResult(result TagDeletionResult) string {
 	if len(result.Errors) > 0 {
-		errorSummary := strings.Join(result.Errors[:min(3, len(result.Errors))], "; ")
+		errorSummary := strings.Join(result.Errors[:tagEditorMin(3, len(result.Errors))], "; ")
 		if len(result.Errors) > 3 {
 			errorSummary += fmt.Sprintf(" (and %d more errors)", len(result.Errors)-3)
 		}
@@ -295,7 +295,7 @@ func pluralS(count int) string {
 	return "s"
 }
 
-func min(a, b int) int {
+func tagEditorMin(a, b int) int {
 	if a < b {
 		return a
 	}

@@ -29,11 +29,19 @@ func NewTagEditorRenderer(editor *TagEditor, width, height int) *TagEditorRender
 func (ter *TagEditorRenderer) Render() string {
 	// Handle confirmation dialogs
 	if ter.Editor.TagDeleteConfirm.Active() {
-		return ter.Editor.TagDeleteConfirm.View()
+		// Add padding to match other views (same as Enhanced Editor)
+		contentStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		return contentStyle.Render(ter.Editor.TagDeleteConfirm.View())
 	}
 	
 	if ter.Editor.ExitConfirm.Active() {
-		return ter.Editor.ExitConfirm.View()
+		// Add padding to match other views (same as Enhanced Editor)
+		contentStyle := lipgloss.NewStyle().
+			PaddingLeft(1).
+			PaddingRight(1)
+		return contentStyle.Render(ter.Editor.ExitConfirm.View())
 	}
 	
 	// Calculate dimensions for side-by-side layout
@@ -127,6 +135,12 @@ func (ter *TagEditorRenderer) renderMainPane(width, height int) string {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color(ColorVeryDim))
 		content.WriteString(headerPadding.Render(dimStyle.Render("  (no tags)")))
 	} else {
+		// Group tags in rows for better display
+		var tagRows strings.Builder
+		rowTags := 0
+		currentRowWidth := 0
+		maxRowWidth := width - 6
+		
 		// Render tags with cursor
 		for i, tag := range ter.Editor.CurrentTags {
 			registry, _ := tags.NewRegistry()
@@ -153,11 +167,26 @@ func (ter *TagEditorRenderer) renderMainPane(width, height int) string {
 				tagDisplay = "  " + tagStyle.Render(tag) + "  "
 			}
 			
-			content.WriteString(headerPadding.Render(tagDisplay))
-			if i < len(ter.Editor.CurrentTags)-1 {
-				content.WriteString("  ")
+			tagWidth := lipgloss.Width(tagDisplay) + 2
+			
+			// Check if we need to start a new row
+			if rowTags > 0 && currentRowWidth+tagWidth+2 > maxRowWidth {
+				tagRows.WriteString("\n\n")
+				rowTags = 0
+				currentRowWidth = 0
 			}
+			
+			// Add the tag
+			if rowTags > 0 {
+				tagRows.WriteString("  ")
+				currentRowWidth += 2
+			}
+			tagRows.WriteString(tagDisplay)
+			currentRowWidth += tagWidth
+			rowTags++
 		}
+		
+		content.WriteString(headerPadding.Render(tagRows.String()))
 	}
 	content.WriteString("\n\n")
 	

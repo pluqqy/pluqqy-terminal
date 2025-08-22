@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/atotto/clipboard"
+	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
@@ -544,6 +545,62 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Pass the message up to the parent app for display
 		return m, func() tea.Msg { return msg }
 
+	case tagDeletionCompleteMsg:
+		// Handle tag deletion completion
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				// Reload components to reflect removed tags
+				m.loadAvailableComponents()
+				// Don't reload tags here - the tag editor manages its own tag list
+				return m, cmd
+			}
+		}
+		return m, nil
+
+	case tagDeletionProgressMsg:
+		// Handle tag deletion progress updates
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		return m, nil
+
+	case spinner.TickMsg:
+		// Handle spinner tick for tag deletion
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		// Continue to handle other spinners if needed
+		return m, nil
+
+	case TagReloadMsg:
+		// Handle tag reload messages
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				// Reload components to reflect new tags
+				m.loadAvailableComponents()
+				return m, cmd
+			}
+		}
+		return m, nil
+
+	case tagReloadCompleteMsg:
+		// Handle tag reload completion
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		return m, nil
+
 	case ReloadMsg:
 		// Legacy path - might still be used by other components
 		if m.editingComponent {
@@ -655,18 +712,23 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle tag editing mode
 		if m.tagEditor != nil && m.tagEditor.Active {
+			// Capture tags before handling input (in case of save)
+			wasActive := m.tagEditor.Active
+			itemType := m.tagEditor.ItemType
+			currentTags := make([]string, len(m.tagEditor.CurrentTags))
+			copy(currentTags, m.tagEditor.CurrentTags)
+			
 			handled, cmd := m.tagEditor.HandleInput(msg)
 			if handled {
-				// Check if save was completed
-				if !m.tagEditor.Active {
+				// Check if save was completed (editor became inactive)
+				if wasActive && !m.tagEditor.Active {
 					// Reload components to reflect tag changes
 					m.loadAvailableComponents()
 					
 					// If we were editing pipeline tags, update the pipeline model
-					if m.tagEditor.ItemType == "pipeline" && m.pipeline != nil {
+					if itemType == "pipeline" && m.pipeline != nil {
 						// Update the in-memory pipeline with the saved tags
-						m.pipeline.Tags = make([]string, len(m.tagEditor.CurrentTags))
-						copy(m.pipeline.Tags, m.tagEditor.CurrentTags)
+						m.pipeline.Tags = currentTags
 					}
 				}
 				return m, cmd

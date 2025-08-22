@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -128,6 +129,12 @@ func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// Clean up any existing test pipelines first
+			os.RemoveAll(".pluqqy/pipelines/New Test Pipeline.yaml")
+			os.RemoveAll(".pluqqy/pipelines/Existing Pipeline.yaml")
+			defer os.RemoveAll(".pluqqy/pipelines/New Test Pipeline.yaml")
+			defer os.RemoveAll(".pluqqy/pipelines/Existing Pipeline.yaml")
+
 			m := tt.setup()
 
 			// Execute save command
