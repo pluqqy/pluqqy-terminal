@@ -661,6 +661,13 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if !m.tagEditor.Active {
 					// Reload components to reflect tag changes
 					m.loadAvailableComponents()
+					
+					// If we were editing pipeline tags, update the pipeline model
+					if m.tagEditor.ItemType == "pipeline" && m.pipeline != nil {
+						// Update the in-memory pipeline with the saved tags
+						m.pipeline.Tags = make([]string, len(m.tagEditor.CurrentTags))
+						copy(m.pipeline.Tags, m.tagEditor.CurrentTags)
+					}
 				}
 				return m, cmd
 			}
