@@ -313,6 +313,7 @@ func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
 		// Update original content to reflect saved state
 		state.OriginalContent = content
 		state.Content = content
+		state.Textarea.SetValue(content) // Sync textarea with saved content
 		state.UnsavedChanges = false // Mark as saved
 
 		// Mark as no longer new after first save
