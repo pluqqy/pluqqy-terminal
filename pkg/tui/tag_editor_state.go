@@ -20,9 +20,6 @@ type TagEditor struct {
 	ExitConfirm      *ConfirmationModel
 	TagReloader      *TagReloader
 	TagDeletionState *TagDeletionState
-	
-	// Pending exit flag
-	PendingExit bool
 }
 
 // NewTagEditor creates a new tag editor instance
@@ -62,7 +59,6 @@ func (te *TagEditor) Start(path string, currentTags []string, itemType, itemName
 	te.HasNavigatedSuggestions = false
 	te.TagCloudActive = false
 	te.TagCloudCursor = 0
-	te.PendingExit = false
 	
 	// Load available tags from registry
 	te.LoadAvailableTags()
@@ -85,7 +81,6 @@ func (te *TagEditor) Reset() {
 	te.TagCloudCursor = 0
 	te.DeletingTag = ""
 	te.DeletingTagUsage = nil
-	te.PendingExit = false
 	te.Mode = TagEditorModeNormal
 	
 	// Reset tag reloader if it exists
@@ -150,17 +145,6 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 	
 	if te.ExitConfirm.Active() {
 		cmd := te.ExitConfirm.Update(msg)
-		// Check if dialog was closed
-		if !te.ExitConfirm.Active() {
-			// If pending exit was set, we confirmed the exit
-			if te.PendingExit {
-				te.Reset()
-				if te.Callbacks.OnExit != nil {
-					te.Callbacks.OnExit(false)
-				}
-			}
-			te.PendingExit = false
-		}
 		return true, cmd
 	}
 	
@@ -175,7 +159,6 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 			te.HasNavigatedSuggestions = false
 		} else if te.HasChanges() {
 			// Show exit confirmation if there are unsaved changes
-			te.PendingExit = true
 			te.ExitConfirm.Show(ConfirmationConfig{
 				Title:       "⚠️  Unsaved Changes",
 				Message:     "You have unsaved tag changes.",
@@ -186,7 +169,17 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 				Type:        ConfirmTypeDialog,
 				Width:       te.Width - 4,
 				Height:      10,
-			}, nil, nil)
+			}, func() tea.Cmd {
+				// onConfirm - user chose to exit without saving
+				te.Reset()
+				if te.Callbacks.OnExit != nil {
+					te.Callbacks.OnExit(false)
+				}
+				return nil
+			}, func() tea.Cmd {
+				// onCancel - user chose to stay and keep editing
+				return nil
+			})
 		} else {
 			// No changes, exit directly
 			te.Reset()
