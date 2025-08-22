@@ -471,16 +471,16 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				components := m.filteredComponents
 				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
 					comp := components[m.stateManager.ComponentCursor]
-					m.tagEditor.Start(comp.path, comp.tags, "component")
-					m.tagEditor.SetSize(m.width)
+					m.tagEditor.Start(comp.path, comp.tags, "component", comp.name)
+					m.tagEditor.SetSize(m.width, m.height)
 				}
 			} else if m.stateManager.ActivePane == pipelinesPane {
 				// Use filtered pipelines if search is active
 				pipelines := m.filteredPipelines
 				if m.stateManager.PipelineCursor >= 0 && m.stateManager.PipelineCursor < len(pipelines) {
 					pipeline := pipelines[m.stateManager.PipelineCursor]
-					m.tagEditor.Start(pipeline.path, pipeline.tags, "pipeline")
-					m.tagEditor.SetSize(m.width)
+					m.tagEditor.Start(pipeline.path, pipeline.tags, "pipeline", pipeline.name)
+					m.tagEditor.SetSize(m.width, m.height)
 				}
 			}
 
@@ -822,6 +822,33 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case tagDeletionCompleteMsg:
+		// Check if tag editor should handle this
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				// Reload components and pipelines to reflect removed tags
+				m.reloadComponents()
+				m.loadPipelines()
+				// Re-run search if active
+				if m.searchQuery != "" {
+					m.performSearch()
+				}
+				return m, cmd
+			}
+		}
+		return m, nil
+
+	case tagDeletionProgressMsg:
+		// Check if tag editor should handle this
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleMessage(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+		return m, nil
 	}
 
 	// Handle enhanced editor for non-KeyMsg message types
@@ -941,40 +968,9 @@ func (m *MainListModel) View() string {
 
 	// If editing tags, show tag edit view
 	if m.tagEditor.Active {
-		// Create the tag editing view renderer
-		renderer := NewTagEditingViewRenderer(m.width, m.height)
-		renderer.ItemName = m.getEditingItemName()
-		renderer.CurrentTags = m.tagEditor.CurrentTags
-		renderer.TagInput = m.tagEditor.TagInput
-		renderer.TagCursor = m.tagEditor.TagCursor
-		renderer.ShowSuggestions = m.tagEditor.ShowSuggestions
-		renderer.SuggestionCursor = m.tagEditor.SuggestionCursor
-		renderer.HasNavigatedSuggestions = m.tagEditor.HasNavigatedSuggestions
-		renderer.TagCloudActive = m.tagEditor.TagCloudActive
-		renderer.TagCloudCursor = m.tagEditor.TagCloudCursor
-		renderer.AvailableTags = m.tagEditor.AvailableTags
-		renderer.TagDeleteConfirm = m.tagEditor.TagDeleteConfirm
-		renderer.ExitConfirm = m.tagEditor.ExitConfirm
-		renderer.DeletingTag = m.tagEditor.DeletingTag
-		renderer.DeletingTagUsage = m.tagEditor.DeletingTagUsage
-		renderer.GetSuggestionsFunc = func(input string, availableTags []string, currentTags []string) []string {
-			return m.tagEditor.GetSuggestions()
-		}
-		renderer.GetAvailableTagsForCloudFunc = func(availableTags []string, currentTags []string) []string {
-			return m.tagEditor.GetAvailableTagsForCloud()
-		}
-
-		tagEditView := renderer.Render()
-
-		// Overlay tag reload status if active
-		if m.tagEditor.TagReloader != nil && m.tagEditor.TagReloader.IsActive() && m.tagReloadRenderer != nil {
-			overlay := m.tagReloadRenderer.RenderStatus(m.tagEditor.TagReloader)
-			if overlay != "" {
-				return overlayViews(tagEditView, overlay)
-			}
-		}
-
-		return tagEditView
+		// Use the new unified tag editor renderer
+		renderer := NewTagEditorRenderer(m.tagEditor, m.width, m.height)
+		return renderer.Render()
 	}
 
 	// Calculate content height
@@ -1077,9 +1073,9 @@ func (m *MainListModel) SetSize(width, height int) {
 	m.height = height
 	// Update search bar width
 	m.searchBar.SetWidth(width)
-	// Update tag editor width
+	// Update tag editor size
 	if m.tagEditor != nil {
-		m.tagEditor.SetSize(width)
+		m.tagEditor.SetSize(width, height)
 	}
 	// Update tag reload renderer size
 	if m.tagReloadRenderer != nil {

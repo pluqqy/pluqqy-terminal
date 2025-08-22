@@ -1,0 +1,611 @@
+package tui
+
+import (
+	"fmt"
+	"strings"
+
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/bubbles/spinner"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+)
+
+// TagEditor is a reusable component for editing tags
+type TagEditor struct {
+	// Embedded state
+	*TagEditorState
+	
+	// Sub-components
+	TagDeleteConfirm *ConfirmationModel
+	ExitConfirm      *ConfirmationModel
+	TagReloader      *TagReloader
+	TagDeletionState *TagDeletionState
+	
+	// Pending exit flag
+	PendingExit bool
+}
+
+// NewTagEditor creates a new tag editor instance
+func NewTagEditor() *TagEditor {
+	return &TagEditor{
+		TagEditorState: &TagEditorState{
+			CurrentTags:   []string{},
+			OriginalTags:  []string{},
+			AvailableTags: []string{},
+		},
+		TagDeleteConfirm: NewConfirmation(),
+		ExitConfirm:      NewConfirmation(),
+		TagReloader:      NewTagReloader(),
+		TagDeletionState: NewTagDeletionState(),
+	}
+}
+
+// Start initializes the tag editor for a specific item
+func (te *TagEditor) Start(path string, currentTags []string, itemType, itemName string) {
+	te.Active = true
+	te.Path = path
+	te.ItemType = itemType
+	te.ItemName = itemName
+	te.Mode = TagEditorModeNormal
+	
+	// Copy tags
+	te.CurrentTags = make([]string, len(currentTags))
+	copy(te.CurrentTags, currentTags)
+	te.OriginalTags = make([]string, len(currentTags))
+	copy(te.OriginalTags, currentTags)
+	
+	// Reset input state
+	te.TagInput = ""
+	te.TagCursor = 0
+	te.ShowSuggestions = false
+	te.SuggestionCursor = 0
+	te.HasNavigatedSuggestions = false
+	te.TagCloudActive = false
+	te.TagCloudCursor = 0
+	te.PendingExit = false
+	
+	// Load available tags from registry
+	te.LoadAvailableTags()
+}
+
+// Reset clears the tag editor state
+func (te *TagEditor) Reset() {
+	te.Active = false
+	te.Path = ""
+	te.ItemType = ""
+	te.ItemName = ""
+	te.CurrentTags = []string{}
+	te.OriginalTags = []string{}
+	te.TagInput = ""
+	te.TagCursor = 0
+	te.ShowSuggestions = false
+	te.SuggestionCursor = 0
+	te.HasNavigatedSuggestions = false
+	te.TagCloudActive = false
+	te.TagCloudCursor = 0
+	te.DeletingTag = ""
+	te.DeletingTagUsage = nil
+	te.PendingExit = false
+}
+
+// LoadAvailableTags loads tags from the registry
+func (te *TagEditor) LoadAvailableTags() {
+	registry, err := tags.NewRegistry()
+	if err != nil {
+		te.AvailableTags = []string{}
+		return
+	}
+	
+	allTags := registry.ListTags()
+	te.AvailableTags = make([]string, 0, len(allTags))
+	for _, tag := range allTags {
+		te.AvailableTags = append(te.AvailableTags, tag.Name)
+	}
+}
+
+// HasChanges returns true if tags have been modified
+func (te *TagEditor) HasChanges() bool {
+	if len(te.CurrentTags) != len(te.OriginalTags) {
+		return true
+	}
+	
+	// Create a map of original tags for quick lookup
+	originalMap := make(map[string]bool)
+	for _, tag := range te.OriginalTags {
+		originalMap[tag] = true
+	}
+	
+	// Check if all current tags exist in original
+	for _, tag := range te.CurrentTags {
+		if !originalMap[tag] {
+			return true
+		}
+	}
+	
+	return false
+}
+
+// HandleInput processes keyboard input for tag editing
+func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
+	if !te.Active {
+		return false, nil
+	}
+	
+	// Handle confirmation dialogs first
+	if te.TagDeleteConfirm.Active() {
+		cmd := te.TagDeleteConfirm.Update(msg)
+		return true, cmd
+	}
+	
+	if te.ExitConfirm.Active() {
+		cmd := te.ExitConfirm.Update(msg)
+		// Check if dialog was closed
+		if !te.ExitConfirm.Active() {
+			// If pending exit was set, we confirmed the exit
+			if te.PendingExit {
+				te.Reset()
+				if te.Callbacks.OnExit != nil {
+					te.Callbacks.OnExit(false)
+				}
+			}
+			te.PendingExit = false
+		}
+		return true, cmd
+	}
+	
+	// Handle normal input based on current mode
+	switch msg.String() {
+	case "esc":
+		if te.TagInput != "" {
+			// Clear input
+			te.TagInput = ""
+			te.ShowSuggestions = false
+			te.SuggestionCursor = 0
+			te.HasNavigatedSuggestions = false
+		} else if te.HasChanges() {
+			// Show exit confirmation if there are unsaved changes
+			te.PendingExit = true
+			te.ExitConfirm.Show(ConfirmationConfig{
+				Title:       "Unsaved Changes",
+				Message:     "You have unsaved changes. Exit without saving?",
+				YesLabel:    "Exit",
+				NoLabel:     "Cancel",
+				Destructive: true,
+				Width:       60,
+				Height:      8,
+			}, nil, nil)
+		} else {
+			// No changes, exit directly
+			te.Reset()
+			if te.Callbacks.OnExit != nil {
+				te.Callbacks.OnExit(false)
+			}
+		}
+		return true, nil
+		
+	case "ctrl+s":
+		// Save tags
+		return true, te.Save()
+		
+	case "ctrl+t":
+		// Reload tags from all components and pipelines
+		if !te.TagReloader.IsActive() {
+			te.Mode = TagEditorModeReloading
+			return true, te.TagReloader.Start()
+		}
+		return true, nil
+		
+	case "ctrl+d":
+		if te.TagCloudActive {
+			// Delete tag from cloud
+			return true, te.StartTagDeletion()
+		} else if te.TagInput == "" && len(te.CurrentTags) > 0 {
+			// Remove tag at cursor
+			te.RemoveTagAtCursor()
+		}
+		return true, nil
+		
+	case "enter":
+		if te.TagCloudActive {
+			// Add tag from cloud
+			te.AddTagFromCloud()
+		} else if te.ShowSuggestions && te.TagInput != "" {
+			// Add tag from suggestions or input
+			suggestions := te.GetSuggestions()
+			if te.HasNavigatedSuggestions && len(suggestions) > 0 && te.SuggestionCursor < len(suggestions) {
+				te.AddSelectedSuggestion()
+			} else {
+				te.AddTagFromInput()
+			}
+		} else {
+			// Add tag from input
+			te.AddTagFromInput()
+		}
+		return true, nil
+		
+	case "tab":
+		// Toggle between main pane and tag cloud
+		te.TagCloudActive = !te.TagCloudActive
+		if te.TagCloudActive {
+			te.TagCloudCursor = 0
+			te.ShowSuggestions = false
+		} else {
+			te.TagInput = ""
+		}
+		return true, nil
+		
+	case "up":
+		if !te.TagCloudActive && te.ShowSuggestions && te.TagInput != "" {
+			// Navigate up in suggestions
+			if te.SuggestionCursor > 0 {
+				te.SuggestionCursor--
+			}
+			te.HasNavigatedSuggestions = true
+		}
+		return true, nil
+		
+	case "down":
+		if !te.TagCloudActive && te.ShowSuggestions && te.TagInput != "" {
+			// Navigate down in suggestions
+			suggestions := te.GetSuggestions()
+			maxSuggestions := len(suggestions)
+			if maxSuggestions > 6 {
+				maxSuggestions = 6 // Limit to 6 suggestions
+			}
+			if te.SuggestionCursor < maxSuggestions-1 {
+				te.SuggestionCursor++
+			}
+			te.HasNavigatedSuggestions = true
+		}
+		return true, nil
+		
+	case "left":
+		if te.TagCloudActive {
+			// Navigate in tag cloud
+			if te.TagCloudCursor > 0 {
+				te.TagCloudCursor--
+			}
+		} else {
+			// Move cursor left in current tags
+			if te.TagInput == "" && te.TagCursor > 0 {
+				te.TagCursor--
+			}
+		}
+		return true, nil
+		
+	case "right":
+		if te.TagCloudActive {
+			// Navigate in tag cloud
+			availableForSelection := te.GetAvailableTagsForCloud()
+			if te.TagCloudCursor < len(availableForSelection)-1 {
+				te.TagCloudCursor++
+			}
+		} else {
+			// Move cursor right in current tags
+			if te.TagInput == "" && te.TagCursor < len(te.CurrentTags)-1 {
+				te.TagCursor++
+			}
+		}
+		return true, nil
+		
+	case "home":
+		if te.TagCloudActive {
+			te.TagCloudCursor = 0
+		} else if te.TagInput == "" {
+			te.TagCursor = 0
+		}
+		return true, nil
+		
+	case "end":
+		if te.TagCloudActive {
+			availableForSelection := te.GetAvailableTagsForCloud()
+			if len(availableForSelection) > 0 {
+				te.TagCloudCursor = len(availableForSelection) - 1
+			}
+		} else if te.TagInput == "" {
+			if len(te.CurrentTags) > 0 {
+				te.TagCursor = len(te.CurrentTags) - 1
+			}
+		}
+		return true, nil
+		
+	case "backspace":
+		if !te.TagCloudActive {
+			if te.TagInput != "" {
+				// Remove last character from input
+				if len(te.TagInput) > 0 {
+					te.TagInput = te.TagInput[:len(te.TagInput)-1]
+					te.UpdateSuggestions()
+				}
+			} else if len(te.CurrentTags) > 0 {
+				// Remove tag at cursor
+				te.RemoveTagAtCursor()
+			}
+		}
+		return true, nil
+		
+	default:
+		// Handle text input when not in tag cloud
+		if !te.TagCloudActive && msg.Type == tea.KeyRunes {
+			te.TagInput += string(msg.Runes)
+			te.UpdateSuggestions()
+			return true, nil
+		}
+	}
+	
+	return false, nil
+}
+
+// UpdateSuggestions updates the suggestion list based on current input
+func (te *TagEditor) UpdateSuggestions() {
+	if te.TagInput == "" {
+		te.ShowSuggestions = false
+		te.SuggestionCursor = 0
+		te.HasNavigatedSuggestions = false
+	} else {
+		te.ShowSuggestions = true
+		te.SuggestionCursor = 0
+		te.HasNavigatedSuggestions = false
+	}
+}
+
+// GetSuggestions returns tag suggestions based on input
+func (te *TagEditor) GetSuggestions() []string {
+	if te.TagInput == "" {
+		return []string{}
+	}
+	
+	input := strings.ToLower(te.TagInput)
+	var suggestions []string
+	
+	// First, exact prefix matches
+	for _, tag := range te.AvailableTags {
+		if strings.HasPrefix(strings.ToLower(tag), input) && !te.HasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	// Then, contains matches
+	for _, tag := range te.AvailableTags {
+		lowerTag := strings.ToLower(tag)
+		if !strings.HasPrefix(lowerTag, input) && strings.Contains(lowerTag, input) && !te.HasTag(tag) {
+			suggestions = append(suggestions, tag)
+		}
+	}
+	
+	return suggestions
+}
+
+// HasTag checks if a tag is already in the current tags
+func (te *TagEditor) HasTag(tag string) bool {
+	for _, existingTag := range te.CurrentTags {
+		if strings.EqualFold(existingTag, tag) {
+			return true
+		}
+	}
+	return false
+}
+
+// AddTagFromInput adds a tag from the current input
+func (te *TagEditor) AddTagFromInput() {
+	if te.TagInput == "" {
+		return
+	}
+	
+	// Normalize the tag name
+	tagName := models.NormalizeTagName(te.TagInput)
+	
+	// Check if tag already exists
+	if te.HasTag(tagName) {
+		te.TagInput = ""
+		te.ShowSuggestions = false
+		return
+	}
+	
+	// Add to current tags
+	te.CurrentTags = append(te.CurrentTags, tagName)
+	te.TagCursor = len(te.CurrentTags) - 1
+	
+	// Clear input
+	te.TagInput = ""
+	te.ShowSuggestions = false
+	te.SuggestionCursor = 0
+	te.HasNavigatedSuggestions = false
+}
+
+// AddSelectedSuggestion adds the currently selected suggestion
+func (te *TagEditor) AddSelectedSuggestion() {
+	suggestions := te.GetSuggestions()
+	if te.SuggestionCursor < len(suggestions) {
+		tagName := suggestions[te.SuggestionCursor]
+		if !te.HasTag(tagName) {
+			te.CurrentTags = append(te.CurrentTags, tagName)
+			te.TagCursor = len(te.CurrentTags) - 1
+		}
+		// Clear input
+		te.TagInput = ""
+		te.ShowSuggestions = false
+		te.SuggestionCursor = 0
+		te.HasNavigatedSuggestions = false
+	}
+}
+
+// AddTagFromCloud adds the selected tag from the cloud
+func (te *TagEditor) AddTagFromCloud() {
+	availableForSelection := te.GetAvailableTagsForCloud()
+	if te.TagCloudCursor < len(availableForSelection) {
+		tagName := availableForSelection[te.TagCloudCursor]
+		if !te.HasTag(tagName) {
+			te.CurrentTags = append(te.CurrentTags, tagName)
+			te.TagCursor = len(te.CurrentTags) - 1
+		}
+	}
+}
+
+// RemoveTagAtCursor removes the tag at the current cursor position
+func (te *TagEditor) RemoveTagAtCursor() {
+	if te.TagCursor < len(te.CurrentTags) {
+		// Remove tag at cursor
+		te.CurrentTags = append(te.CurrentTags[:te.TagCursor], te.CurrentTags[te.TagCursor+1:]...)
+		// Adjust cursor
+		if te.TagCursor >= len(te.CurrentTags) && te.TagCursor > 0 {
+			te.TagCursor = len(te.CurrentTags) - 1
+		}
+	}
+}
+
+// GetAvailableTagsForCloud returns tags available for selection in the cloud
+func (te *TagEditor) GetAvailableTagsForCloud() []string {
+	var available []string
+	for _, tag := range te.AvailableTags {
+		if !te.HasTag(tag) {
+			available = append(available, tag)
+		}
+	}
+	return available
+}
+
+// StartTagDeletion starts the process of deleting a tag from the registry
+func (te *TagEditor) StartTagDeletion() tea.Cmd {
+	availableForCloud := te.GetAvailableTagsForCloud()
+	if te.TagCloudCursor >= len(availableForCloud) {
+		return nil
+	}
+	
+	tagToDelete := availableForCloud[te.TagCloudCursor]
+	te.DeletingTag = tagToDelete
+	
+	// Get usage stats for the tag
+	usage, err := tags.CountTagUsage(tagToDelete)
+	if err == nil {
+		te.DeletingTagUsage = usage
+		
+		// Show confirmation dialog
+		usageCount := usage.ComponentCount + usage.PipelineCount
+		message := fmt.Sprintf(
+			"Delete tag '%s'?\n\nThis tag is used in %d item%s.\nIt will be removed from all files and the registry.",
+			tagToDelete,
+			usageCount,
+			func() string {
+				if usageCount == 1 {
+					return ""
+				}
+				return "s"
+			}(),
+		)
+		
+		te.TagDeleteConfirm.Show(ConfirmationConfig{
+			Title:       "Delete Tag",
+			Message:     message,
+			YesLabel:    "Delete",
+			NoLabel:     "Cancel",
+			Destructive: true,
+			Width:       60,
+			Height:      12,
+		}, func() tea.Cmd {
+			return te.DeleteTagFromRegistry()
+		}, func() tea.Cmd {
+			te.DeletingTag = ""
+			te.DeletingTagUsage = nil
+			return nil
+		})
+	}
+	
+	return nil
+}
+
+// DeleteTagFromRegistry deletes a tag from the registry and all files
+func (te *TagEditor) DeleteTagFromRegistry() tea.Cmd {
+	// Start the deletion spinner
+	te.TagDeletionState.Start()
+	te.Mode = TagEditorModeDeleting
+	
+	// Create progress callback
+	progressCallback := func(currentFile string, progress int, total int) {
+		// Progress updates will be handled through messages
+	}
+	
+	// Return the comprehensive deletion command
+	return DeleteTagCompletely(te.DeletingTag, progressCallback)
+}
+
+// HandleMessage processes messages related to tag editing
+func (te *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
+	if !te.Active {
+		return false, nil
+	}
+	
+	// Handle tag deletion messages
+	if te.TagDeletionState != nil && te.TagDeletionState.Active {
+		handled, cmd := te.TagDeletionState.Update(msg)
+		if handled {
+			return true, cmd
+		}
+	}
+	
+	// Handle specific message types
+	switch msg := msg.(type) {
+	case tagDeletionCompleteMsg:
+		te.TagDeletionState.Active = false
+		te.Mode = TagEditorModeNormal
+		
+		// Update available tags
+		te.LoadAvailableTags()
+		
+		// Adjust cursor if needed
+		availableForCloud := te.GetAvailableTagsForCloud()
+		if te.TagCloudCursor >= len(availableForCloud) && te.TagCloudCursor > 0 {
+			te.TagCloudCursor = len(availableForCloud) - 1
+		}
+		
+		// Clear deletion state
+		te.DeletingTag = ""
+		te.DeletingTagUsage = nil
+		
+		// Return status message
+		statusMsg := formatDeletionResult(msg.Result)
+		return true, func() tea.Msg { return StatusMsg(statusMsg) }
+		
+	case tagDeletionProgressMsg:
+		if te.TagDeletionState != nil {
+			te.TagDeletionState.Update(msg)
+		}
+		return true, nil
+		
+	case spinner.TickMsg:
+		if te.TagDeletionState != nil && te.TagDeletionState.Active {
+			handled, cmd := te.TagDeletionState.Update(msg)
+			if handled {
+				return true, cmd
+			}
+		}
+	}
+	
+	// Handle tag reload messages if reloader is active
+	if te.TagReloader != nil {
+		switch msg := msg.(type) {
+		case TagReloadMsg:
+			handled, cmd := te.TagReloader.HandleMessage(msg)
+			if handled {
+				te.Mode = TagEditorModeNormal
+				// Reload available tags after successful reload
+				if msg.Error == nil {
+					te.LoadAvailableTags()
+				}
+				return true, cmd
+			}
+		case tagReloadCompleteMsg:
+			te.TagReloader.HandleComplete()
+			te.Mode = TagEditorModeNormal
+			return true, nil
+		}
+	}
+	
+	return false, nil
+}
+
+// SetSize updates the dimensions of the tag editor
+func (te *TagEditor) SetSize(width, height int) {
+	te.Width = width
+	te.Height = height
+}

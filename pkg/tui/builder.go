@@ -87,24 +87,28 @@ type PipelineBuilderModel struct {
 	// - Consistent with the Main List view editing experience
 	enhancedEditor *EnhancedEditorState
 
-	// Tag editing state
+	// Tag editing - now uses unified TagEditor component
+	tagEditor *TagEditor
+	
+	// Timer for showing save messages
+	editSaveTimer *time.Timer
+	
+	// Temporary fields for backwards compatibility - TO BE REMOVED
 	editingTags             bool
 	editingTagsPath         string
 	currentTags             []string
-	originalTags            []string // Store original tags to check for changes
+	originalTags            []string
 	tagInput                string
 	tagCursor               int
 	availableTags           []string
 	showTagSuggestions      bool
-	tagSuggestionCursor     int  // Track selected suggestion
-	hasNavigatedSuggestions bool // Track if user actively navigated suggestions
+	tagSuggestionCursor     int
+	hasNavigatedSuggestions bool
 	tagCloudActive          bool
 	tagCloudCursor          int
 	tagDeleteConfirm        *ConfirmationModel
 	deletingTag             string
 	deletingTagUsage        []string
-	editSaveTimer           *time.Timer
-	editViewport            viewport.Model
 
 	// Exit confirmation
 	exitConfirm          *ConfirmationModel
@@ -650,8 +654,16 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle tag editing mode
-		if m.editingTags {
-			return m.handleTagEditing(msg)
+		if m.tagEditor != nil && m.tagEditor.Active {
+			handled, cmd := m.tagEditor.HandleInput(msg)
+			if handled {
+				// Check if save was completed
+				if !m.tagEditor.Active {
+					// Reload components to reflect tag changes
+					m.loadAvailableComponents()
+				}
+				return m, cmd
+			}
 		}
 
 		// Handle name editing mode
@@ -1316,8 +1328,9 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// If editing tags, show tag edit view
-	if m.editingTags {
-		return m.tagEditView()
+	if m.tagEditor != nil && m.tagEditor.Active {
+		renderer := NewTagEditorRenderer(m.tagEditor, m.width, m.height)
+		return renderer.Render()
 	}
 
 	// If editing name, show name input screen
@@ -1877,6 +1890,7 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 	return false
 }
 
+// hasTagChanges - DEPRECATED, to be removed
 func (m *PipelineBuilderModel) hasTagChanges() bool {
 	// Check if the number of tags has changed
 	if len(m.currentTags) != len(m.originalTags) {
@@ -3331,41 +3345,31 @@ func (m *PipelineBuilderModel) deleteTagFromRegistry() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string) {
-	m.editingTags = true
-	m.editingTagsPath = path
-	m.currentTags = make([]string, len(currentTags))
-	copy(m.currentTags, currentTags)
-	m.originalTags = make([]string, len(currentTags))
-	copy(m.originalTags, currentTags)
-	m.tagInput = ""
-	m.tagCursor = 0
-	m.showTagSuggestions = false
-	m.tagSuggestionCursor = 0
-	m.hasNavigatedSuggestions = false
-	m.tagCloudActive = false
-	m.tagCloudCursor = 0
-
-	// Load available tags
-	m.loadAvailableTags()
+	// Get the component name for display
+	components := m.getAllAvailableComponents()
+	itemName := ""
+	for _, comp := range components {
+		if comp.path == path {
+			itemName = comp.name
+			break
+		}
+	}
+	
+	// Start the tag editor
+	if m.tagEditor == nil {
+		m.tagEditor = NewTagEditor()
+	}
+	m.tagEditor.Start(path, currentTags, "component", itemName)
+	m.tagEditor.SetSize(m.width, m.height)
 }
 
 func (m *PipelineBuilderModel) startPipelineTagEditing(currentTags []string) {
-	m.editingTags = true
-	m.editingTagsPath = "" // Empty path indicates pipeline tags
-	m.currentTags = make([]string, len(currentTags))
-	copy(m.currentTags, currentTags)
-	m.originalTags = make([]string, len(currentTags))
-	copy(m.originalTags, currentTags)
-	m.tagInput = ""
-	m.tagCursor = 0
-	m.tagSuggestionCursor = 0
-	m.hasNavigatedSuggestions = false
-	m.showTagSuggestions = false
-	m.tagCloudActive = false
-	m.tagCloudCursor = 0
-
-	// Load available tags
-	m.loadAvailableTags()
+	// For pipeline tags, use the pipeline name
+	if m.tagEditor == nil {
+		m.tagEditor = NewTagEditor()
+	}
+	m.tagEditor.Start(m.pipeline.Path, currentTags, "pipeline", m.pipeline.Name)
+	m.tagEditor.SetSize(m.width, m.height)
 }
 
 func (m *PipelineBuilderModel) loadAvailableTags() {

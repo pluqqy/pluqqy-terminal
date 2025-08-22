@@ -41,7 +41,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		rightViewport:      viewport.New(40, 20),
 		searchBar:          NewSearchBar(),
 		exitConfirm:        NewConfirmation(),
-		tagDeleteConfirm:   NewConfirmation(),
+		tagEditor:          NewTagEditor(),
 		deleteConfirm:      NewConfirmation(),
 		archiveConfirm:     NewConfirmation(),
 		componentCreator:   NewComponentCreator(),

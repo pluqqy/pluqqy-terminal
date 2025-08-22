@@ -1,10 +1,10 @@
 # Pluqqy
 
-Build and manage LLM prompt pipelines (minimal viable context) from your terminal.
+Build and manage minimal viable context for your AI coding assistant from your terminal.
 
 Pluqqy lets you create reusable components (contexts, prompts, and rules) and combine them into pipelines. When you set a pipeline, it generates a PLUQQY.md file that contains all your composed instructions.
 
-In Claude Code or other AI coding tools, simply reference @PLUQQY.md instead of copying and pasting prompts. Need different instructions? Set a different pipeline - the file updates automatically, but you keep referencing the same @PLUQQY.md.
+In Claude Code or other AI coding tools, just reference @PLUQQY.md instead of copying and pasting prompts. Need different instructions? Set a different pipeline - the file updates automatically, but you keep referencing the same @PLUQQY.md.
 
 This approach keeps your context minimal and focused - only including what's relevant for the current task. Both you and the AI work from the same single source of truth, eliminating confusion about which instructions are active while preserving valuable context window space.
 
@@ -103,7 +103,7 @@ pluqqy
 | ------------- | ------------------------------------------------------------------ |
 | `Tab`         | Switch between pipelines and components panes                      |
 | `↑↓` or `j/k` | Navigate items                                                     |
-| `/`           | Enter search mode (use `^a` for archived, `^t` to cycle types)    |
+| `/`           | Enter search mode (use `^a` for archived, `^t` to cycle types)     |
 | `e`           | Edit component in built-in editor / Edit pipeline in builder       |
 | `^x`          | Edit component with external editor (components pane only)         |
 | `t`           | Edit tags for selected component or pipeline                       |
@@ -125,7 +125,7 @@ pluqqy
 | -------------- | ------------------------------------------------------------------------- |
 | `Tab`          | Switch between panes (available components, pipeline components, preview) |
 | `↑↓`           | Navigate items                                                            |
-| `/`            | Enter search mode (use `^a` for archived, `^t` to cycle types)           |
+| `/`            | Enter search mode (use `^a` for archived, `^t` to cycle types)            |
 | `Enter`        | Add/remove component (toggles)                                            |
 | `n`            | Create new component                                                      |
 | `e`            | Edit component in built-in editor                                         |
@@ -289,12 +289,12 @@ The built-in search engine supports powerful queries with keyboard shortcuts:
 
 **Search Shortcuts:**
 
-| Key    | Action                                                              |
-| ------ | ------------------------------------------------------------------- |
-| `/`    | Activate search mode                                                |
-| `^a`   | Toggle archived filter (adds/removes `status:archived`)            |
-| `^t`   | Cycle type filter (All → Pipelines → Prompts → Contexts → Rules)   |
-| `Esc`  | Clear search and exit search mode                                  |
+| Key   | Action                                                           |
+| ----- | ---------------------------------------------------------------- |
+| `/`   | Activate search mode                                             |
+| `^a`  | Toggle archived filter (adds/removes `status:archived`)          |
+| `^t`  | Cycle type filter (All → Pipelines → Prompts → Contexts → Rules) |
+| `Esc` | Clear search and exit search mode                                |
 
 Note: In Pipeline Builder, `^t` cycles through component types only (skips pipelines).
 
@@ -324,6 +324,8 @@ The `set` command generates a `PLUQQY.md` file in your project root. This naming
 | **Chainable**               | Easily reference and combine multiple pipelines in Claude Code sessions   |
 | **Customizable**            | Change the default filename in settings (press `s` from main view)        |
 
+Yes, I know, the world already has plenty of AGENT.md, CLAUDE.md, and README.md files. Adding PLUQQY.md might feel like contributing more noise. The good news is you don’t have to call it PLUQQY.md. You can name it whatever you like (AGENT.md, WIZARD.md, BANANA.md, PLUQQYSUX.md), and you can customize exactly where Pluqqy generates it.
+
 The file contains sections in your configured order:
 
 - `CONTEXT` - Combined context components
@@ -348,7 +350,7 @@ This lets each developer use different pipelines without creating commit noise.
 4. Name it "my-assistant"
 5. Add components using the builder
 6. Press `^s` to save
-7. Back at pipeline list, press `S` to set the pipeline
+7. Press `S` to set the pipeline
 8. Check `PLUQQY.md` for the composed output
 
 ![Workflow](./assets/images/pluqqy-terminal.png)
