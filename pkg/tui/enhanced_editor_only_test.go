@@ -23,7 +23,7 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 				m := model.(*MainListModel)
 
 				// Check that enhanced editor is initialized
-				if m.enhancedEditor == nil {
+				if m.editors.Enhanced == nil {
 					t.Error("Enhanced editor should be initialized")
 				}
 
@@ -83,7 +83,7 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 			setup: func() *MainListModel {
 				m := NewMainListModel()
 				// Add a test component
-				m.filteredComponents = []componentItem{
+				m.data.FilteredComponents = []componentItem{
 					{
 						name:     "Test Component",
 						path:     "components/contexts/test.md",
@@ -104,15 +104,15 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 			name: "component creation uses enhanced editor",
 			setup: func() *MainListModel {
 				m := NewMainListModel()
-				m.componentCreator.Start()
-				m.componentCreator.componentCreationType = models.ComponentTypeContext
-				m.componentCreator.componentName = "New Component"
-				m.componentCreator.creationStep = 2 // Content step
+				m.operations.ComponentCreator.Start()
+				m.operations.ComponentCreator.componentCreationType = models.ComponentTypeContext
+				m.operations.ComponentCreator.componentName = "New Component"
+				m.operations.ComponentCreator.creationStep = 2 // Content step
 				return m
 			},
 			triggerEdit: func(m *MainListModel) (tea.Model, tea.Cmd) {
 				// Initialize enhanced editor for creation
-				m.componentCreator.initializeEnhancedEditor()
+				m.operations.ComponentCreator.initializeEnhancedEditor()
 				return m, nil
 			},
 			expectActive: true,
@@ -129,16 +129,16 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 
 			// Check enhanced editor state
 			if tt.expectActive {
-				if m.componentCreator.IsActive() && m.componentCreator.creationStep == 2 {
+				if m.operations.ComponentCreator.IsActive() && m.operations.ComponentCreator.creationStep == 2 {
 					// Check component creator's enhanced editor
-					if !m.componentCreator.IsEnhancedEditorActive() {
+					if !m.operations.ComponentCreator.IsEnhancedEditorActive() {
 						t.Error("Expected enhanced editor to be active in component creator")
 					}
-				} else if updatedM.enhancedEditor != nil {
+				} else if updatedM.editors.Enhanced != nil {
 					// Check main enhanced editor (for regular editing)
 					// Note: We can't directly test IsActive() without proper setup
 					// but we verify it's initialized and ready
-					if updatedM.enhancedEditor == nil {
+					if updatedM.editors.Enhanced == nil {
 						t.Error("Expected enhanced editor to be initialized")
 					}
 				}
@@ -275,7 +275,7 @@ func TestNoLegacyEditorFallback(t *testing.T) {
 		m := NewMainListModel()
 
 		// Verify enhanced editor exists
-		if m.enhancedEditor == nil {
+		if m.editors.Enhanced == nil {
 			t.Fatal("Enhanced editor must be initialized")
 		}
 

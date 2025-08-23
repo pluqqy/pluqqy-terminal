@@ -419,7 +419,7 @@ func TestPipelineBuilderModel_DeleteConfirmation_Consistency(t *testing.T) {
 
 	// Create list model for comparison
 	listModel := NewMainListModel()
-	listModel.pipelines = []pipelineItem{
+	listModel.data.Pipelines = []pipelineItem{
 		{name: "test", path: "test.yaml"},
 	}
 

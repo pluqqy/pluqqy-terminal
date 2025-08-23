@@ -70,7 +70,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 			}
 
 			// Set the components
-			m.filteredComponents = components
+			m.data.FilteredComponents = components
 			m.stateManager.UpdateCounts(len(components), 0)
 
 			// Initial render to set up the view
@@ -80,7 +80,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 			}
 
 			// Verify componentTableRenderer was created
-			if m.componentTableRenderer == nil {
+			if m.ui.ComponentTableRenderer == nil {
 				t.Fatal("componentTableRenderer should be initialized after View()")
 			}
 
@@ -92,7 +92,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 			}
 
 			// Check scroll position after cursor movement
-			firstScrollOffset := m.componentTableRenderer.Viewport.YOffset
+			firstScrollOffset := m.ui.ComponentTableRenderer.Viewport.YOffset
 
 			// For large cursor positions, we expect scrolling
 			if tt.cursorPosition > 10 && tt.expectedScrollAfter > 0 {
@@ -108,7 +108,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 				t.Fatal("Second View() returned empty string")
 			}
 
-			secondScrollOffset := m.componentTableRenderer.Viewport.YOffset
+			secondScrollOffset := m.ui.ComponentTableRenderer.Viewport.YOffset
 
 			// Verify scroll position persisted
 			if firstScrollOffset != secondScrollOffset {
@@ -125,7 +125,7 @@ func TestMainListModel_ComponentScrollPersistence(t *testing.T) {
 				}
 
 				// Scroll should adjust or stay the same, but not jump randomly
-				thirdScrollOffset := m.componentTableRenderer.Viewport.YOffset
+				thirdScrollOffset := m.ui.ComponentTableRenderer.Viewport.YOffset
 				if thirdScrollOffset > secondScrollOffset+1 {
 					t.Errorf("Unexpected scroll jump when moving cursor up: before=%d, after=%d",
 						secondScrollOffset, thirdScrollOffset)
@@ -242,7 +242,7 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 		})
 	}
 
-	m.filteredComponents = components
+	m.data.FilteredComponents = components
 	m.stateManager.UpdateCounts(len(components), 0)
 
 	// Move cursor down to trigger scrolling
@@ -257,8 +257,8 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	}
 
 	// Record scroll position with preview
-	if m.componentTableRenderer != nil {
-		_ = m.componentTableRenderer.Viewport.YOffset // Record for comparison if needed
+	if m.ui.ComponentTableRenderer != nil {
+		_ = m.ui.ComponentTableRenderer.Viewport.YOffset // Record for comparison if needed
 	}
 
 	// Disable preview and render
@@ -271,15 +271,15 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 
 	// Check scroll position after preview toggle
 	scrollWithoutPreview := 0
-	if m.componentTableRenderer != nil {
-		scrollWithoutPreview = m.componentTableRenderer.Viewport.YOffset
+	if m.ui.ComponentTableRenderer != nil {
+		scrollWithoutPreview = m.ui.ComponentTableRenderer.Viewport.YOffset
 	}
 
 	// The exact offset might change due to viewport height changes,
 	// but the cursor should still be visible
-	if m.componentTableRenderer != nil {
+	if m.ui.ComponentTableRenderer != nil {
 		effectiveLine := calculateEffectiveLine(components, m.stateManager.ComponentCursor)
-		viewportHeight := m.componentTableRenderer.Viewport.Height
+		viewportHeight := m.ui.ComponentTableRenderer.Viewport.Height
 
 		if effectiveLine < scrollWithoutPreview || effectiveLine >= scrollWithoutPreview+viewportHeight {
 			t.Errorf("Cursor not visible after preview toggle: line=%d, offset=%d, height=%d",
@@ -296,7 +296,7 @@ func TestComponentScrollingWithPreviewToggle(t *testing.T) {
 	}
 
 	// Verify renderer is still functional
-	if m.componentTableRenderer == nil {
+	if m.ui.ComponentTableRenderer == nil {
 		t.Fatal("componentTableRenderer should persist through preview toggles")
 	}
 }

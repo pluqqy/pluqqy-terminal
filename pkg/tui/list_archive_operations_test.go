@@ -38,7 +38,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			expectArchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
 				// Should show archive confirmation
-				if !m.pipelineOperator.IsArchiveConfirmActive() {
+				if !m.operations.PipelineOperator.IsArchiveConfirmActive() {
 					t.Error("Archive confirmation should be active")
 				}
 			},
@@ -50,7 +50,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 				createArchiveTestPipeline(t, "test.yaml", true)
 
 				m := NewMainListModel()
-				m.searchQuery = "status:archived"
+				m.search.Query = "status:archived"
 				m.performSearch()
 				m.stateManager.ActivePane = pipelinesPane
 				m.stateManager.PipelineCursor = 0
@@ -61,7 +61,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			expectUnarchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
 				// Should show unarchive confirmation
-				if !m.pipelineOperator.IsArchiveConfirmActive() {
+				if !m.operations.PipelineOperator.IsArchiveConfirmActive() {
 					t.Error("Archive confirmation should be active")
 				}
 			},
@@ -74,7 +74,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 
 				m := NewMainListModel()
 				m.loadComponents()
-				m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+				m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 				m.stateManager.ActivePane = componentsPane
 				m.stateManager.ComponentCursor = 0
 				return m
@@ -83,7 +83,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			activePane:    componentsPane,
 			expectArchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
-				if !m.pipelineOperator.IsArchiveConfirmActive() {
+				if !m.operations.PipelineOperator.IsArchiveConfirmActive() {
 					t.Error("Archive confirmation should be active")
 				}
 			},
@@ -95,7 +95,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 				createArchiveTestComponent(t, "test.md", "contexts", true)
 
 				m := NewMainListModel()
-				m.searchQuery = "status:archived"
+				m.search.Query = "status:archived"
 				m.performSearch()
 				m.stateManager.ActivePane = componentsPane
 				m.stateManager.ComponentCursor = 0
@@ -105,7 +105,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			activePane:      componentsPane,
 			expectUnarchive: true,
 			validateState: func(t *testing.T, m *MainListModel) {
-				if !m.pipelineOperator.IsArchiveConfirmActive() {
+				if !m.operations.PipelineOperator.IsArchiveConfirmActive() {
 					t.Error("Archive confirmation should be active")
 				}
 			},
@@ -124,7 +124,7 @@ func TestMainListModel_ArchiveUnarchiveOperations(t *testing.T) {
 			keyInput:   tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'a'}},
 			activePane: pipelinesPane,
 			validateState: func(t *testing.T, m *MainListModel) {
-				if m.pipelineOperator.IsArchiveConfirmActive() {
+				if m.operations.PipelineOperator.IsArchiveConfirmActive() {
 					t.Error("Archive confirmation should not be active when no items")
 				}
 			},
@@ -174,10 +174,10 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 
 				m := NewMainListModel()
 				// Set the search query before loading
-				m.searchQuery = "status:archived"
+				m.search.Query = "status:archived"
 				m.loadPipelines()
 				m.loadComponents()
-				m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+				m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 				// Then perform search
 				m.performSearch()
 				return m
@@ -202,10 +202,10 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 
 				m := NewMainListModel()
 				// First search for archived
-				m.searchQuery = "status:archived"
+				m.search.Query = "status:archived"
 				m.performSearch()
 				// Then clear search
-				m.searchQuery = ""
+				m.search.Query = ""
 				m.performSearch()
 				return m
 			},
@@ -244,7 +244,7 @@ func TestMainListModel_SearchWithArchived(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup(t)
-			m.searchQuery = tt.searchQuery
+			m.search.Query = tt.searchQuery
 			m.performSearch()
 
 			// Count filtered items
@@ -274,7 +274,7 @@ func TestMainListModel_ReloadAfterArchiveOperation(t *testing.T) {
 	createArchiveTestPipeline(t, "test.yaml", false)
 
 	m := NewMainListModel()
-	m.searchQuery = "status:archived"
+	m.search.Query = "status:archived"
 	m.loadPipelines()
 
 	// Simulate archiving
@@ -286,7 +286,7 @@ func TestMainListModel_ReloadAfterArchiveOperation(t *testing.T) {
 	}
 
 	// Archive the pipeline
-	cmd := m.pipelineOperator.ArchivePipeline("test.yaml", reloadFunc)
+	cmd := m.operations.PipelineOperator.ArchivePipeline("test.yaml", reloadFunc)
 	msg := cmd()
 
 	// Check status message

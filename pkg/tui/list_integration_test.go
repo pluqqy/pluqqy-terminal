@@ -12,24 +12,24 @@ func createFullyInitializedModel(t *testing.T) *MainListModel {
 
 	// Use the proper constructor to ensure all fields are initialized
 	m := NewMainListModel()
-	m.width = 100
-	m.height = 50
+	m.viewports.Width = 100
+	m.viewports.Height = 50
 
 	// Initialize with test data
-	m.prompts = makeTestComponents("prompts", "greeting", "farewell", "question")
-	m.contexts = makeTestComponents("contexts", "general", "technical", "creative")
-	m.rules = makeTestComponents("rules", "format", "style", "security")
-	m.pipelines = makeTestPipelines("basic", "advanced", "custom")
+	m.data.Prompts = makeTestComponents("prompts", "greeting", "farewell", "question")
+	m.data.Contexts = makeTestComponents("contexts", "general", "technical", "creative")
+	m.data.Rules = makeTestComponents("rules", "format", "style", "security")
+	m.data.Pipelines = makeTestPipelines("basic", "advanced", "custom")
 
 	// Set up business logic
-	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 
 	// Initialize filtered lists
-	m.filteredComponents = m.getAllComponents()
-	m.filteredPipelines = m.pipelines
+	m.data.FilteredComponents = m.getAllComponents()
+	m.data.FilteredPipelines = m.data.Pipelines
 
 	// Update counts
-	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 
 	// Initialize viewports
 	m.updateViewportSizes()
@@ -50,25 +50,25 @@ func TestCompleteInitialization(t *testing.T) {
 				if m.stateManager == nil {
 					t.Error("StateManager not initialized")
 				}
-				if m.businessLogic == nil {
+				if m.operations.BusinessLogic == nil {
 					t.Error("BusinessLogic not initialized")
 				}
-				if m.searchBar == nil {
+				if m.search.Bar == nil {
 					t.Error("SearchBar not initialized")
 				}
-				if m.pipelineOperator == nil {
+				if m.operations.PipelineOperator == nil {
 					t.Error("PipelineOperator not initialized")
 				}
-				if m.componentCreator == nil {
+				if m.operations.ComponentCreator == nil {
 					t.Error("ComponentCreator not initialized")
 				}
-				if m.enhancedEditor == nil {
+				if m.editors.Enhanced == nil {
 					t.Error("EnhancedEditor not initialized")
 				}
-				if m.tagEditor == nil {
+				if m.editors.TagEditor == nil {
 					t.Error("TagEditor not initialized")
 				}
-				if m.exitConfirm == nil {
+				if m.ui.ExitConfirm == nil {
 					t.Error("ExitConfirm not initialized")
 				}
 			},
@@ -95,18 +95,18 @@ func TestCompleteInitialization(t *testing.T) {
 			name: "Viewports are initialized with correct dimensions",
 			validate: func(t *testing.T, m *MainListModel) {
 				// Set dimensions
-				m.width = 100
-				m.height = 50
+				m.viewports.Width = 100
+				m.viewports.Height = 50
 				m.updateViewportSizes()
 
 				// Check viewport sizes
-				if m.componentsViewport.Width <= 0 || m.componentsViewport.Height <= 0 {
+				if m.viewports.Components.Width <= 0 || m.viewports.Components.Height <= 0 {
 					t.Errorf("Components viewport has invalid dimensions: %dx%d",
-						m.componentsViewport.Width, m.componentsViewport.Height)
+						m.viewports.Components.Width, m.viewports.Components.Height)
 				}
-				if m.pipelinesViewport.Width <= 0 || m.pipelinesViewport.Height <= 0 {
+				if m.viewports.Pipelines.Width <= 0 || m.viewports.Pipelines.Height <= 0 {
 					t.Errorf("Pipelines viewport has invalid dimensions: %dx%d",
-						m.pipelinesViewport.Width, m.pipelinesViewport.Height)
+						m.viewports.Pipelines.Width, m.viewports.Pipelines.Height)
 				}
 			},
 		},
@@ -116,14 +116,14 @@ func TestCompleteInitialization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMainListModel()
 			// Add test data for validation
-			m.prompts = makeTestComponents("prompts", "test")
-			m.contexts = makeTestComponents("contexts", "test")
-			m.rules = makeTestComponents("rules", "test")
-			m.pipelines = makeTestPipelines("test")
-			m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
-			m.filteredComponents = m.getAllComponents()
-			m.filteredPipelines = m.pipelines
-			m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+			m.data.Prompts = makeTestComponents("prompts", "test")
+			m.data.Contexts = makeTestComponents("contexts", "test")
+			m.data.Rules = makeTestComponents("rules", "test")
+			m.data.Pipelines = makeTestPipelines("test")
+			m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
+			m.data.FilteredComponents = m.getAllComponents()
+			m.data.FilteredPipelines = m.data.Pipelines
+			m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 
 			tt.validate(t, m)
 		})
@@ -168,7 +168,7 @@ func TestModuleInteractions(t *testing.T) {
 		{
 			name: "Search updates both filtered lists and state",
 			setup: func(m *MainListModel) {
-				m.searchQuery = "test"
+				m.search.Query = "test"
 				m.stateManager.ActivePane = searchPane
 			},
 			action: func(m *MainListModel) tea.Msg {
@@ -179,15 +179,15 @@ func TestModuleInteractions(t *testing.T) {
 				m.performSearch()
 
 				// Verify filtered lists are populated
-				if len(m.filteredComponents) == 0 && len(m.getAllComponents()) > 0 {
+				if len(m.data.FilteredComponents) == 0 && len(m.getAllComponents()) > 0 {
 					t.Error("Search should not filter out all components")
 				}
-				if len(m.filteredPipelines) == 0 && len(m.pipelines) > 0 {
+				if len(m.data.FilteredPipelines) == 0 && len(m.data.Pipelines) > 0 {
 					t.Error("Search should not filter out all pipelines")
 				}
 
 				// Verify cursors are reset if needed
-				if m.stateManager.ComponentCursor >= len(m.filteredComponents) && len(m.filteredComponents) > 0 {
+				if m.stateManager.ComponentCursor >= len(m.data.FilteredComponents) && len(m.data.FilteredComponents) > 0 {
 					t.Error("Component cursor should be reset after search")
 				}
 			},
@@ -260,8 +260,8 @@ func TestUserWorkflows(t *testing.T) {
 					t.Errorf("Expected componentsPane after escape, got %v", m.stateManager.ActivePane)
 				}
 				// Search query should be empty
-				if m.searchQuery != "" {
-					t.Errorf("Expected empty search query, got '%s'", m.searchQuery)
+				if m.search.Query != "" {
+					t.Errorf("Expected empty search query, got '%s'", m.search.Query)
 				}
 			},
 		},
@@ -316,8 +316,8 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 		{
 			name: "Handle navigation with empty lists",
 			setup: func(m *MainListModel) {
-				m.filteredComponents = []componentItem{}
-				m.filteredPipelines = []pipelineItem{}
+				m.data.FilteredComponents = []componentItem{}
+				m.data.FilteredPipelines = []pipelineItem{}
 				m.stateManager.UpdateCounts(0, 0)
 			},
 			action: tea.KeyMsg{Type: tea.KeyDown},
@@ -335,13 +335,13 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 			name: "Handle cursor bounds when list shrinks",
 			setup: func(m *MainListModel) {
 				m.stateManager.ComponentCursor = 5
-				m.filteredComponents = makeTestComponents("prompts", "one", "two") // Only 2 items
-				m.stateManager.UpdateCounts(len(m.filteredComponents), len(m.filteredPipelines))
+				m.data.FilteredComponents = makeTestComponents("prompts", "one", "two") // Only 2 items
+				m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
 			},
 			action: tea.KeyMsg{Type: tea.KeyDown},
 			validate: func(t *testing.T, m *MainListModel) {
 				// Cursor should be adjusted to valid range
-				maxValid := len(m.filteredComponents) - 1
+				maxValid := len(m.data.FilteredComponents) - 1
 				if m.stateManager.ComponentCursor > maxValid {
 					t.Errorf("Cursor %d exceeds max valid index %d",
 						m.stateManager.ComponentCursor, maxValid)
@@ -351,7 +351,7 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 		{
 			name: "Handle search with no results",
 			setup: func(m *MainListModel) {
-				m.searchQuery = "xyz123nonexistent"
+				m.search.Query = "xyz123nonexistent"
 			},
 			action: tea.KeyMsg{Type: tea.KeyEnter},
 			validate: func(t *testing.T, m *MainListModel) {
@@ -419,7 +419,7 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 				components := m.getAllComponents()
 
 				// Verify we have all components
-				expectedCount := len(m.prompts) + len(m.contexts) + len(m.rules)
+				expectedCount := len(m.data.Prompts) + len(m.data.Contexts) + len(m.data.Rules)
 				if len(components) != expectedCount {
 					t.Errorf("Expected %d components, got %d", expectedCount, len(components))
 				}
@@ -447,13 +447,13 @@ func TestNoRegressionInRefactoring(t *testing.T) {
 						}
 					}
 
-					if !foundPrompt && len(m.prompts) > 0 {
+					if !foundPrompt && len(m.data.Prompts) > 0 {
 						t.Error("No prompts found in components list")
 					}
-					if !foundContext && len(m.contexts) > 0 {
+					if !foundContext && len(m.data.Contexts) > 0 {
 						t.Error("No contexts found in components list")
 					}
-					if !foundRule && len(m.rules) > 0 {
+					if !foundRule && len(m.data.Rules) > 0 {
 						t.Error("No rules found in components list")
 					}
 				}
@@ -567,22 +567,22 @@ func BenchmarkInitialization(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		m := NewMainListModel()
 		// Add test data
-		m.prompts = makeTestComponents("prompts", "test1", "test2", "test3")
-		m.contexts = makeTestComponents("contexts", "test1", "test2", "test3")
-		m.rules = makeTestComponents("rules", "test1", "test2", "test3")
-		m.pipelines = makeTestPipelines("test1", "test2", "test3")
-		m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
-		m.filteredComponents = m.getAllComponents()
-		m.filteredPipelines = m.pipelines
-		m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+		m.data.Prompts = makeTestComponents("prompts", "test1", "test2", "test3")
+		m.data.Contexts = makeTestComponents("contexts", "test1", "test2", "test3")
+		m.data.Rules = makeTestComponents("rules", "test1", "test2", "test3")
+		m.data.Pipelines = makeTestPipelines("test1", "test2", "test3")
+		m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
+		m.data.FilteredComponents = m.getAllComponents()
+		m.data.FilteredPipelines = m.data.Pipelines
+		m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 	}
 }
 
 // Benchmark view rendering
 func BenchmarkViewRendering(b *testing.B) {
 	m := createFullyInitializedModel(&testing.T{})
-	m.width = 100
-	m.height = 50
+	m.viewports.Width = 100
+	m.viewports.Height = 50
 	m.updateViewportSizes()
 
 	b.ResetTimer()

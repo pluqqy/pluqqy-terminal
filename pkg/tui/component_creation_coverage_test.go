@@ -375,7 +375,7 @@ func TestMainList_HandleComponentCreation(t *testing.T) {
 			},
 			input: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}},
 			validate: func(t *testing.T, m *MainListModel) {
-				if !m.componentCreator.IsActive() {
+				if !m.operations.ComponentCreator.IsActive() {
 					t.Error("Component creator should be active")
 				}
 			},
@@ -384,12 +384,12 @@ func TestMainList_HandleComponentCreation(t *testing.T) {
 			name: "handle type selection in main list",
 			setup: func() *MainListModel {
 				m := NewMainListModel()
-				m.componentCreator.Start()
+				m.operations.ComponentCreator.Start()
 				return m
 			},
 			input: tea.KeyMsg{Type: tea.KeyDown},
 			validate: func(t *testing.T, m *MainListModel) {
-				if m.componentCreator.GetTypeCursor() != 1 {
+				if m.operations.ComponentCreator.GetTypeCursor() != 1 {
 					t.Error("Cursor should move down")
 				}
 			},
@@ -398,17 +398,17 @@ func TestMainList_HandleComponentCreation(t *testing.T) {
 			name: "cancel creation with escape",
 			setup: func() *MainListModel {
 				m := NewMainListModel()
-				m.componentCreator.Start()
+				m.operations.ComponentCreator.Start()
 				return m
 			},
 			input: tea.KeyMsg{Type: tea.KeyEsc},
 			validate: func(t *testing.T, m *MainListModel) {
 				// After escape in type selection, should reset
-				handled := m.componentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEsc})
+				handled := m.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEsc})
 				if !handled {
 					t.Error("Escape should be handled")
 				}
-				if m.componentCreator.IsActive() {
+				if m.operations.ComponentCreator.IsActive() {
 					t.Error("Component creator should not be active after cancel")
 				}
 			},

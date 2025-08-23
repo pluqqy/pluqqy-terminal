@@ -167,7 +167,7 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				a.mainList.reloadComponents()
 				a.mainList.loadPipelines()
 				// Re-run search if active
-				if a.mainList.searchQuery != "" {
+				if a.mainList.search.Query != "" {
 					a.mainList.performSearch()
 				}
 			}

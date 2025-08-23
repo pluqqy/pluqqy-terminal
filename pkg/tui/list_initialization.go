@@ -20,43 +20,65 @@ func NewMainListModel() *MainListModel {
 	mermaidState := NewMermaidState()
 
 	m := &MainListModel{
-		stateManager:           NewStateManager(),
-		businessLogic:          NewBusinessLogic(),
-		previewViewport:        viewport.New(80, 20), // Default size
-		pipelinesViewport:      viewport.New(40, 20), // Default size
-		componentsViewport:     viewport.New(40, 20), // Default size
-		searchBar:              NewSearchBar(),
-		pipelineOperator:       NewPipelineOperator(),
-		exitConfirm:            NewConfirmation(),
-		componentCreator:       NewComponentCreator(),
-		enhancedEditor:         NewEnhancedEditorState(),
-		fileReference:          NewFileReferenceState(),
-		tagEditor:              NewTagEditor(),
-		tagReloader:            NewTagReloader(),
-		tagReloadRenderer:      NewTagReloadRenderer(80, 20),            // Default size
-		componentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
-		mermaidState:           mermaidState,
-		mermaidOperator:        NewMermaidOperator(mermaidState),
-		renameState:            NewRenameState(),
-		renameRenderer:         NewRenameRenderer(),
-		renameOperator:         NewRenameOperator(),
-		cloneState:             NewCloneState(),
-		cloneRenderer:          NewCloneRenderer(),
-		cloneOperator:          NewCloneOperator(),
-		searchFilterHelper:     NewSearchFilterHelper(),
+		stateManager: NewStateManager(),
+		
+		// Initialize composed structures
+		data: &ListDataStore{},
+		
+		viewports: &ListViewportManager{
+			Preview:    viewport.New(80, 20), // Default size
+			Pipelines:  viewport.New(40, 20), // Default size
+			Components: viewport.New(40, 20), // Default size
+		},
+		
+		editors: &ListEditorComponents{
+			Enhanced:      NewEnhancedEditorState(),
+			FileReference: NewFileReferenceState(),
+			TagEditor:     NewTagEditor(),
+			Rename: &ListRenameComponents{
+				State:    NewRenameState(),
+				Renderer: NewRenameRenderer(),
+				Operator: NewRenameOperator(),
+			},
+			Clone: &ListCloneComponents{
+				State:    NewCloneState(),
+				Renderer: NewCloneRenderer(),
+				Operator: NewCloneOperator(),
+			},
+		},
+		
+		search: &ListSearchComponents{
+			Bar:          NewSearchBar(),
+			FilterHelper: NewSearchFilterHelper(),
+		},
+		
+		operations: &ListOperationComponents{
+			BusinessLogic:    NewBusinessLogic(),
+			PipelineOperator: NewPipelineOperator(),
+			ComponentCreator: NewComponentCreator(),
+			MermaidOperator:  NewMermaidOperator(mermaidState),
+			TagReloader:      NewTagReloader(),
+		},
+		
+		ui: &ListUIComponents{
+			ExitConfirm:            NewConfirmation(),
+			ComponentTableRenderer: NewComponentTableRenderer(40, 20, true), // Default size, true for showUsageColumn
+			TagReloadRenderer:      NewTagReloadRenderer(80, 20),            // Default size
+			MermaidState:           mermaidState,
+		},
 	}
 	// Set initial preview state
 	m.stateManager.ShowPreview = false // Start with preview hidden, user can toggle with 'p'
 	m.loadPipelines()
 	m.loadComponents()
-	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 	m.initializeSearchEngine()
 	// Initialize filtered lists with all items
-	m.filteredPipelines = m.pipelines
-	m.filteredComponents = m.getAllComponents()
+	m.data.FilteredPipelines = m.data.Pipelines
+	m.data.FilteredComponents = m.getAllComponents()
 
 	// Update state manager with counts after both are loaded
-	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 
 	return m
 }
@@ -77,7 +99,7 @@ func (m *MainListModel) loadPipelines() {
 		return
 	}
 
-	m.pipelines = nil
+	m.data.Pipelines = nil
 
 	// Load active pipelines
 	for _, pipelineFile := range pipelineFiles {
@@ -96,7 +118,7 @@ func (m *MainListModel) loadPipelines() {
 			}
 		}
 
-		m.pipelines = append(m.pipelines, pipelineItem{
+		m.data.Pipelines = append(m.data.Pipelines, pipelineItem{
 			name:       pipeline.Name, // Use the actual pipeline name from YAML
 			path:       pipelineFile,
 			tags:       pipeline.Tags,
@@ -124,7 +146,7 @@ func (m *MainListModel) loadPipelines() {
 				}
 			}
 
-			m.pipelines = append(m.pipelines, pipelineItem{
+			m.data.Pipelines = append(m.data.Pipelines, pipelineItem{
 				name:       pipeline.Name, // Use the actual pipeline name from YAML
 				path:       pipelineFile,
 				tags:       pipeline.Tags,
@@ -135,34 +157,34 @@ func (m *MainListModel) loadPipelines() {
 	}
 
 	// Rebuild search index when pipelines are reloaded
-	if m.searchEngine != nil {
+	if m.search.Engine != nil {
 		if includeArchived {
-			m.searchEngine.BuildIndexWithOptions(true)
+			m.search.Engine.BuildIndexWithOptions(true)
 		} else {
-			m.searchEngine.BuildIndex()
+			m.search.Engine.BuildIndex()
 		}
 	}
 
 	// Update filtered list if no active search
-	if m.searchQuery == "" {
-		m.filteredPipelines = m.pipelines
+	if m.search.Query == "" {
+		m.data.FilteredPipelines = m.data.Pipelines
 	}
 
 	// Update state manager counts if components are already loaded
-	if m.prompts != nil || m.contexts != nil || m.rules != nil {
-		m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+	if m.data.Prompts != nil || m.data.Contexts != nil || m.data.Rules != nil {
+		m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 	}
 }
 
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *MainListModel) shouldIncludeArchived() bool {
-	if m.searchQuery == "" {
+	if m.search.Query == "" {
 		return false
 	}
 
 	// Parse the search query to check for status:archived
 	parser := search.NewParser()
-	query, err := parser.Parse(m.searchQuery)
+	query, err := parser.Parse(m.search.Query)
 	if err != nil {
 		return false
 	}
@@ -187,38 +209,38 @@ func (m *MainListModel) loadComponents() {
 	usageMap, _ := files.CountComponentUsage()
 
 	// Clear existing components
-	m.prompts = nil
-	m.contexts = nil
-	m.rules = nil
+	m.data.Prompts = nil
+	m.data.Contexts = nil
+	m.data.Rules = nil
 
 	// Load prompts
-	m.prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
+	m.data.Prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
 
 	// Load contexts
-	m.contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
+	m.data.Contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
 
 	// Load rules
-	m.rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
+	m.data.Rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
 
 	// Update business logic with new components
-	m.businessLogic.SetComponents(m.prompts, m.contexts, m.rules)
+	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 
 	// Rebuild search index when components are reloaded
-	if m.searchEngine != nil {
+	if m.search.Engine != nil {
 		if includeArchived {
-			m.searchEngine.BuildIndexWithOptions(true)
+			m.search.Engine.BuildIndexWithOptions(true)
 		} else {
-			m.searchEngine.BuildIndex()
+			m.search.Engine.BuildIndex()
 		}
 	}
 
 	// Update filtered list if no active search
-	if m.searchQuery == "" {
-		m.filteredComponents = m.getAllComponents()
+	if m.search.Query == "" {
+		m.data.FilteredComponents = m.getAllComponents()
 	}
 
 	// Update state manager counts
-	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.pipelines))
+	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 }
 
 // loadComponentsOfType loads components of a specific type
@@ -323,15 +345,15 @@ func (m *MainListModel) initializeSearchEngine() {
 		// Log error but don't fail - search will be unavailable
 		return
 	}
-	m.searchEngine = searchManager.GetEngine()
+	m.search.Engine = searchManager.GetEngine()
 }
 
 // updateViewportSizes updates all viewport dimensions based on window size
 func (m *MainListModel) updateViewportSizes() {
 	// Calculate dimensions
-	columnWidth := (m.width - 6) / 2                 // Account for gap, padding, and ensure border visibility
+	columnWidth := (m.viewports.Width - 6) / 2                 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3                             // Height for search bar
-	contentHeight := m.height - 13 - searchBarHeight // Reserve space for header, search bar, help pane, and spacing
+	contentHeight := m.viewports.Height - 13 - searchBarHeight // Reserve space for header, search bar, help pane, and spacing
 
 	if m.stateManager.ShowPreview {
 		contentHeight = contentHeight / 2
@@ -349,23 +371,23 @@ func (m *MainListModel) updateViewportSizes() {
 		viewportHeight = 5
 	}
 
-	m.pipelinesViewport.Width = columnWidth - 4 // Account for borders (2) and padding (2)
-	m.pipelinesViewport.Height = viewportHeight
-	m.componentsViewport.Width = columnWidth - 4 // Account for borders (2) and padding (2)
-	m.componentsViewport.Height = viewportHeight
+	m.viewports.Pipelines.Width = columnWidth - 4 // Account for borders (2) and padding (2)
+	m.viewports.Pipelines.Height = viewportHeight
+	m.viewports.Components.Width = columnWidth - 4 // Account for borders (2) and padding (2)
+	m.viewports.Components.Height = viewportHeight
 
 	// Update preview viewport
 	if m.stateManager.ShowPreview {
-		previewHeight := m.height/2 - 5
+		previewHeight := m.viewports.Height/2 - 5
 		if previewHeight < 5 {
 			previewHeight = 5
 		}
-		m.previewViewport.Width = m.width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
-		m.previewViewport.Height = previewHeight
+		m.viewports.Preview.Width = m.viewports.Width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
+		m.viewports.Preview.Height = previewHeight
 	}
 
 	// Update component table renderer dimensions
-	if m.componentTableRenderer != nil {
-		m.componentTableRenderer.SetSize(columnWidth, contentHeight)
+	if m.ui.ComponentTableRenderer != nil {
+		m.ui.ComponentTableRenderer.SetSize(columnWidth, contentHeight)
 	}
 }
