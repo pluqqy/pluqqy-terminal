@@ -21,16 +21,16 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "syncs_to_first_component",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 				}
-				m.previewContent = "# Pipeline\n\n## Context\n\nTest content 1\n\n## Prompts\n\nTest content 2\n"
-				m.previewViewport = viewport.New(80, 10)
-				m.previewViewport.SetContent(m.previewContent)
+				m.ui.PreviewContent = "# Pipeline\n\n## Context\n\nTest content 1\n\n## Prompts\n\nTest content 2\n"
+				m.viewports.Preview = viewport.New(80, 10)
+				m.viewports.Preview.SetContent(m.ui.PreviewContent)
 				return m
 			},
 			wantScrolled: true,
@@ -40,10 +40,10 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "syncs_to_middle_component",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 1
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 1
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 					{Path: "../components/test3.md", Type: "rule", Order: 2},
@@ -57,9 +57,9 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 				for i := 0; i < 20; i++ {
 					content += "Prompt line\n"
 				}
-				m.previewContent = content
-				m.previewViewport = viewport.New(80, 10)
-				m.previewViewport.SetContent(m.previewContent)
+				m.ui.PreviewContent = content
+				m.viewports.Preview = viewport.New(80, 10)
+				m.viewports.Preview.SetContent(m.ui.PreviewContent)
 				return m
 			},
 			wantScrolled:    true,
@@ -69,13 +69,13 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "no_sync_when_preview_hidden",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = false // Preview is hidden
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = false // Preview is hidden
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			wantScrolled: false,
@@ -85,11 +85,11 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "no_sync_with_empty_components",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{} // Empty
-				m.previewViewport = viewport.New(80, 10)
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{} // Empty
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			wantScrolled: false,
@@ -99,13 +99,13 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "handles_invalid_cursor_position",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 5 // Out of bounds
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 5 // Out of bounds
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			wantScrolled: false,
@@ -115,17 +115,17 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 			name: "handles_duplicate_components",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 2 // Select second occurrence
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 2 // Select second occurrence
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test1.md", Type: "context", Order: 1}, // Duplicate
 					{Path: "../components/test1.md", Type: "context", Order: 2}, // Another duplicate
 				}
-				m.previewContent = "# Pipeline\n\nFirst occurrence\nContent 1\n\nSecond occurrence\nContent 1\n\nThird occurrence\nContent 1\n"
-				m.previewViewport = viewport.New(80, 10)
-				m.previewViewport.SetContent(m.previewContent)
+				m.ui.PreviewContent = "# Pipeline\n\nFirst occurrence\nContent 1\n\nSecond occurrence\nContent 1\n\nThird occurrence\nContent 1\n"
+				m.viewports.Preview = viewport.New(80, 10)
+				m.viewports.Preview.SetContent(m.ui.PreviewContent)
 				return m
 			},
 			wantScrolled:    true,
@@ -136,19 +136,19 @@ func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := tt.setup()
-			initialOffset := m.previewViewport.YOffset
+			initialOffset := m.viewports.Preview.YOffset
 
 			m.syncPreviewToSelectedComponent()
 
 			if tt.wantScrolled {
 				// For complex cases, just verify that some scrolling action was attempted
-				if !tt.skipOffsetCheck && m.previewViewport.YOffset != tt.wantYOffset {
-					t.Errorf("YOffset = %d, want %d", m.previewViewport.YOffset, tt.wantYOffset)
+				if !tt.skipOffsetCheck && m.viewports.Preview.YOffset != tt.wantYOffset {
+					t.Errorf("YOffset = %d, want %d", m.viewports.Preview.YOffset, tt.wantYOffset)
 				}
 			} else {
-				if m.previewViewport.YOffset != initialOffset {
+				if m.viewports.Preview.YOffset != initialOffset {
 					t.Errorf("YOffset changed when it shouldn't: got %d, initial %d",
-						m.previewViewport.YOffset, initialOffset)
+						m.viewports.Preview.YOffset, initialOffset)
 				}
 			}
 		})
@@ -167,16 +167,16 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			name: "up_navigation_syncs_preview",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Disable name editing mode
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 2
-				m.selectedComponents = []models.ComponentRef{
+				m.editors.EditingName = false // Disable name editing mode
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 2
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 					{Path: "../components/test3.md", Type: "rule", Order: 2},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			keySequence:  []string{"up"},
@@ -187,15 +187,15 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			name: "down_navigation_syncs_preview",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Disable name editing mode
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{
+				m.editors.EditingName = false // Disable name editing mode
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			keySequence:  []string{"down"},
@@ -206,17 +206,17 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			name: "home_key_syncs_to_first",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Disable name editing mode
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 3
-				m.selectedComponents = []models.ComponentRef{
+				m.editors.EditingName = false // Disable name editing mode
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 3
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 					{Path: "../components/test3.md", Type: "rule", Order: 2},
 					{Path: "../components/test4.md", Type: "rule", Order: 3},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			keySequence:  []string{"home"},
@@ -227,16 +227,16 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			name: "end_key_syncs_to_last",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Disable name editing mode
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{
+				m.editors.EditingName = false // Disable name editing mode
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 					{Path: "../components/test3.md", Type: "rule", Order: 2},
 				}
-				m.previewViewport = viewport.New(80, 10)
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			keySequence:  []string{"end"},
@@ -247,19 +247,19 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			name: "navigation_in_left_column_doesnt_sync",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Disable name editing mode
-				m.showPreview = true
-				m.activeColumn = leftColumn // Left column active
-				m.leftCursor = 0
+				m.editors.EditingName = false // Disable name editing mode
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = leftColumn // Left column active
+				m.ui.LeftCursor = 0
 				// Need to set up filtered lists for navigation to work
-				m.prompts = []componentItem{
+				m.data.Prompts = []componentItem{
 					{name: "test1", path: "components/test1.md", compType: "prompt"},
 					{name: "test2", path: "components/test2.md", compType: "prompt"},
 				}
-				m.filteredPrompts = m.prompts
-				m.filteredContexts = []componentItem{}
-				m.filteredRules = []componentItem{}
-				m.previewViewport = viewport.New(80, 10)
+				m.data.FilteredPrompts = m.data.Prompts
+				m.data.FilteredContexts = []componentItem{}
+				m.data.FilteredRules = []componentItem{}
+				m.viewports.Preview = viewport.New(80, 10)
 				return m
 			},
 			keySequence:  []string{"down"},
@@ -298,13 +298,13 @@ func TestPipelineBuilderModel_NavigationWithSync(t *testing.T) {
 			}
 
 			// Check cursor position
-			if m.activeColumn == rightColumn {
-				if m.rightCursor != tt.wantCursor {
-					t.Errorf("rightCursor = %d, want %d", m.rightCursor, tt.wantCursor)
+			if m.ui.ActiveColumn == rightColumn {
+				if m.ui.RightCursor != tt.wantCursor {
+					t.Errorf("rightCursor = %d, want %d", m.ui.RightCursor, tt.wantCursor)
 				}
-			} else if m.activeColumn == leftColumn {
-				if m.leftCursor != tt.wantCursor {
-					t.Errorf("leftCursor = %d, want %d", m.leftCursor, tt.wantCursor)
+			} else if m.ui.ActiveColumn == leftColumn {
+				if m.ui.LeftCursor != tt.wantCursor {
+					t.Errorf("leftCursor = %d, want %d", m.ui.LeftCursor, tt.wantCursor)
 				}
 			}
 		})
@@ -322,16 +322,16 @@ func TestPipelineBuilderModel_PreviewScrollBoundaries(t *testing.T) {
 			name: "scrolls_to_top_for_first_component",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 				}
-				m.previewContent = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
-				m.previewViewport = viewport.New(80, 3)
-				m.previewViewport.SetContent(m.previewContent)
-				m.previewViewport.SetYOffset(5) // Start scrolled down
+				m.ui.PreviewContent = "Line 1\nLine 2\nLine 3\nLine 4\nLine 5\n"
+				m.viewports.Preview = viewport.New(80, 3)
+				m.viewports.Preview.SetContent(m.ui.PreviewContent)
+				m.viewports.Preview.SetYOffset(5) // Start scrolled down
 				return m
 			},
 			wantYOffset: -1, // Skip exact offset check, viewport may adjust this
@@ -341,10 +341,10 @@ func TestPipelineBuilderModel_PreviewScrollBoundaries(t *testing.T) {
 			name: "centers_component_when_possible",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.showPreview = true
-				m.activeColumn = rightColumn
-				m.rightCursor = 1
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ShowPreview = true
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 1
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../components/test1.md", Type: "context", Order: 0},
 					{Path: "../components/test2.md", Type: "prompt", Order: 1},
 				}
@@ -353,9 +353,9 @@ func TestPipelineBuilderModel_PreviewScrollBoundaries(t *testing.T) {
 				for i := 0; i < 30; i++ {
 					content += "Line " + string(rune('0'+i)) + "\n"
 				}
-				m.previewContent = content
-				m.previewViewport = viewport.New(80, 10)
-				m.previewViewport.SetContent(m.previewContent)
+				m.ui.PreviewContent = content
+				m.viewports.Preview = viewport.New(80, 10)
+				m.viewports.Preview.SetContent(m.ui.PreviewContent)
 				return m
 			},
 			wantYOffset: -1, // Will vary based on content matching
@@ -368,12 +368,12 @@ func TestPipelineBuilderModel_PreviewScrollBoundaries(t *testing.T) {
 			m := tt.setup()
 			m.syncPreviewToSelectedComponent()
 
-			if !tt.wantClipped && m.previewViewport.YOffset != tt.wantYOffset {
-				t.Errorf("YOffset = %d, want %d", m.previewViewport.YOffset, tt.wantYOffset)
+			if !tt.wantClipped && m.viewports.Preview.YOffset != tt.wantYOffset {
+				t.Errorf("YOffset = %d, want %d", m.viewports.Preview.YOffset, tt.wantYOffset)
 			}
 
 			// Verify offset is within valid bounds
-			if m.previewViewport.YOffset < 0 {
+			if m.viewports.Preview.YOffset < 0 {
 				t.Error("YOffset is negative")
 			}
 		})
@@ -430,21 +430,21 @@ Rule content`,
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewPipelineBuilderModel()
-			m.showPreview = true
-			m.activeColumn = rightColumn
-			m.rightCursor = 0
-			m.selectedComponents = []models.ComponentRef{
+			m.ui.ShowPreview = true
+			m.ui.ActiveColumn = rightColumn
+			m.ui.RightCursor = 0
+			m.data.SelectedComponents = []models.ComponentRef{
 				{Path: tt.componentPath, Type: tt.componentType, Order: 0},
 			}
-			m.previewContent = tt.previewContent
-			m.previewViewport = viewport.New(80, 10)
-			m.previewViewport.SetContent(m.previewContent)
+			m.ui.PreviewContent = tt.previewContent
+			m.viewports.Preview = viewport.New(80, 10)
+			m.viewports.Preview.SetContent(m.ui.PreviewContent)
 
 			// The sync function should handle finding the component
 			m.syncPreviewToSelectedComponent()
 
 			// Just verify no panic and basic state consistency
-			if m.previewViewport.YOffset < 0 {
+			if m.viewports.Preview.YOffset < 0 {
 				t.Error("YOffset became negative after sync")
 			}
 		})
@@ -454,15 +454,15 @@ Rule content`,
 // Test state consistency during navigation
 func TestPipelineBuilderModel_NavigationStateConsistency(t *testing.T) {
 	m := NewPipelineBuilderModel()
-	m.editingName = false // Disable name editing mode
-	m.showPreview = true
-	m.activeColumn = rightColumn
-	m.selectedComponents = []models.ComponentRef{
+	m.editors.EditingName = false // Disable name editing mode
+	m.ui.ShowPreview = true
+	m.ui.ActiveColumn = rightColumn
+	m.data.SelectedComponents = []models.ComponentRef{
 		{Path: "../components/test1.md", Type: "context", Order: 0},
 		{Path: "../components/test2.md", Type: "prompt", Order: 1},
 		{Path: "../components/test3.md", Type: "rule", Order: 2},
 	}
-	m.previewViewport = viewport.New(80, 10)
+	m.viewports.Preview = viewport.New(80, 10)
 
 	// Test rapid navigation
 	keys := []tea.KeyMsg{
@@ -481,13 +481,13 @@ func TestPipelineBuilderModel_NavigationStateConsistency(t *testing.T) {
 		}
 
 		// Verify cursor stays in bounds
-		if m.rightCursor < 0 || m.rightCursor >= len(m.selectedComponents) {
-			t.Errorf("After key %d: rightCursor out of bounds: %d", i, m.rightCursor)
+		if m.ui.RightCursor < 0 || m.ui.RightCursor >= len(m.data.SelectedComponents) {
+			t.Errorf("After key %d: rightCursor out of bounds: %d", i, m.ui.RightCursor)
 		}
 
 		// Verify viewport offset is valid
-		if m.previewViewport.YOffset < 0 {
-			t.Errorf("After key %d: YOffset is negative: %d", i, m.previewViewport.YOffset)
+		if m.viewports.Preview.YOffset < 0 {
+			t.Errorf("After key %d: YOffset is negative: %d", i, m.viewports.Preview.YOffset)
 		}
 	}
 }
@@ -495,13 +495,13 @@ func TestPipelineBuilderModel_NavigationStateConsistency(t *testing.T) {
 // Benchmark sync performance
 func BenchmarkSyncPreviewToSelectedComponent(b *testing.B) {
 	m := NewPipelineBuilderModel()
-	m.showPreview = true
-	m.activeColumn = rightColumn
-	m.rightCursor = 5
+	m.ui.ShowPreview = true
+	m.ui.ActiveColumn = rightColumn
+	m.ui.RightCursor = 5
 
 	// Create many components
 	for i := 0; i < 20; i++ {
-		m.selectedComponents = append(m.selectedComponents, models.ComponentRef{
+		m.data.SelectedComponents = append(m.data.SelectedComponents, models.ComponentRef{
 			Path:  "../components/test.md",
 			Type:  "context",
 			Order: i,
@@ -513,9 +513,9 @@ func BenchmarkSyncPreviewToSelectedComponent(b *testing.B) {
 	for i := 0; i < 1000; i++ {
 		content += "Line of content\n"
 	}
-	m.previewContent = content
-	m.previewViewport = viewport.New(80, 20)
-	m.previewViewport.SetContent(m.previewContent)
+	m.ui.PreviewContent = content
+	m.viewports.Preview = viewport.New(80, 20)
+	m.viewports.Preview.SetContent(m.ui.PreviewContent)
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {

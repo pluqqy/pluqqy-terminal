@@ -18,10 +18,12 @@ func TestBuilderClipboardYank(t *testing.T) {
 			name: "yank pipeline content when pipeline exists with components",
 			setup: func() *PipelineBuilderModel {
 				m := &PipelineBuilderModel{
-					pipeline: &models.Pipeline{
-						Name: "my-test-pipeline",
-						Components: []models.ComponentRef{
-							{Path: "test-component.md", Type: "prompt", Order: 0},
+					data: &BuilderDataStore{
+						Pipeline: &models.Pipeline{
+							Name: "my-test-pipeline",
+							Components: []models.ComponentRef{
+								{Path: "test-component.md", Type: "prompt", Order: 0},
+							},
 						},
 					},
 				}
@@ -35,7 +37,9 @@ func TestBuilderClipboardYank(t *testing.T) {
 			name: "no yank when pipeline is nil",
 			setup: func() *PipelineBuilderModel {
 				m := &PipelineBuilderModel{
-					pipeline: nil,
+					data: &BuilderDataStore{
+						Pipeline: nil,
+					},
 				}
 				return m
 			},
@@ -46,9 +50,11 @@ func TestBuilderClipboardYank(t *testing.T) {
 			name: "no yank when pipeline has no components",
 			setup: func() *PipelineBuilderModel {
 				m := &PipelineBuilderModel{
-					pipeline: &models.Pipeline{
-						Name:       "empty-pipeline",
-						Components: []models.ComponentRef{},
+					data: &BuilderDataStore{
+						Pipeline: &models.Pipeline{
+							Name:       "empty-pipeline",
+							Components: []models.ComponentRef{},
+						},
 					},
 				}
 				return m
@@ -63,8 +69,8 @@ func TestBuilderClipboardYank(t *testing.T) {
 			m := tt.setup()
 
 			// Simulate the 'y' key handling logic
-			if tt.key.String() == "y" && m.pipeline != nil && len(m.pipeline.Components) > 0 {
-				expectedMsg := m.pipeline.Name + " → clipboard"
+			if tt.key.String() == "y" && m.data.Pipeline != nil && len(m.data.Pipeline.Components) > 0 {
+				expectedMsg := m.data.Pipeline.Name + " → clipboard"
 
 				if tt.expectStatus && expectedMsg != tt.expectMsg {
 					t.Errorf("expected status message %q, got %q", tt.expectMsg, expectedMsg)

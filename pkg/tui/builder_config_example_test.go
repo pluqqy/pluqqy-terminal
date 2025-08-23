@@ -53,7 +53,7 @@ func TestPipelineBuilderConfig_CustomSettings(t *testing.T) {
 
 	m := NewPipelineBuilderModelWithConfig(customConfig)
 
-	if m.showPreview {
+	if m.ui.ShowPreview {
 		t.Error("Expected showPreview to be false with custom config")
 	}
 }
@@ -62,7 +62,7 @@ func TestPipelineBuilderConfig_CustomSettings(t *testing.T) {
 func TestPipelineBuilderConfig_NilConfig(t *testing.T) {
 	m := NewPipelineBuilderModelWithConfig(nil)
 
-	if !m.showPreview {
+	if !m.ui.ShowPreview {
 		t.Error("Expected showPreview to be true with nil config")
 	}
 }
@@ -84,20 +84,20 @@ func TestLoadPipelineWithConfig(t *testing.T) {
 	m := LoadPipelineWithConfig(pipeline, config)
 
 	// Verify pipeline data was loaded
-	if m.pipeline.Name != "Test Pipeline" {
-		t.Errorf("Expected pipeline name 'Test Pipeline', got %s", m.pipeline.Name)
+	if m.data.Pipeline.Name != "Test Pipeline" {
+		t.Errorf("Expected pipeline name 'Test Pipeline', got %s", m.data.Pipeline.Name)
 	}
 
-	if len(m.selectedComponents) != 2 {
-		t.Errorf("Expected 2 selected components, got %d", len(m.selectedComponents))
+	if len(m.data.SelectedComponents) != 2 {
+		t.Errorf("Expected 2 selected components, got %d", len(m.data.SelectedComponents))
 	}
 
-	if len(m.originalComponents) != 2 {
-		t.Errorf("Expected 2 original components, got %d", len(m.originalComponents))
+	if len(m.data.OriginalComponents) != 2 {
+		t.Errorf("Expected 2 original components, got %d", len(m.data.OriginalComponents))
 	}
 
 	// Verify we're not in name editing mode for existing pipeline
-	if m.editingName {
+	if m.editors.EditingName {
 		t.Error("Expected editingName to be false for existing pipeline")
 	}
 }

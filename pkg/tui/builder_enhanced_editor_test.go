@@ -21,20 +21,20 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 			name: "pressing e activates enhanced editor from left column",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Exit name editing mode
-				m.activeColumn = leftColumn
-				m.leftCursor = 0
+				m.editors.EditingName = false // Exit name editing mode
+				m.ui.ActiveColumn = leftColumn
+				m.ui.LeftCursor = 0
 				// Add the test component - use a relative path format that won't be validated
-				m.prompts = []componentItem{
+				m.data.Prompts = []componentItem{
 					{name: "test-prompt", path: "prompts/test.md", compType: models.ComponentTypePrompt},
 				}
 				// Also set the filtered prompts since getAllAvailableComponents uses those
-				m.filteredPrompts = m.prompts
+				m.data.FilteredPrompts = m.data.Prompts
 
 				// Pre-activate the enhanced editor since file reading will fail in test env
 				// We're testing the integration, not the file reading
-				m.editingComponent = false
-				m.enhancedEditor.Active = false
+				m.editors.EditingComponent = false
+				m.editors.Enhanced.Active = false
 				return m
 			},
 			msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}},
@@ -44,14 +44,14 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 				// For now, we'll modify our expectations to match test reality
 				if m.err == nil {
 					// If no error, then it should have activated
-					if !m.editingComponent {
+					if !m.editors.EditingComponent {
 						t.Error("Expected editingComponent to be true")
 					}
-					if !m.enhancedEditor.IsActive() {
+					if !m.editors.Enhanced.IsActive() {
 						t.Error("Expected enhanced editor to be active")
 					}
-					if m.enhancedEditor.ComponentName != "test-prompt" {
-						t.Errorf("Expected component name to be 'test-prompt', got %s", m.enhancedEditor.ComponentName)
+					if m.editors.Enhanced.ComponentName != "test-prompt" {
+						t.Errorf("Expected component name to be 'test-prompt', got %s", m.editors.Enhanced.ComponentName)
 					}
 				}
 				// If there's an error from file reading, that's expected in test env
@@ -62,11 +62,11 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 			name: "pressing e activates enhanced editor from right column",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false // Exit name editing mode
-				m.activeColumn = rightColumn
-				m.rightCursor = 0
+				m.editors.EditingName = false // Exit name editing mode
+				m.ui.ActiveColumn = rightColumn
+				m.ui.RightCursor = 0
 				// Add selected components with relative path that matches expected format
-				m.selectedComponents = []models.ComponentRef{
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Path: "../prompts/selected.md", Order: 1, Type: models.ComponentTypePrompt},
 				}
 				return m
@@ -76,10 +76,10 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 				// Since file reading fails in test, we check if the error was set
 				// In a real scenario with proper files, editingComponent would be true
 				if m.err == nil {
-					if !m.editingComponent {
+					if !m.editors.EditingComponent {
 						t.Error("Expected editingComponent to be true")
 					}
-					if !m.enhancedEditor.IsActive() {
+					if !m.editors.Enhanced.IsActive() {
 						t.Error("Expected enhanced editor to be active")
 					}
 				}
@@ -91,20 +91,20 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 			name: "escape key exits enhanced editor",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false
-				m.editingComponent = true
-				m.enhancedEditor.Active = true
-				m.enhancedEditor.ComponentName = "test-component"
-				m.enhancedEditor.Content = "test content"
-				m.enhancedEditor.OriginalContent = "test content"
+				m.editors.EditingName = false
+				m.editors.EditingComponent = true
+				m.editors.Enhanced.Active = true
+				m.editors.Enhanced.ComponentName = "test-component"
+				m.editors.Enhanced.Content = "test content"
+				m.editors.Enhanced.OriginalContent = "test content"
 				return m
 			},
 			msg: tea.KeyMsg{Type: tea.KeyEsc},
 			checkState: func(t *testing.T, m *PipelineBuilderModel) {
-				if m.editingComponent {
+				if m.editors.EditingComponent {
 					t.Error("Expected editingComponent to be false after escape")
 				}
-				if m.enhancedEditor.IsActive() {
+				if m.editors.Enhanced.IsActive() {
 					t.Error("Expected enhanced editor to be inactive after escape")
 				}
 			},
@@ -114,23 +114,23 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 			name: "@ key activates file picker for project references",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.editingName = false
-				m.editingComponent = true
-				m.enhancedEditor.Active = true
-				m.enhancedEditor.Mode = EditorModeNormal
-				m.enhancedEditor.ComponentName = "test-component"
-				m.enhancedEditor.Textarea.SetValue("test content")
+				m.editors.EditingName = false
+				m.editors.EditingComponent = true
+				m.editors.Enhanced.Active = true
+				m.editors.Enhanced.Mode = EditorModeNormal
+				m.editors.Enhanced.ComponentName = "test-component"
+				m.editors.Enhanced.Textarea.SetValue("test content")
 				return m
 			},
 			msg: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'@'}},
 			checkState: func(t *testing.T, m *PipelineBuilderModel) {
-				if !m.editingComponent {
+				if !m.editors.EditingComponent {
 					t.Error("Expected to still be in editing mode")
 				}
-				if !m.enhancedEditor.IsActive() {
+				if !m.editors.Enhanced.IsActive() {
 					t.Error("Expected enhanced editor to still be active")
 				}
-				if m.enhancedEditor.Mode != EditorModeFilePicking {
+				if m.editors.Enhanced.Mode != EditorModeFilePicking {
 					t.Error("Expected editor to be in file picking mode after @")
 				}
 			},
@@ -157,14 +157,14 @@ func TestPipelineBuilderModel_EnhancedEditorIntegration(t *testing.T) {
 // view is rendered correctly when active
 func TestPipelineBuilderModel_EnhancedEditorView(t *testing.T) {
 	m := NewPipelineBuilderModel()
-	m.editingName = false
-	m.editingComponent = true
-	m.enhancedEditor.Active = true
-	m.enhancedEditor.ComponentName = "test-component"
-	m.enhancedEditor.ComponentType = models.ComponentTypePrompt
-	m.enhancedEditor.Content = "Test content for the component"
-	m.width = 80
-	m.height = 24
+	m.editors.EditingName = false
+	m.editors.EditingComponent = true
+	m.editors.Enhanced.Active = true
+	m.editors.Enhanced.ComponentName = "test-component"
+	m.editors.Enhanced.ComponentType = models.ComponentTypePrompt
+	m.editors.Enhanced.Content = "Test content for the component"
+	m.viewports.Width = 80
+	m.viewports.Height = 24
 
 	// Get the view
 	view := m.View()
@@ -188,21 +188,21 @@ func TestPipelineBuilderModel_EnhancedEditorConsistency(t *testing.T) {
 	// Verify initial state
 	// Enhanced editor is always enabled now
 
-	if m.enhancedEditor == nil {
+	if m.editors.Enhanced == nil {
 		t.Fatal("Expected enhancedEditor to be initialized")
 	}
 
-	if m.enhancedEditor.IsActive() {
+	if m.editors.Enhanced.IsActive() {
 		t.Error("Expected enhanced editor to be inactive initially")
 	}
 
 	// Test that closing enhanced editor properly cleans up state
-	m.editingComponent = true
-	m.enhancedEditor.Active = true
-	m.enhancedEditor.Active = false // Simulate stopping
+	m.editors.EditingComponent = true
+	m.editors.Enhanced.Active = true
+	m.editors.Enhanced.Active = false // Simulate stopping
 
 	// After stopping, the editor should be inactive
-	if m.enhancedEditor.IsActive() {
+	if m.editors.Enhanced.IsActive() {
 		t.Error("Expected enhanced editor to be inactive after stopping")
 	}
 }

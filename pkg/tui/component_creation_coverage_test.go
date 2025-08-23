@@ -319,12 +319,12 @@ func TestHandleComponentCreation(t *testing.T) {
 			name: "handle type selection in builder",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.componentCreator.Start()
+				m.editors.ComponentCreator.Start()
 				return m
 			},
 			input: tea.KeyMsg{Type: tea.KeyEnter},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {
-				if m.componentCreator.GetCurrentStep() != 1 {
+				if m.editors.ComponentCreator.GetCurrentStep() != 1 {
 					t.Error("Should advance to name input step")
 				}
 			},
@@ -333,13 +333,13 @@ func TestHandleComponentCreation(t *testing.T) {
 			name: "handle name input in builder",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.componentCreator.Start()
-				m.componentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
+				m.editors.ComponentCreator.Start()
+				m.editors.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
 				return m
 			},
 			input: tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'A'}},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {
-				if m.componentCreator.GetComponentName() != "A" {
+				if m.editors.ComponentCreator.GetComponentName() != "A" {
 					t.Error("Should add character to name")
 				}
 			},

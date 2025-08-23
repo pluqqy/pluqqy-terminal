@@ -23,7 +23,7 @@ func TestPipelineBuilderModel_DeleteComponentFromLeft(t *testing.T) {
 			name: "creates delete command for component",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.contexts = []componentItem{{
+				m.data.Contexts = []componentItem{{
 					name:     "Test Component",
 					path:     "components/contexts/test-component.md",
 					compType: models.ComponentTypeContext,
@@ -65,12 +65,12 @@ func TestPipelineBuilderModel_DeleteComponentKeyHandler(t *testing.T) {
 
 	m := NewPipelineBuilderModel()
 
-	if m.deleteConfirm == nil {
+	if m.ui.DeleteConfirm == nil {
 		t.Fatal("deleteConfirm should be initialized")
 	}
 
 	// Verify it's not active initially
-	if m.deleteConfirm.Active() {
+	if m.ui.DeleteConfirm.Active() {
 		t.Error("deleteConfirm should not be active initially")
 	}
 }
@@ -90,14 +90,14 @@ func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 			name: "save new pipeline successfully",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "New Test Pipeline",
 					Components: []models.ComponentRef{
 						{Type: "contexts", Path: "../components/contexts/test.md", Order: 1},
 					},
 				}
-				m.nameInput = "New Test Pipeline"
-				m.selectedComponents = m.pipeline.Components
+				m.editors.NameInput = "New Test Pipeline"
+				m.data.SelectedComponents = m.data.Pipeline.Components
 				return m
 			},
 			expectError: false,
@@ -109,15 +109,15 @@ func TestPipelineBuilderModel_SavePipeline(t *testing.T) {
 			name: "update existing pipeline",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "Existing Pipeline",
 					Path: "pipelines/existing.yaml",
 					Components: []models.ComponentRef{
 						{Type: "contexts", Path: "../components/contexts/new.md", Order: 1},
 					},
 				}
-				m.nameInput = "Existing Pipeline"
-				m.selectedComponents = m.pipeline.Components
+				m.editors.NameInput = "Existing Pipeline"
+				m.data.SelectedComponents = m.data.Pipeline.Components
 				return m
 			},
 			expectError: false,
@@ -181,7 +181,7 @@ func TestPipelineBuilderModel_AddSelectedComponent(t *testing.T) {
 			name: "add first component to empty pipeline",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.selectedComponents = []models.ComponentRef{}
+				m.data.SelectedComponents = []models.ComponentRef{}
 				return m
 			},
 			componentToAdd: componentItem{
@@ -195,7 +195,7 @@ func TestPipelineBuilderModel_AddSelectedComponent(t *testing.T) {
 			name: "add component to existing pipeline",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.selectedComponents = []models.ComponentRef{
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Type: "prompts", Path: "../components/prompts/existing.md", Order: 1},
 				}
 				return m
@@ -214,19 +214,19 @@ func TestPipelineBuilderModel_AddSelectedComponent(t *testing.T) {
 			m := tt.setup()
 
 			// Set up the state as if the component was selected
-			m.contexts = []componentItem{tt.componentToAdd}
-			m.filteredContexts = m.contexts
-			m.leftCursor = 0
+			m.data.Contexts = []componentItem{tt.componentToAdd}
+			m.data.FilteredContexts = m.data.Contexts
+			m.ui.LeftCursor = 0
 			m.addSelectedComponent()
 
 			// Validate count
-			if len(m.selectedComponents) != tt.expectedCount {
-				t.Errorf("Expected %d components, got %d", tt.expectedCount, len(m.selectedComponents))
+			if len(m.data.SelectedComponents) != tt.expectedCount {
+				t.Errorf("Expected %d components, got %d", tt.expectedCount, len(m.data.SelectedComponents))
 			}
 
 			// Check that component was added
 			found := false
-			for _, comp := range m.selectedComponents {
+			for _, comp := range m.data.SelectedComponents {
 				if comp.Path == "../"+tt.componentToAdd.path {
 					found = true
 					// Order is managed by reorganizeComponentsByType, so we don't test specific values
@@ -254,10 +254,10 @@ func TestPipelineBuilderModel_RemoveSelectedComponent(t *testing.T) {
 			name: "remove single component",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.selectedComponents = []models.ComponentRef{
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Type: "contexts", Path: "../components/contexts/test.md", Order: 1},
 				}
-				m.rightCursor = 0
+				m.ui.RightCursor = 0
 				return m
 			},
 			indexToRemove: 0,
@@ -270,12 +270,12 @@ func TestPipelineBuilderModel_RemoveSelectedComponent(t *testing.T) {
 			name: "remove middle component and reorder",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.selectedComponents = []models.ComponentRef{
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Type: "contexts", Path: "../components/contexts/c1.md", Order: 1},
 					{Type: "prompts", Path: "../components/prompts/p1.md", Order: 2},
 					{Type: "rules", Path: "../components/rules/r1.md", Order: 3},
 				}
-				m.rightCursor = 1
+				m.ui.RightCursor = 1
 				return m
 			},
 			indexToRemove: 1,
@@ -300,12 +300,12 @@ func TestPipelineBuilderModel_RemoveSelectedComponent(t *testing.T) {
 			m.removeSelectedComponent()
 
 			// Validate count
-			if len(m.selectedComponents) != tt.expectedCount {
-				t.Errorf("Expected %d components after removal, got %d", tt.expectedCount, len(m.selectedComponents))
+			if len(m.data.SelectedComponents) != tt.expectedCount {
+				t.Errorf("Expected %d components after removal, got %d", tt.expectedCount, len(m.data.SelectedComponents))
 			}
 
 			// Validate ordering
-			tt.validateOrder(t, m.selectedComponents)
+			tt.validateOrder(t, m.data.SelectedComponents)
 		})
 	}
 }

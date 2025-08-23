@@ -9,7 +9,6 @@ import (
 
 	"github.com/atotto/clipboard"
 	"github.com/charmbracelet/bubbles/spinner"
-	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
@@ -39,113 +38,15 @@ const (
 )
 
 type PipelineBuilderModel struct {
-	width        int
-	height       int
-	pipeline     *models.Pipeline
-	sharedLayout *SharedLayout
+	// Composed data structures
+	data      *BuilderDataStore
+	viewports *BuilderViewportManager
+	editors   *BuilderEditorComponents
+	search    *BuilderSearchComponents
+	ui        *BuilderUIComponents
 
-	// Available components (left column)
-	prompts  []componentItem
-	contexts []componentItem
-	rules    []componentItem
-
-	// Selected components (right column)
-	selectedComponents []models.ComponentRef
-
-	// UI state
-	activeColumn      column
-	leftCursor        int
-	rightCursor       int
-	showPreview       bool
-	previewContent    string
-	previewViewport   viewport.Model
-	leftTableRenderer *ComponentTableRenderer // For available components table
-	rightViewport     viewport.Model          // For selected components
-	err               error
-
-	// Name input state
-	editingName bool
-	nameInput   string
-
-	// Component creation state - uses ComponentCreator for consistency with Main List view
-	componentCreator *ComponentCreator
-
-	// Component editing state (for editing existing components)
-	editingComponent     bool
-	editingComponentPath string
-	editingComponentName string
-	componentContent     string // Content being edited
-	editSaveMessage      string
-
-	// General status message (for clone, rename, etc.)
-	statusMessage string
-
-	// Enhanced editor for component editing
-	// The enhanced editor provides advanced text editing features including:
-	// - Multi-line editing with proper cursor movement
-	// - File reference insertion via Ctrl+R
-	// - Syntax highlighting and better text manipulation
-	// - Consistent with the Main List view editing experience
-	enhancedEditor *EnhancedEditorState
-
-	// Tag editing - now uses unified TagEditor component
-	tagEditor *TagEditor
-	
-	// Timer for showing save messages
-	editSaveTimer *time.Timer
-	
-	// Temporary fields for backwards compatibility - TO BE REMOVED
-	editingTags             bool
-	editingTagsPath         string
-	currentTags             []string
-	originalTags            []string
-	tagInput                string
-	tagCursor               int
-	availableTags           []string
-	showTagSuggestions      bool
-	tagSuggestionCursor     int
-	hasNavigatedSuggestions bool
-	tagCloudActive          bool
-	tagCloudCursor          int
-	tagDeleteConfirm        *ConfirmationModel
-	deletingTag             string
-	deletingTagUsage        []string
-
-	// Exit confirmation
-	exitConfirm          *ConfirmationModel
-	exitConfirmationType string // "pipeline" or "component" or "tags"
-
-	// Delete confirmation
-	deleteConfirm *ConfirmationModel
-	// Archive confirmation
-	archiveConfirm *ConfirmationModel
-
-	// Rename functionality
-	renameState    *RenameState
-	renameRenderer *RenameRenderer
-	renameOperator *RenameOperator
-
-	// Clone functionality
-	cloneState    *CloneState
-	cloneRenderer *CloneRenderer
-	cloneOperator *CloneOperator
-
-	// Mermaid diagram generation
-	mermaidState    *MermaidState
-	mermaidOperator *MermaidOperator
-
-	// Change tracking
-	originalComponents []models.ComponentRef // Original components for existing pipelines
-	originalContent    string                // Original content for component editing
-
-	// Search state
-	searchBar          *SearchBar
-	searchQuery        string
-	searchEngine       *search.Engine
-	filteredPrompts    []componentItem
-	filteredContexts   []componentItem
-	filteredRules      []componentItem
-	searchFilterHelper *SearchFilterHelper
+	// Error handling
+	err error
 }
 
 type componentItem struct {
@@ -189,43 +90,43 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	usageMap, _ := files.CountComponentUsage()
 
 	// Clear existing components
-	m.prompts = nil
-	m.contexts = nil
-	m.rules = nil
+	m.data.Prompts = nil
+	m.data.Contexts = nil
+	m.data.Rules = nil
 
 	// Load prompts
-	m.prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
+	m.data.Prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
 
 	// Load contexts
-	m.contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
+	m.data.Contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
 
 	// Load rules
-	m.rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
+	m.data.Rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
 
 	// Initialize filtered lists with all components
-	m.filteredPrompts = m.prompts
-	m.filteredContexts = m.contexts
-	m.filteredRules = m.rules
+	m.data.FilteredPrompts = m.data.Prompts
+	m.data.FilteredContexts = m.data.Contexts
+	m.data.FilteredRules = m.data.Rules
 
 	// Rebuild search engine index
-	if m.searchEngine != nil {
+	if m.search.Engine != nil {
 		if includeArchived {
-			m.searchEngine.BuildIndexWithOptions(true)
+			m.search.Engine.BuildIndexWithOptions(true)
 		} else {
-			m.searchEngine.BuildIndex()
+			m.search.Engine.BuildIndex()
 		}
 	}
 }
 
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *PipelineBuilderModel) shouldIncludeArchived() bool {
-	if m.searchQuery == "" {
+	if m.search.Query == "" {
 		return false
 	}
 
 	// Parse the search query to check for status:archived
 	parser := search.NewParser()
-	query, err := parser.Parse(m.searchQuery)
+	query, err := parser.Parse(m.search.Query)
 	if err != nil {
 		return false
 	}
@@ -340,17 +241,17 @@ func (m *PipelineBuilderModel) Init() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) performSearch() {
-	if m.searchQuery == "" {
+	if m.search.Query == "" {
 		// No search query, check if we need to reload without archived items
 		hasArchived := false
-		for _, p := range m.prompts {
+		for _, p := range m.data.Prompts {
 			if p.isArchived {
 				hasArchived = true
 				break
 			}
 		}
 		if !hasArchived {
-			for _, c := range m.contexts {
+			for _, c := range m.data.Contexts {
 				if c.isArchived {
 					hasArchived = true
 					break
@@ -358,7 +259,7 @@ func (m *PipelineBuilderModel) performSearch() {
 			}
 		}
 		if !hasArchived {
-			for _, r := range m.rules {
+			for _, r := range m.data.Rules {
 				if r.isArchived {
 					hasArchived = true
 					break
@@ -372,16 +273,16 @@ func (m *PipelineBuilderModel) performSearch() {
 		}
 
 		// Show all items
-		m.filteredPrompts = m.prompts
-		m.filteredContexts = m.contexts
-		m.filteredRules = m.rules
+		m.data.FilteredPrompts = m.data.Prompts
+		m.data.FilteredContexts = m.data.Contexts
+		m.data.FilteredRules = m.data.Rules
 		return
 	}
 
 	// Check if we need to reload data with archived items
 	needsArchived := m.shouldIncludeArchived()
 	hasArchived := false
-	for _, p := range m.prompts {
+	for _, p := range m.data.Prompts {
 		if p.isArchived {
 			hasArchived = true
 			break
@@ -398,18 +299,18 @@ func (m *PipelineBuilderModel) performSearch() {
 	}
 
 	// Clear filtered lists
-	m.filteredPrompts = nil
-	m.filteredContexts = nil
-	m.filteredRules = nil
+	m.data.FilteredPrompts = nil
+	m.data.FilteredContexts = nil
+	m.data.FilteredRules = nil
 
 	// Use search engine to find matching items
-	if m.searchEngine != nil {
-		results, err := m.searchEngine.Search(m.searchQuery)
+	if m.search.Engine != nil {
+		results, err := m.search.Engine.Search(m.search.Query)
 		if err != nil {
 			// On error, show all items
-			m.filteredPrompts = m.prompts
-			m.filteredContexts = m.contexts
-			m.filteredRules = m.rules
+			m.data.FilteredPrompts = m.data.Prompts
+			m.data.FilteredContexts = m.data.Contexts
+			m.data.FilteredRules = m.data.Rules
 			return
 		}
 
@@ -420,33 +321,33 @@ func (m *PipelineBuilderModel) performSearch() {
 		}
 
 		// Filter each component list
-		for _, comp := range m.prompts {
+		for _, comp := range m.data.Prompts {
 			if resultMap[comp.path] {
-				m.filteredPrompts = append(m.filteredPrompts, comp)
+				m.data.FilteredPrompts = append(m.data.FilteredPrompts, comp)
 			}
 		}
-		for _, comp := range m.contexts {
+		for _, comp := range m.data.Contexts {
 			if resultMap[comp.path] {
-				m.filteredContexts = append(m.filteredContexts, comp)
+				m.data.FilteredContexts = append(m.data.FilteredContexts, comp)
 			}
 		}
-		for _, comp := range m.rules {
+		for _, comp := range m.data.Rules {
 			if resultMap[comp.path] {
-				m.filteredRules = append(m.filteredRules, comp)
+				m.data.FilteredRules = append(m.data.FilteredRules, comp)
 			}
 		}
 	} else {
 		// No search engine, show all items
-		m.filteredPrompts = m.prompts
-		m.filteredContexts = m.contexts
-		m.filteredRules = m.rules
+		m.data.FilteredPrompts = m.data.Prompts
+		m.data.FilteredContexts = m.data.Contexts
+		m.data.FilteredRules = m.data.Rules
 	}
 
 	// Reset cursor if it's out of bounds
-	if m.activeColumn == leftColumn {
-		totalItems := len(m.filteredPrompts) + len(m.filteredContexts) + len(m.filteredRules)
-		if m.leftCursor >= totalItems {
-			m.leftCursor = 0
+	if m.ui.ActiveColumn == leftColumn {
+		totalItems := len(m.data.FilteredPrompts) + len(m.data.FilteredContexts) + len(m.data.FilteredRules)
+		if m.ui.LeftCursor >= totalItems {
+			m.ui.LeftCursor = 0
 		}
 	}
 }
@@ -457,33 +358,33 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
-		m.width = msg.Width
-		m.height = msg.Height
+		m.viewports.Width = msg.Width
+		m.viewports.Height = msg.Height
 		// Update clone renderer size
-		if m.cloneRenderer != nil {
-			m.cloneRenderer.SetSize(msg.Width, msg.Height)
+		if m.editors.Clone.Renderer != nil {
+			m.editors.Clone.Renderer.SetSize(msg.Width, msg.Height)
 		}
 		// Update rename renderer size
-		if m.renameRenderer != nil {
-			m.renameRenderer.SetSize(msg.Width, msg.Height)
+		if m.editors.Rename.Renderer != nil {
+			m.editors.Rename.Renderer.SetSize(msg.Width, msg.Height)
 		}
 		m.updateViewportSizes()
 
 	case componentSaveResultMsg:
 		if msg.success {
 			// Set save message
-			m.editSaveMessage = msg.message
+			m.editors.EditSaveMessage = msg.message
 
 			// Exit editing mode immediately (like main list view does)
-			m.editingComponent = false
-			m.componentContent = ""
-			m.editingComponentPath = ""
-			m.editingComponentName = ""
-			m.originalContent = ""
+			m.editors.EditingComponent = false
+			m.editors.ComponentContent = ""
+			m.editors.EditingComponentPath = ""
+			m.editors.EditingComponentName = ""
+			m.editors.OriginalContent = ""
 
 			// Cancel any existing timer
-			if m.editSaveTimer != nil {
-				m.editSaveTimer.Stop()
+			if m.editors.EditSaveTimer != nil {
+				m.editors.EditSaveTimer.Stop()
 			}
 
 			// Reload components
@@ -493,41 +394,41 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.updatePreview()
 
 			// Set timer to clear the save message after 1.5 seconds
-			m.editSaveTimer = time.NewTimer(1500 * time.Millisecond)
+			m.editors.EditSaveTimer = time.NewTimer(1500 * time.Millisecond)
 
 			// Return a command to clear the message after timer
 			return m, func() tea.Msg {
-				<-m.editSaveTimer.C
+				<-m.editors.EditSaveTimer.C
 				return clearEditSaveMsg{}
 			}
 		} else {
 			// Handle save error
-			m.editSaveMessage = msg.message
+			m.editors.EditSaveMessage = msg.message
 			return m, nil
 		}
 
 	case externalEditSaveMsg:
 		// Update original content when saving before external edit
-		m.originalContent = msg.savedContent
+		m.editors.OriginalContent = msg.savedContent
 		return m, nil
 
 	case componentEditExitMsg:
 		// Exit component editing without saving
-		m.editingComponent = false
-		m.componentContent = ""
-		m.editingComponentPath = ""
-		m.editingComponentName = ""
-		m.editSaveMessage = ""
-		m.originalContent = ""
-		if m.editSaveTimer != nil {
-			m.editSaveTimer.Stop()
-			m.editSaveTimer = nil
+		m.editors.EditingComponent = false
+		m.editors.ComponentContent = ""
+		m.editors.EditingComponentPath = ""
+		m.editors.EditingComponentName = ""
+		m.editors.EditSaveMessage = ""
+		m.editors.OriginalContent = ""
+		if m.editors.EditSaveTimer != nil {
+			m.editors.EditSaveTimer.Stop()
+			m.editors.EditSaveTimer = nil
 		}
 		return m, nil
 
 	case clearEditSaveMsg:
 		// Just clear the save message - editing mode was already exited when saving
-		m.editSaveMessage = ""
+		m.editors.EditSaveMessage = ""
 		return m, nil
 
 	case StatusMsg:
@@ -535,7 +436,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		msgStr := string(msg)
 		if strings.HasPrefix(msgStr, "✓ Saved:") {
 			// A component was saved successfully
-			if m.editingComponent {
+			if m.editors.EditingComponent {
 				// Reload components but keep editor open
 				m.loadAvailableComponents()
 				// Update preview
@@ -547,8 +448,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tagDeletionCompleteMsg:
 		// Handle tag deletion completion
-		if m.tagEditor != nil && m.tagEditor.Active {
-			handled, cmd := m.tagEditor.HandleMessage(msg)
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+			handled, cmd := m.editors.TagEditor.HandleMessage(msg)
 			if handled {
 				// Reload components to reflect removed tags
 				m.loadAvailableComponents()
@@ -560,8 +461,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tagDeletionProgressMsg:
 		// Handle tag deletion progress updates
-		if m.tagEditor != nil && m.tagEditor.Active {
-			handled, cmd := m.tagEditor.HandleMessage(msg)
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+			handled, cmd := m.editors.TagEditor.HandleMessage(msg)
 			if handled {
 				return m, cmd
 			}
@@ -570,8 +471,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case spinner.TickMsg:
 		// Handle spinner tick for tag deletion
-		if m.tagEditor != nil && m.tagEditor.Active {
-			handled, cmd := m.tagEditor.HandleMessage(msg)
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+			handled, cmd := m.editors.TagEditor.HandleMessage(msg)
 			if handled {
 				return m, cmd
 			}
@@ -581,8 +482,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case TagReloadMsg:
 		// Handle tag reload messages
-		if m.tagEditor != nil && m.tagEditor.Active {
-			handled, cmd := m.tagEditor.HandleMessage(msg)
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+			handled, cmd := m.editors.TagEditor.HandleMessage(msg)
 			if handled {
 				// Reload components to reflect new tags
 				m.loadAvailableComponents()
@@ -593,8 +494,8 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tagReloadCompleteMsg:
 		// Handle tag reload completion
-		if m.tagEditor != nil && m.tagEditor.Active {
-			handled, cmd := m.tagEditor.HandleMessage(msg)
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+			handled, cmd := m.editors.TagEditor.HandleMessage(msg)
 			if handled {
 				return m, cmd
 			}
@@ -603,11 +504,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case ReloadMsg:
 		// Legacy path - might still be used by other components
-		if m.editingComponent {
+		if m.editors.EditingComponent {
 			// Exit editing mode
-			m.editingComponent = false
+			m.editors.EditingComponent = false
 			// Set success message
-			m.statusMessage = msg.Message
+			m.ui.StatusMessage = msg.Message
 			// Reload components
 			m.loadAvailableComponents()
 			// Update preview
@@ -617,7 +518,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case CloneSuccessMsg:
 		// Handle successful clone
-		m.cloneState.Reset()
+		m.editors.Clone.State.Reset()
 		// Reload components to show new items
 		m.loadAvailableComponents()
 		// Set success message using StatusMsg
@@ -631,7 +532,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case CloneErrorMsg:
 		// Handle clone error
-		m.cloneState.ValidationError = msg.Error.Error()
+		m.editors.Clone.State.ValidationError = msg.Error.Error()
 		// Set error message using StatusMsg
 		return m, func() tea.Msg {
 			return StatusMsg(fmt.Sprintf("✗ Clone failed: %v", msg.Error))
@@ -639,61 +540,61 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case RenameSuccessMsg:
 		// Handle successful rename (same as Main List view)
-		m.renameState.Reset()
+		m.editors.Rename.State.Reset()
 		// Reload components to show new names
 		m.loadAvailableComponents()
 		// If a pipeline was renamed, update the pipeline path
-		if msg.ItemType == "pipeline" && m.pipeline != nil {
-			m.pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(msg.NewName)+".yaml")
-			m.pipeline.Name = msg.NewName
-			m.nameInput = msg.NewName
+		if msg.ItemType == "pipeline" && m.data.Pipeline != nil {
+			m.data.Pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(msg.NewName)+".yaml")
+			m.data.Pipeline.Name = msg.NewName
+			m.editors.NameInput = msg.NewName
 		}
 		return m, nil
 
 	case RenameErrorMsg:
 		// Handle rename error (same as Main List view)
-		m.renameState.ValidationError = msg.Error.Error()
+		m.editors.Rename.State.ValidationError = msg.Error.Error()
 		return m, nil
 
 	case tea.KeyMsg:
 		// Handle exit confirmation
-		if m.exitConfirm.Active() {
-			return m, m.exitConfirm.Update(msg)
+		if m.ui.ExitConfirm.Active() {
+			return m, m.ui.ExitConfirm.Update(msg)
 		}
 
 		// Handle delete confirmation
-		if m.deleteConfirm.Active() {
-			return m, m.deleteConfirm.Update(msg)
+		if m.ui.DeleteConfirm.Active() {
+			return m, m.ui.DeleteConfirm.Update(msg)
 		}
 
 		// Handle archive confirmation
-		if m.archiveConfirm.Active() {
-			return m, m.archiveConfirm.Update(msg)
+		if m.ui.ArchiveConfirm.Active() {
+			return m, m.ui.ArchiveConfirm.Update(msg)
 		}
 
 		// Handle clone mode
-		if m.cloneState.IsActive() {
-			handled, cmd := m.cloneState.HandleInput(msg)
+		if m.editors.Clone.State.IsActive() {
+			handled, cmd := m.editors.Clone.State.HandleInput(msg)
 			if handled {
 				return m, cmd
 			}
 		}
 
 		// Handle rename mode
-		if m.renameState.IsActive() {
-			handled, cmd := m.renameState.HandleInput(msg)
+		if m.editors.Rename.State.IsActive() {
+			handled, cmd := m.editors.Rename.State.HandleInput(msg)
 			if handled {
 				// Check if rename was completed
-				if !m.renameState.IsActive() {
+				if !m.editors.Rename.State.IsActive() {
 					// Rename completed, refresh the components list
 					m.loadAvailableComponents()
 					// If a pipeline was renamed, update the pipeline path
-					if m.renameState.GetItemType() == "pipeline" && m.pipeline != nil {
+					if m.editors.Rename.State.GetItemType() == "pipeline" && m.data.Pipeline != nil {
 						// Update the pipeline path with the new name
-						newName := m.renameState.GetNewName()
-						m.pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(newName)+".yaml")
-						m.pipeline.Name = newName
-						m.nameInput = newName
+						newName := m.editors.Rename.State.GetNewName()
+						m.data.Pipeline.Path = filepath.Join(files.PipelinesDir, files.SanitizeFileName(newName)+".yaml")
+						m.data.Pipeline.Name = newName
+						m.editors.NameInput = newName
 					}
 				}
 				return m, cmd
@@ -701,34 +602,34 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle component creation mode
-		if m.componentCreator != nil && m.componentCreator.IsActive() {
+		if m.editors.ComponentCreator != nil && m.editors.ComponentCreator.IsActive() {
 			return m.handleComponentCreation(msg)
 		}
 
 		// Handle component editing mode
-		if m.editingComponent {
+		if m.editors.EditingComponent {
 			return m.handleComponentEditing(msg)
 		}
 
 		// Handle tag editing mode
-		if m.tagEditor != nil && m.tagEditor.Active {
+		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
 			// Capture tags before handling input (in case of save)
-			wasActive := m.tagEditor.Active
-			itemType := m.tagEditor.ItemType
-			currentTags := make([]string, len(m.tagEditor.CurrentTags))
-			copy(currentTags, m.tagEditor.CurrentTags)
+			wasActive := m.editors.TagEditor.Active
+			itemType := m.editors.TagEditor.ItemType
+			currentTags := make([]string, len(m.editors.TagEditor.CurrentTags))
+			copy(currentTags, m.editors.TagEditor.CurrentTags)
 			
-			handled, cmd := m.tagEditor.HandleInput(msg)
+			handled, cmd := m.editors.TagEditor.HandleInput(msg)
 			if handled {
 				// Check if save was completed (editor became inactive)
-				if wasActive && !m.tagEditor.Active {
+				if wasActive && !m.editors.TagEditor.Active {
 					// Reload components to reflect tag changes
 					m.loadAvailableComponents()
 					
 					// If we were editing pipeline tags, update the pipeline model
-					if itemType == "pipeline" && m.pipeline != nil {
+					if itemType == "pipeline" && m.data.Pipeline != nil {
 						// Update the in-memory pipeline with the saved tags
-						m.pipeline.Tags = currentTags
+						m.data.Pipeline.Tags = currentTags
 					}
 				}
 				return m, cmd
@@ -736,12 +637,12 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Handle name editing mode
-		if m.editingName {
+		if m.editors.EditingName {
 			switch msg.String() {
 			case "enter":
-				if strings.TrimSpace(m.nameInput) != "" {
-					m.pipeline.Name = strings.TrimSpace(m.nameInput)
-					m.editingName = false
+				if strings.TrimSpace(m.editors.NameInput) != "" {
+					m.data.Pipeline.Name = strings.TrimSpace(m.editors.NameInput)
+					m.editors.EditingName = false
 				}
 			case "esc":
 				// Cancel and return to main list
@@ -749,58 +650,58 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return SwitchViewMsg{view: mainListView}
 				}
 			case "backspace":
-				if len(m.nameInput) > 0 {
-					m.nameInput = m.nameInput[:len(m.nameInput)-1]
+				if len(m.editors.NameInput) > 0 {
+					m.editors.NameInput = m.editors.NameInput[:len(m.editors.NameInput)-1]
 				}
 			case " ":
 				// Allow spaces
-				m.nameInput += " "
+				m.editors.NameInput += " "
 			default:
 				// Add character to input
 				if msg.Type == tea.KeyRunes {
-					m.nameInput += string(msg.Runes)
+					m.editors.NameInput += string(msg.Runes)
 				}
 			}
 			return m, nil
 		}
 
 		// Handle search input when search column is active
-		if m.activeColumn == searchColumn && !m.editingName && !(m.componentCreator != nil && m.componentCreator.IsActive()) && !m.editingComponent {
+		if m.ui.ActiveColumn == searchColumn && !m.editors.EditingName && !(m.editors.ComponentCreator != nil && m.editors.ComponentCreator.IsActive()) && !m.editors.EditingComponent {
 			// Handle special keys in search first
 			switch msg.String() {
 			case "esc":
 				// Clear search and switch to left column
-				m.searchBar.SetValue("")
-				m.searchQuery = ""
+				m.search.Bar.SetValue("")
+				m.search.Query = ""
 				m.performSearch()
-				m.activeColumn = leftColumn
-				m.searchBar.SetActive(false)
+				m.ui.ActiveColumn = leftColumn
+				m.search.Bar.SetActive(false)
 				return m, nil
 			case "tab":
 				// Let tab be handled by the main navigation logic
 				// Don't process it here
 			case "ctrl+a":
 				// Toggle archived filter
-				newQuery := m.searchFilterHelper.ToggleArchivedFilter(m.searchBar.Value())
-				m.searchBar.SetValue(newQuery)
-				m.searchQuery = newQuery
+				newQuery := m.search.FilterHelper.ToggleArchivedFilter(m.search.Bar.Value())
+				m.search.Bar.SetValue(newQuery)
+				m.search.Query = newQuery
 				m.performSearch()
 				return m, nil
 			case "ctrl+t":
 				// Cycle type filter (skip pipelines since we're in pipeline builder)
-				newQuery := m.searchFilterHelper.CycleTypeFilterForComponents(m.searchBar.Value())
-				m.searchBar.SetValue(newQuery)
-				m.searchQuery = newQuery
+				newQuery := m.search.FilterHelper.CycleTypeFilterForComponents(m.search.Bar.Value())
+				m.search.Bar.SetValue(newQuery)
+				m.search.Query = newQuery
 				m.performSearch()
 				return m, nil
 			default:
 				// For all other keys, update the search bar
 				var cmd tea.Cmd
-				m.searchBar, cmd = m.searchBar.Update(msg)
+				m.search.Bar, cmd = m.search.Bar.Update(msg)
 
 				// Check if search query changed
-				if m.searchQuery != m.searchBar.Value() {
-					m.searchQuery = m.searchBar.Value()
+				if m.search.Query != m.search.Bar.Value() {
+					m.search.Query = m.search.Bar.Value()
 					m.performSearch()
 				}
 
@@ -816,13 +717,13 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Check if there are unsaved changes
 			if m.hasUnsavedChanges() {
 				// Show confirmation dialog
-				m.exitConfirmationType = "pipeline"
-				m.exitConfirm.ShowDialog(
+				m.ui.ExitConfirmationType = "pipeline"
+				m.ui.ExitConfirm.ShowDialog(
 					"⚠️  Unsaved Changes",
 					"You have unsaved changes in this pipeline.",
 					"Exit without saving?",
 					true, // destructive
-					m.width-4,
+					m.viewports.Width-4,
 					10,
 					func() tea.Cmd {
 						return func() tea.Msg {
@@ -840,199 +741,199 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "tab":
 			// Switch between content columns only (no search)
-			if m.showPreview {
+			if m.ui.ShowPreview {
 				// When preview is shown, cycle through content panes
-				switch m.activeColumn {
+				switch m.ui.ActiveColumn {
 				case searchColumn:
 					// If in search, exit to left column
-					m.activeColumn = leftColumn
-					m.searchBar.SetActive(false)
+					m.ui.ActiveColumn = leftColumn
+					m.search.Bar.SetActive(false)
 				case leftColumn:
-					m.activeColumn = rightColumn
+					m.ui.ActiveColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
-					m.rightCursor = 0
-					m.rightViewport.GotoTop()
+					m.ui.RightCursor = 0
+					m.viewports.RightViewport.GotoTop()
 				case rightColumn:
-					m.activeColumn = previewColumn
+					m.ui.ActiveColumn = previewColumn
 				case previewColumn:
-					m.activeColumn = leftColumn
+					m.ui.ActiveColumn = leftColumn
 				}
 			} else {
 				// When preview is hidden, cycle between left and right
-				switch m.activeColumn {
+				switch m.ui.ActiveColumn {
 				case searchColumn:
 					// If in search, exit to left column
-					m.activeColumn = leftColumn
-					m.searchBar.SetActive(false)
+					m.ui.ActiveColumn = leftColumn
+					m.search.Bar.SetActive(false)
 				case leftColumn:
-					m.activeColumn = rightColumn
+					m.ui.ActiveColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
-					m.rightCursor = 0
-					m.rightViewport.GotoTop()
+					m.ui.RightCursor = 0
+					m.viewports.RightViewport.GotoTop()
 				case rightColumn:
-					m.activeColumn = leftColumn
+					m.ui.ActiveColumn = leftColumn
 				}
 			}
 
 		case "shift+tab", "backtab":
 			// Reverse cycle through columns
-			if m.showPreview {
+			if m.ui.ShowPreview {
 				// When preview is shown, reverse cycle through content panes
-				switch m.activeColumn {
+				switch m.ui.ActiveColumn {
 				case searchColumn:
 					// If in search, exit to preview column
-					m.activeColumn = previewColumn
-					m.searchBar.SetActive(false)
+					m.ui.ActiveColumn = previewColumn
+					m.search.Bar.SetActive(false)
 				case leftColumn:
-					m.activeColumn = previewColumn
+					m.ui.ActiveColumn = previewColumn
 				case rightColumn:
-					m.activeColumn = leftColumn
+					m.ui.ActiveColumn = leftColumn
 				case previewColumn:
-					m.activeColumn = rightColumn
+					m.ui.ActiveColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
-					m.rightCursor = 0
-					m.rightViewport.GotoTop()
+					m.ui.RightCursor = 0
+					m.viewports.RightViewport.GotoTop()
 				}
 			} else {
 				// When preview is hidden, reverse cycle between left and right
-				switch m.activeColumn {
+				switch m.ui.ActiveColumn {
 				case searchColumn:
 					// If in search, exit to right column
-					m.activeColumn = rightColumn
-					m.searchBar.SetActive(false)
+					m.ui.ActiveColumn = rightColumn
+					m.search.Bar.SetActive(false)
 					// Reset right cursor and viewport when entering right column
-					m.rightCursor = 0
-					m.rightViewport.GotoTop()
+					m.ui.RightCursor = 0
+					m.viewports.RightViewport.GotoTop()
 				case leftColumn:
-					m.activeColumn = rightColumn
+					m.ui.ActiveColumn = rightColumn
 					// Reset right cursor and viewport when entering right column
-					m.rightCursor = 0
-					m.rightViewport.GotoTop()
+					m.ui.RightCursor = 0
+					m.viewports.RightViewport.GotoTop()
 				case rightColumn:
-					m.activeColumn = leftColumn
+					m.ui.ActiveColumn = leftColumn
 				}
 			}
 			// Update preview when switching to non-preview column
-			if m.activeColumn != previewColumn {
+			if m.ui.ActiveColumn != previewColumn {
 				m.updatePreview()
 			}
 
 		case "up", "k":
-			if m.activeColumn == previewColumn {
+			if m.ui.ActiveColumn == previewColumn {
 				// Scroll preview up
-				m.previewViewport.LineUp(1)
+				m.viewports.Preview.LineUp(1)
 			} else {
 				m.moveCursor(-1)
 			}
 
 		case "down", "j":
-			if m.activeColumn == previewColumn {
+			if m.ui.ActiveColumn == previewColumn {
 				// Scroll preview down
-				m.previewViewport.LineDown(1)
+				m.viewports.Preview.LineDown(1)
 			} else {
 				m.moveCursor(1)
 			}
 
 		case "pgup":
-			if m.activeColumn == previewColumn {
+			if m.ui.ActiveColumn == previewColumn {
 				// Scroll preview page up
-				m.previewViewport.ViewUp()
-			} else if m.activeColumn == rightColumn {
+				m.viewports.Preview.ViewUp()
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Page up in right column - move cursor up by viewport height
-				pageSize := m.rightViewport.Height
-				for i := 0; i < pageSize && m.rightCursor > 0; i++ {
-					m.rightCursor--
+				pageSize := m.viewports.RightViewport.Height
+				for i := 0; i < pageSize && m.ui.RightCursor > 0; i++ {
+					m.ui.RightCursor--
 				}
 				// Adjust viewport to ensure cursor is visible
 				m.adjustRightViewportScroll()
 			}
 
 		case "pgdown":
-			if m.activeColumn == previewColumn {
+			if m.ui.ActiveColumn == previewColumn {
 				// Scroll preview page down
-				m.previewViewport.ViewDown()
-			} else if m.activeColumn == rightColumn {
+				m.viewports.Preview.ViewDown()
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Page down in right column - move cursor down by viewport height
-				pageSize := m.rightViewport.Height
-				maxCursor := len(m.selectedComponents) - 1
-				for i := 0; i < pageSize && m.rightCursor < maxCursor; i++ {
-					m.rightCursor++
+				pageSize := m.viewports.RightViewport.Height
+				maxCursor := len(m.data.SelectedComponents) - 1
+				for i := 0; i < pageSize && m.ui.RightCursor < maxCursor; i++ {
+					m.ui.RightCursor++
 				}
 				// Adjust viewport to ensure cursor is visible
 				m.adjustRightViewportScroll()
 			}
 
 		case "home":
-			if m.activeColumn == leftColumn {
-				m.leftCursor = 0
-			} else if m.activeColumn == rightColumn {
-				m.rightCursor = 0
+			if m.ui.ActiveColumn == leftColumn {
+				m.ui.LeftCursor = 0
+			} else if m.ui.ActiveColumn == rightColumn {
+				m.ui.RightCursor = 0
 				// Adjust viewport to show the first item
 				m.adjustRightViewportScroll()
 				// Sync preview scroll when jumping to first component in pipeline
-				if m.showPreview && len(m.selectedComponents) > 0 {
+				if m.ui.ShowPreview && len(m.data.SelectedComponents) > 0 {
 					m.syncPreviewToSelectedComponent()
 				}
 			}
 
 		case "end":
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				components := m.getAllAvailableComponents()
 				if len(components) > 0 {
-					m.leftCursor = len(components) - 1
+					m.ui.LeftCursor = len(components) - 1
 				}
-			} else if m.activeColumn == rightColumn {
-				if len(m.selectedComponents) > 0 {
-					m.rightCursor = len(m.selectedComponents) - 1
+			} else if m.ui.ActiveColumn == rightColumn {
+				if len(m.data.SelectedComponents) > 0 {
+					m.ui.RightCursor = len(m.data.SelectedComponents) - 1
 					// Adjust viewport to show the last item
 					m.adjustRightViewportScroll()
 				}
 				// Sync preview scroll when jumping to last component in pipeline
-				if m.showPreview && len(m.selectedComponents) > 0 {
+				if m.ui.ShowPreview && len(m.data.SelectedComponents) > 0 {
 					m.syncPreviewToSelectedComponent()
 				}
 			}
 
 		case "enter":
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				m.addSelectedComponent()
-			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+			} else if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
 				// Remove selected component in right column (same as delete)
 				m.removeSelectedComponent()
 			}
 
 		case "p":
-			m.showPreview = !m.showPreview
+			m.ui.ShowPreview = !m.ui.ShowPreview
 			m.updateViewportSizes()
-			if m.showPreview {
+			if m.ui.ShowPreview {
 				m.updatePreview()
 			}
 		case "t":
 			// Edit tags - context aware based on active column
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				// Edit component tags
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
 					m.startTagEditing(comp.path, comp.tags)
 				}
-			} else if m.activeColumn == rightColumn {
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Edit pipeline tags
-				if m.pipeline != nil {
-					m.startPipelineTagEditing(m.pipeline.Tags)
+				if m.data.Pipeline != nil {
+					m.startPipelineTagEditing(m.data.Pipeline.Tags)
 				}
 			}
 
 		case "a":
 			// Archive/Unarchive - context aware based on active column
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				// Archive/Unarchive component
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
 					if comp.isArchived {
 						// Unarchive the component with confirmation
-						m.archiveConfirm.ShowInline(
+						m.ui.ArchiveConfirm.ShowInline(
 							fmt.Sprintf("Unarchive %s '%s'?", comp.compType, comp.name),
 							false, // not destructive
 							func() tea.Cmd {
@@ -1044,7 +945,7 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						)
 					} else {
 						// Archive the component with confirmation
-						m.archiveConfirm.ShowInline(
+						m.ui.ArchiveConfirm.ShowInline(
 							fmt.Sprintf("Archive %s '%s'?", comp.compType, comp.name),
 							false, // not destructive
 							func() tea.Cmd {
@@ -1056,11 +957,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						)
 					}
 				}
-			} else if m.activeColumn == rightColumn {
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Archive the pipeline being edited
-				if m.pipeline != nil && m.pipeline.Path != "" {
-					pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
-					m.archiveConfirm.ShowInline(
+				if m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
+					pipelineName := strings.TrimSuffix(filepath.Base(m.data.Pipeline.Path), ".yaml")
+					m.ui.ArchiveConfirm.ShowInline(
 						fmt.Sprintf("Archive pipeline '%s'?", pipelineName),
 						false, // not destructive
 						func() tea.Cmd {
@@ -1076,80 +977,80 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "C":
 			// Clone - context aware based on active column
-			if m.cloneState.IsActive() {
+			if m.editors.Clone.State.IsActive() {
 				// Already in clone mode, ignore
 				return m, nil
 			}
 
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				// Clone component
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
 					// Start clone for component
-					displayName, path, isArchived := m.cloneOperator.PrepareCloneComponent(comp)
-					m.cloneState.Start(displayName, "component", path, isArchived)
+					displayName, path, isArchived := m.editors.Clone.Operator.PrepareCloneComponent(comp)
+					m.editors.Clone.State.Start(displayName, "component", path, isArchived)
 				}
-			} else if m.activeColumn == rightColumn {
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Clone the pipeline being edited
-				if m.pipeline != nil && m.pipeline.Path != "" {
+				if m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
 					// Use the pipeline's display name from the Name field
 					pipelineItem := pipelineItem{
-						name:       m.pipeline.Name,
-						path:       m.pipeline.Path,
+						name:       m.data.Pipeline.Name,
+						path:       m.data.Pipeline.Path,
 						isArchived: false, // Builder only works with active pipelines
 					}
-					displayName, path, isArchived := m.cloneOperator.PrepareClonePipeline(pipelineItem)
-					m.cloneState.Start(displayName, "pipeline", path, isArchived)
+					displayName, path, isArchived := m.editors.Clone.Operator.PrepareClonePipeline(pipelineItem)
+					m.editors.Clone.State.Start(displayName, "pipeline", path, isArchived)
 				}
 			}
 			return m, nil
 
 		case "R":
 			// Rename - context aware based on active column
-			if m.renameState.IsActive() {
+			if m.editors.Rename.State.IsActive() {
 				// Already in rename mode, ignore
 				return m, nil
 			}
 
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				// Rename component
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
 					// Start rename for component
-					m.renameState.StartRename(comp.path, comp.name, "component")
+					m.editors.Rename.State.StartRename(comp.path, comp.name, "component")
 				}
-			} else if m.activeColumn == rightColumn {
+			} else if m.ui.ActiveColumn == rightColumn {
 				// Rename the pipeline being edited
-				if m.pipeline != nil && m.pipeline.Path != "" {
+				if m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
 					// Use the pipeline's display name from the Name field
-					m.renameState.StartRename(m.pipeline.Path, m.pipeline.Name, "pipeline")
+					m.editors.Rename.State.StartRename(m.data.Pipeline.Path, m.data.Pipeline.Name, "pipeline")
 				}
 			}
 			return m, nil
 
 		case "M":
 			// Generate mermaid diagram for current pipeline
-			if !m.mermaidState.IsGenerating() && m.pipeline != nil {
+			if !m.ui.MermaidState.IsGenerating() && m.data.Pipeline != nil {
 				// Create a pipelineItem from the current pipeline
 				pipelineItem := pipelineItem{
-					name: m.pipeline.Name,
-					path: m.pipeline.Path,
-					tags: m.pipeline.Tags,
+					name: m.data.Pipeline.Name,
+					path: m.data.Pipeline.Path,
+					tags: m.data.Pipeline.Tags,
 				}
 				// If path is empty (new pipeline), use the name
 				if pipelineItem.path == "" {
-					pipelineItem.path = files.SanitizeFileName(m.pipeline.Name) + ".yaml"
+					pipelineItem.path = files.SanitizeFileName(m.data.Pipeline.Name) + ".yaml"
 				}
-				return m, m.mermaidOperator.GeneratePipelineDiagram(pipelineItem)
+				return m, m.ui.MermaidOperator.GeneratePipelineDiagram(pipelineItem)
 			}
 			return m, nil
 
 		case "/":
 			// Jump to search
-			m.activeColumn = searchColumn
-			m.searchBar.SetActive(true)
+			m.ui.ActiveColumn = searchColumn
+			m.search.Bar.SetActive(true)
 			return m, nil
 
 		case "ctrl+s":
@@ -1158,12 +1059,12 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "ctrl+d":
 			// Handle deletion based on active column
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				// Delete component from Available Components pane
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
-					m.deleteConfirm.ShowInline(
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
+					m.ui.DeleteConfirm.ShowInline(
 						fmt.Sprintf("Delete %s '%s'?", comp.compType, comp.name),
 						true, // destructive
 						func() tea.Cmd {
@@ -1174,10 +1075,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						},
 					)
 				}
-			} else if m.activeColumn != previewColumn && m.pipeline != nil && m.pipeline.Path != "" {
+			} else if m.ui.ActiveColumn != previewColumn && m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
 				// Delete pipeline with confirmation (not in preview pane or left column)
-				pipelineName := filepath.Base(m.pipeline.Path)
-				m.deleteConfirm.ShowInline(
+				pipelineName := filepath.Base(m.data.Pipeline.Path)
+				m.ui.DeleteConfirm.ShowInline(
 					fmt.Sprintf("Delete pipeline '%s'?", pipelineName),
 					true, // destructive
 					func() tea.Cmd {
@@ -1196,42 +1097,42 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		case "y":
 			// Copy current pipeline content to clipboard
-			if m.pipeline != nil && len(m.pipeline.Components) > 0 {
-				output, err := composer.ComposePipeline(m.pipeline)
+			if m.data.Pipeline != nil && len(m.data.Pipeline.Components) > 0 {
+				output, err := composer.ComposePipeline(m.data.Pipeline)
 				if err == nil {
 					if err := clipboard.WriteAll(output); err == nil {
 						return m, func() tea.Msg {
-							return StatusMsg(m.pipeline.Name + " → clipboard")
+							return StatusMsg(m.data.Pipeline.Name + " → clipboard")
 						}
 					}
 				}
 			}
 
 		case "ctrl+up", "K":
-			if m.activeColumn == rightColumn {
+			if m.ui.ActiveColumn == rightColumn {
 				m.moveComponentUp()
 			}
 
 		case "ctrl+down", "J":
-			if m.activeColumn == rightColumn {
+			if m.ui.ActiveColumn == rightColumn {
 				m.moveComponentDown()
 			}
 
 		case "n":
 			// Create new component (not in preview pane)
-			if m.activeColumn != previewColumn {
-				m.componentCreator.Start()
+			if m.ui.ActiveColumn != previewColumn {
+				m.editors.ComponentCreator.Start()
 				return m, nil
 			}
 
 		case "ctrl+x":
 			// Edit component in external editor
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
 					return m, m.editComponentFromLeft()
 				}
-			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+			} else if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
 				// Edit selected component in external editor from right column
 				return m, m.editComponent()
 			}
@@ -1239,10 +1140,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "e":
 			// Edit component in the TUI editor using the enhanced editor
 			// Enhanced editor provides advanced editing features
-			if m.activeColumn == leftColumn {
+			if m.ui.ActiveColumn == leftColumn {
 				components := m.getAllAvailableComponents()
-				if m.leftCursor >= 0 && m.leftCursor < len(components) {
-					comp := components[m.leftCursor]
+				if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+					comp := components[m.ui.LeftCursor]
 					// Read the component content
 					content, err := files.ReadComponent(comp.path)
 					if err != nil {
@@ -1251,20 +1152,20 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					// Start enhanced editor
-					m.enhancedEditor.StartEditing(
+					m.editors.Enhanced.StartEditing(
 						comp.path,
 						comp.name,
 						comp.compType,
 						content.Content,
 						comp.tags,
 					)
-					m.editingComponent = true
+					m.editors.EditingComponent = true
 					return m, nil
 				}
-			} else if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+			} else if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
 				// Edit component from right column
-				if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
-					selected := m.selectedComponents[m.rightCursor]
+				if m.ui.RightCursor >= 0 && m.ui.RightCursor < len(m.data.SelectedComponents) {
+					selected := m.data.SelectedComponents[m.ui.RightCursor]
 					// Convert path from relative to component path
 					componentPath := strings.TrimPrefix(selected.Path, "../")
 
@@ -1293,14 +1194,14 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					}
 
 					// Start enhanced editor
-					m.enhancedEditor.StartEditing(
+					m.editors.Enhanced.StartEditing(
 						componentPath,
 						componentName,
 						compType,
 						content.Content,
 						content.Tags,
 					)
-					m.editingComponent = true
+					m.editors.EditingComponent = true
 					return m, nil
 				}
 			}
@@ -1311,16 +1212,16 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	m.updatePreview()
 
 	// Update viewport content if preview changed
-	if m.showPreview && m.previewContent != "" {
+	if m.ui.ShowPreview && m.ui.PreviewContent != "" {
 		// Preprocess content to handle carriage returns and ensure proper line breaks
-		processedContent := strings.ReplaceAll(m.previewContent, "\r\r", "\n\n")
+		processedContent := strings.ReplaceAll(m.ui.PreviewContent, "\r\r", "\n\n")
 		processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
 		// Wrap content to viewport width to prevent overflow
-		wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
-		m.previewViewport.SetContent(wrappedContent)
+		wrappedContent := wordwrap.String(processedContent, m.viewports.Preview.Width)
+		m.viewports.Preview.SetContent(wrappedContent)
 
 		// Sync preview scroll to highlighted component if right column is active
-		if m.activeColumn == rightColumn && len(m.selectedComponents) > 0 {
+		if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
 			m.syncPreviewToSelectedComponent()
 		}
 	}
@@ -1333,10 +1234,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	default:
 		// Handle enhanced editor for non-KeyMsg message types
 		// This is crucial for filepicker which needs to process internal messages like directory reads
-		if m.enhancedEditor.IsActive() && m.editingComponent {
-			if m.enhancedEditor.IsFilePicking() {
+		if m.editors.Enhanced.IsActive() && m.editors.EditingComponent {
+			if m.editors.Enhanced.IsFilePicking() {
 				// Filepicker needs to process internal messages for directory reading
-				cmd := m.enhancedEditor.UpdateFilePicker(msg)
+				cmd := m.editors.Enhanced.UpdateFilePicker(msg)
 				if cmd != nil {
 					cmds = append(cmds, cmd)
 				}
@@ -1344,14 +1245,14 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 
 		// Forward other messages to viewports
-		if m.showPreview {
-			m.previewViewport, cmd = m.previewViewport.Update(msg)
+		if m.ui.ShowPreview {
+			m.viewports.Preview, cmd = m.viewports.Preview.Update(msg)
 			if cmd != nil {
 				cmds = append(cmds, cmd)
 			}
 		}
 
-		m.rightViewport, cmd = m.rightViewport.Update(msg)
+		m.viewports.RightViewport, cmd = m.viewports.RightViewport.Update(msg)
 		if cmd != nil {
 			cmds = append(cmds, cmd)
 		}
@@ -1366,44 +1267,44 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// If showing exit confirmation, display dialog
-	if m.exitConfirm.Active() {
+	if m.ui.ExitConfirm.Active() {
 		// Add padding to match other views
 		contentStyle := lipgloss.NewStyle().
 			PaddingLeft(1).
 			PaddingRight(1)
-		return contentStyle.Render(m.exitConfirm.View())
+		return contentStyle.Render(m.ui.ExitConfirm.View())
 	}
 
 	// If creating component, show creation wizard
-	if m.componentCreator != nil && m.componentCreator.IsActive() {
+	if m.editors.ComponentCreator != nil && m.editors.ComponentCreator.IsActive() {
 		return m.componentCreationView()
 	}
 
 	// Render the enhanced editor view if editing a component
 	// The enhanced editor provides a richer editing experience with file browsing and better text manipulation
-	if m.editingComponent && m.enhancedEditor.IsActive() {
+	if m.editors.EditingComponent && m.editors.Enhanced.IsActive() {
 		// Handle exit confirmation dialog
-		if m.enhancedEditor.ExitConfirmActive {
+		if m.editors.Enhanced.ExitConfirmActive {
 			// Add padding to match other views
 			contentStyle := lipgloss.NewStyle().
 				PaddingLeft(1).
 				PaddingRight(1)
-			return contentStyle.Render(m.enhancedEditor.ExitConfirm.View())
+			return contentStyle.Render(m.editors.Enhanced.ExitConfirm.View())
 		}
 
 		// Render enhanced editor view
-		renderer := NewEnhancedEditorRenderer(m.width, m.height)
-		return renderer.Render(m.enhancedEditor)
+		renderer := NewEnhancedEditorRenderer(m.viewports.Width, m.viewports.Height)
+		return renderer.Render(m.editors.Enhanced)
 	}
 
 	// If editing tags, show tag edit view
-	if m.tagEditor != nil && m.tagEditor.Active {
-		renderer := NewTagEditorRenderer(m.tagEditor, m.width, m.height)
+	if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
+		renderer := NewTagEditorRenderer(m.editors.TagEditor, m.viewports.Width, m.viewports.Height)
 		return renderer.Render()
 	}
 
 	// If editing name, show name input screen
-	if m.editingName {
+	if m.editors.EditingName {
 		return m.nameInputView()
 	}
 
@@ -1430,31 +1331,31 @@ func (m *PipelineBuilderModel) View() string {
 		Foreground(lipgloss.Color("214"))
 
 	// Update shared layout and get dimensions
-	if m.sharedLayout == nil {
-		m.sharedLayout = NewSharedLayout(m.width, m.height, m.showPreview)
+	if m.ui.SharedLayout == nil {
+		m.ui.SharedLayout = NewSharedLayout(m.viewports.Width, m.viewports.Height, m.ui.ShowPreview)
 	} else {
-		m.sharedLayout.SetSize(m.width, m.height)
-		m.sharedLayout.SetShowPreview(m.showPreview)
+		m.ui.SharedLayout.SetSize(m.viewports.Width, m.viewports.Height)
+		m.ui.SharedLayout.SetShowPreview(m.ui.ShowPreview)
 	}
 
 	// Get calculated dimensions from shared layout
-	columnWidth := m.sharedLayout.GetColumnWidth()
-	contentHeight := m.sharedLayout.GetContentHeight()
+	columnWidth := m.ui.SharedLayout.GetColumnWidth()
+	contentHeight := m.ui.SharedLayout.GetContentHeight()
 
 	// Update table renderer for left column
 	allComponents := m.getAllAvailableComponents()
-	m.leftTableRenderer.SetSize(columnWidth, contentHeight)
-	m.leftTableRenderer.SetComponents(allComponents)
-	m.leftTableRenderer.SetCursor(m.leftCursor)
-	m.leftTableRenderer.SetActive(m.activeColumn == leftColumn)
+	m.viewports.LeftTable.SetSize(columnWidth, contentHeight)
+	m.viewports.LeftTable.SetComponents(allComponents)
+	m.viewports.LeftTable.SetCursor(m.ui.LeftCursor)
+	m.viewports.LeftTable.SetActive(m.ui.ActiveColumn == leftColumn)
 
 	// Mark already added components
-	m.leftTableRenderer.ClearAddedMarks()
+	m.viewports.LeftTable.ClearAddedMarks()
 	for _, comp := range allComponents {
 		componentPath := "../" + comp.path
-		for _, existing := range m.selectedComponents {
+		for _, existing := range m.data.SelectedComponents {
 			if existing.Path == componentPath {
-				m.leftTableRenderer.MarkAsAdded(componentPath)
+				m.viewports.LeftTable.MarkAsAdded(componentPath)
 				break
 			}
 		}
@@ -1468,16 +1369,16 @@ func (m *PipelineBuilderModel) View() string {
 		PaddingRight(1)
 
 	// Render column header using shared layout
-	leftHeader := m.sharedLayout.RenderColumnHeader(ColumnHeaderConfig{
+	leftHeader := m.ui.SharedLayout.RenderColumnHeader(ColumnHeaderConfig{
 		Heading:     "AVAILABLE COMPONENTS",
-		Active:      m.activeColumn == leftColumn,
+		Active:      m.ui.ActiveColumn == leftColumn,
 		ColumnWidth: columnWidth,
 	})
 	leftContent.WriteString(leftHeader)
 	leftContent.WriteString("\n")
 
 	// Add empty row to match pipeline name row height on the right
-	if m.pipeline != nil && m.pipeline.Name != "" {
+	if m.data.Pipeline != nil && m.data.Pipeline.Name != "" {
 		// Match the exact spacing of the pipeline name row
 		emptyRowStyle := lipgloss.NewStyle().
 			PaddingLeft(1).
@@ -1492,35 +1393,35 @@ func (m *PipelineBuilderModel) View() string {
 	}
 
 	// Render table header
-	leftContent.WriteString(headerPadding.Render(m.leftTableRenderer.RenderHeader()))
+	leftContent.WriteString(headerPadding.Render(m.viewports.LeftTable.RenderHeader()))
 	leftContent.WriteString("\n\n")
 
 	// Add padding to table content
 	leftViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	leftContent.WriteString(leftViewportPadding.Render(m.leftTableRenderer.RenderTable()))
+	leftContent.WriteString(leftViewportPadding.Render(m.viewports.LeftTable.RenderTable()))
 
 	// Build right column (selected components)
 	var rightContent strings.Builder
 	// Render column header using shared layout
-	rightHeader := m.sharedLayout.RenderColumnHeader(ColumnHeaderConfig{
+	rightHeader := m.ui.SharedLayout.RenderColumnHeader(ColumnHeaderConfig{
 		Heading:     "PIPELINE COMPONENTS",
-		Active:      m.activeColumn == rightColumn,
+		Active:      m.ui.ActiveColumn == rightColumn,
 		ColumnWidth: columnWidth,
 	})
 	rightContent.WriteString(rightHeader)
 	rightContent.WriteString("\n")
 
 	// Add pipeline name with spacing
-	if m.pipeline != nil && m.pipeline.Name != "" {
+	if m.data.Pipeline != nil && m.data.Pipeline.Name != "" {
 		pipelineNameStyle := lipgloss.NewStyle().
 			PaddingLeft(1).
 			PaddingRight(1).
 			PaddingTop(1).
 			Bold(true).
 			Foreground(lipgloss.Color("0")) // Black text for better visibility on light backgrounds
-		rightContent.WriteString(pipelineNameStyle.Render(m.pipeline.Name))
+		rightContent.WriteString(pipelineNameStyle.Render(m.data.Pipeline.Name))
 		rightContent.WriteString("\n")
 	} else {
 		// Add empty space if no pipeline name
@@ -1535,9 +1436,9 @@ func (m *PipelineBuilderModel) View() string {
 		PaddingBottom(1). // Add bottom margin
 		Height(3)         // Total height including padding
 
-	if m.pipeline != nil && len(m.pipeline.Tags) > 0 {
+	if m.data.Pipeline != nil && len(m.data.Pipeline.Tags) > 0 {
 		// Render tags with more space available (full column width minus padding)
-		tagsStr := renderTagChipsWithWidth(m.pipeline.Tags, columnWidth-4, 5) // Show more tags with available space
+		tagsStr := renderTagChipsWithWidth(m.data.Pipeline.Tags, columnWidth-4, 5) // Show more tags with available space
 		rightContent.WriteString(tagRowStyle.Render(tagsStr))
 	} else {
 		// Empty row to maintain layout
@@ -1548,7 +1449,7 @@ func (m *PipelineBuilderModel) View() string {
 	// Build scrollable content for right viewport
 	var rightScrollContent strings.Builder
 
-	if len(m.selectedComponents) == 0 {
+	if len(m.data.SelectedComponents) == 0 {
 		rightScrollContent.WriteString(normalStyle.Render("No components selected\n\nPress Tab to switch columns\nPress Enter to add components"))
 	} else {
 		// Load settings for section order
@@ -1559,7 +1460,7 @@ func (m *PipelineBuilderModel) View() string {
 
 		// Group components by type
 		typeGroups := make(map[string][]models.ComponentRef)
-		for _, comp := range m.selectedComponents {
+		for _, comp := range m.data.SelectedComponents {
 			typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 		}
 
@@ -1599,7 +1500,7 @@ func (m *PipelineBuilderModel) View() string {
 			for _, comp := range components {
 				name := filepath.Base(comp.Path)
 
-				if m.activeColumn == rightColumn && overallIndex == m.rightCursor {
+				if m.ui.ActiveColumn == rightColumn && overallIndex == m.ui.RightCursor {
 					// White arrow with selected name
 					rightScrollContent.WriteString("▸ " + selectedStyle.Render(name) + "\n")
 				} else {
@@ -1619,11 +1520,11 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Update right viewport with content
 	// Wrap content to viewport width to prevent overflow
-	wrappedRightContent := wordwrap.String(rightScrollContent.String(), m.rightViewport.Width)
-	m.rightViewport.SetContent(wrappedRightContent)
+	wrappedRightContent := wordwrap.String(rightScrollContent.String(), m.viewports.RightViewport.Width)
+	m.viewports.RightViewport.SetContent(wrappedRightContent)
 
 	// Update viewport to follow cursor (even when right column is not active)
-	if len(m.selectedComponents) > 0 {
+	if len(m.data.SelectedComponents) > 0 {
 		// Load settings for section order
 		settings, err := files.ReadSettings()
 		if err != nil || settings == nil {
@@ -1636,7 +1537,7 @@ func (m *PipelineBuilderModel) View() string {
 
 		// Group components by type
 		typeGroups := make(map[string][]models.ComponentRef)
-		for _, comp := range m.selectedComponents {
+		for _, comp := range m.data.SelectedComponents {
 			typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 		}
 
@@ -1650,7 +1551,7 @@ func (m *PipelineBuilderModel) View() string {
 			currentLine++ // Section header
 
 			for range components {
-				if overallIndex == m.rightCursor {
+				if overallIndex == m.ui.RightCursor {
 					break
 				}
 				currentLine++
@@ -1658,7 +1559,7 @@ func (m *PipelineBuilderModel) View() string {
 			}
 
 			// Check if we found the cursor
-			if overallIndex >= m.rightCursor {
+			if overallIndex >= m.ui.RightCursor {
 				break
 			}
 
@@ -1676,10 +1577,10 @@ func (m *PipelineBuilderModel) View() string {
 		}
 
 		// Ensure the cursor line is visible
-		if currentLine < m.rightViewport.YOffset {
-			m.rightViewport.SetYOffset(currentLine)
-		} else if currentLine >= m.rightViewport.YOffset+m.rightViewport.Height {
-			m.rightViewport.SetYOffset(currentLine - m.rightViewport.Height + 1)
+		if currentLine < m.viewports.RightViewport.YOffset {
+			m.viewports.RightViewport.SetYOffset(currentLine)
+		} else if currentLine >= m.viewports.RightViewport.YOffset+m.viewports.RightViewport.Height {
+			m.viewports.RightViewport.SetYOffset(currentLine - m.viewports.RightViewport.Height + 1)
 		}
 	}
 
@@ -1687,14 +1588,14 @@ func (m *PipelineBuilderModel) View() string {
 	rightViewportPadding := lipgloss.NewStyle().
 		PaddingLeft(1).
 		PaddingRight(1)
-	rightContent.WriteString(rightViewportPadding.Render(m.rightViewport.View()))
+	rightContent.WriteString(rightViewportPadding.Render(m.viewports.RightViewport.View()))
 
 	// Apply borders
 	leftStyle := inactiveStyle
 	rightStyle := inactiveStyle
-	if m.activeColumn == leftColumn {
+	if m.ui.ActiveColumn == leftColumn {
 		leftStyle = activeStyle
-	} else if m.activeColumn == rightColumn {
+	} else if m.ui.ActiveColumn == rightColumn {
 		rightStyle = activeStyle
 	}
 
@@ -1716,9 +1617,9 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Add search bar at the top
 	// Update search bar active state and render it
-	m.searchBar.SetActive(m.activeColumn == searchColumn)
-	m.searchBar.SetWidth(m.width)
-	s.WriteString(m.searchBar.View())
+	m.search.Bar.SetActive(m.ui.ActiveColumn == searchColumn)
+	m.search.Bar.SetWidth(m.viewports.Width)
+	s.WriteString(m.search.Bar.View())
 	s.WriteString("\n")
 
 	// Add padding around the content
@@ -1729,9 +1630,9 @@ func (m *PipelineBuilderModel) View() string {
 	s.WriteString(contentStyle.Render(columns))
 
 	// Add preview if enabled
-	if m.showPreview && m.previewContent != "" {
+	if m.ui.ShowPreview && m.ui.PreviewContent != "" {
 		// Calculate token count
-		tokenCount := utils.EstimateTokens(m.previewContent)
+		tokenCount := utils.EstimateTokens(m.ui.PreviewContent)
 		_, _, status := utils.GetTokenLimitStatus(tokenCount)
 
 		// Create token badge with appropriate color
@@ -1761,24 +1662,24 @@ func (m *PipelineBuilderModel) View() string {
 
 		// Apply active/inactive style to preview border
 		previewBorderColor := lipgloss.Color("243") // inactive
-		if m.activeColumn == previewColumn {
+		if m.ui.ActiveColumn == previewColumn {
 			previewBorderColor = lipgloss.Color("170") // active (same as other active borders)
 		}
 
 		previewBorderStyle := lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(previewBorderColor).
-			Width(m.width - 4) // Account for padding (2) and border (2)
+			Width(m.viewports.Width - 4) // Account for padding (2) and border (2)
 
 		// Build preview content with header inside
 		var previewContent strings.Builder
 		// Create heading with colons and token info
 		var previewHeading string
-		if m.activeColumn == leftColumn {
+		if m.ui.ActiveColumn == leftColumn {
 			// Get the selected component name
 			components := m.getAllAvailableComponents()
-			if m.leftCursor >= 0 && m.leftCursor < len(components) {
-				comp := components[m.leftCursor]
+			if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+				comp := components[m.ui.LeftCursor]
 				// Use the actual filename from the path
 				componentFilename := filepath.Base(comp.path)
 				previewHeading = fmt.Sprintf("COMPONENT PREVIEW (%s)", componentFilename)
@@ -1787,12 +1688,12 @@ func (m *PipelineBuilderModel) View() string {
 			}
 		} else {
 			pipelineName := "PLUQQY.md"
-			if m.pipeline != nil && m.pipeline.Path != "" {
+			if m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
 				// Use the actual filename from the path
-				pipelineName = filepath.Base(m.pipeline.Path)
-			} else if m.pipeline != nil && m.pipeline.Name != "" {
+				pipelineName = filepath.Base(m.data.Pipeline.Path)
+			} else if m.data.Pipeline != nil && m.data.Pipeline.Name != "" {
 				// For new unsaved pipelines, use the name with .yaml extension
-				pipelineName = files.SanitizeFileName(m.pipeline.Name) + ".yaml"
+				pipelineName = files.SanitizeFileName(m.data.Pipeline.Name) + ".yaml"
 			}
 			previewHeading = fmt.Sprintf("PIPELINE PREVIEW (%s)", pipelineName)
 		}
@@ -1802,7 +1703,7 @@ func (m *PipelineBuilderModel) View() string {
 		tokenInfoWidth := lipgloss.Width(tokenBadge)
 
 		// Calculate total available width inside the border
-		totalWidth := m.width - 8 // accounting for border padding and header padding
+		totalWidth := m.viewports.Width - 8 // accounting for border padding and header padding
 
 		// Calculate space for colons between heading and token info
 		colonSpace := totalWidth - len(previewHeading) - tokenInfoWidth - 2 // -2 for spaces
@@ -1815,14 +1716,14 @@ func (m *PipelineBuilderModel) View() string {
 		previewHeaderStyle := lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color(func() string {
-				if m.activeColumn == previewColumn {
+				if m.ui.ActiveColumn == previewColumn {
 					return "170" // Purple when active
 				}
 				return "214" // Orange when inactive
 			}()))
 		previewColonStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color(func() string {
-				if m.activeColumn == previewColumn {
+				if m.ui.ActiveColumn == previewColumn {
 					return "170" // Purple when active
 				}
 				return "240" // Gray when inactive
@@ -1836,7 +1737,7 @@ func (m *PipelineBuilderModel) View() string {
 		previewViewportPadding := lipgloss.NewStyle().
 			PaddingLeft(1).
 			PaddingRight(1)
-		previewContent.WriteString(previewViewportPadding.Render(m.previewViewport.View()))
+		previewContent.WriteString(previewViewportPadding.Render(m.viewports.Preview.View()))
 
 		// Render the border around the entire preview with same padding as top columns
 		s.WriteString("\n")
@@ -1848,7 +1749,7 @@ func (m *PipelineBuilderModel) View() string {
 
 	// Render help pane using shared layout
 	var helpRows [][]string
-	if m.activeColumn == searchColumn {
+	if m.ui.ActiveColumn == searchColumn {
 		// Show search syntax help when search is active
 		helpRows = [][]string{
 			{"tab switch pane", "esc clear+exit search"},
@@ -1856,12 +1757,12 @@ func (m *PipelineBuilderModel) View() string {
 		}
 	} else {
 		// Show normal navigation help - grouped by function
-		if m.activeColumn == previewColumn {
+		if m.ui.ActiveColumn == previewColumn {
 			// Preview pane - only show first row
 			helpRows = [][]string{
 				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 			}
-		} else if m.activeColumn == leftColumn {
+		} else if m.ui.ActiveColumn == leftColumn {
 			// Available Components pane - no K/J reorder
 			helpRows = [][]string{
 				// Row 1: System & navigation
@@ -1880,25 +1781,25 @@ func (m *PipelineBuilderModel) View() string {
 		}
 	}
 
-	helpContent := m.sharedLayout.RenderHelpPane(helpRows)
+	helpContent := m.ui.SharedLayout.RenderHelpPane(helpRows)
 
 	// Show confirmation dialogs if active (inline above help)
-	if m.deleteConfirm.Active() {
+	if m.ui.DeleteConfirm.Active() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("196")).
 			Bold(true).
 			MarginTop(1).
 			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(contentStyle.Render(confirmStyle.Render(m.deleteConfirm.ViewWithWidth(m.width - 4))))
-	} else if m.archiveConfirm.Active() {
+		s.WriteString(contentStyle.Render(confirmStyle.Render(m.ui.DeleteConfirm.ViewWithWidth(m.viewports.Width - 4))))
+	} else if m.ui.ArchiveConfirm.Active() {
 		confirmStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("214")).
 			Bold(true).
 			MarginTop(1).
 			MarginBottom(1)
 		s.WriteString("\n")
-		s.WriteString(contentStyle.Render(confirmStyle.Render(m.archiveConfirm.ViewWithWidth(m.width - 4))))
+		s.WriteString(contentStyle.Render(confirmStyle.Render(m.ui.ArchiveConfirm.ViewWithWidth(m.viewports.Width - 4))))
 	}
 
 	// Always add a single newline before help pane (matching Main list view)
@@ -1908,50 +1809,50 @@ func (m *PipelineBuilderModel) View() string {
 	finalView := s.String()
 
 	// Overlay clone dialog if active
-	if m.cloneState != nil && m.cloneState.Active && m.cloneRenderer != nil {
-		m.cloneRenderer.SetSize(m.width, m.height)
-		finalView = m.cloneRenderer.RenderOverlay(finalView, m.cloneState)
+	if m.editors.Clone.State != nil && m.editors.Clone.State.Active && m.editors.Clone.Renderer != nil {
+		m.editors.Clone.Renderer.SetSize(m.viewports.Width, m.viewports.Height)
+		finalView = m.editors.Clone.Renderer.RenderOverlay(finalView, m.editors.Clone.State)
 	}
 
 	// Overlay rename dialog if active
-	if m.renameState != nil && m.renameState.Active && m.renameRenderer != nil {
-		m.renameRenderer.SetSize(m.width, m.height)
-		finalView = m.renameRenderer.RenderOverlay(finalView, m.renameState)
+	if m.editors.Rename.State != nil && m.editors.Rename.State.Active && m.editors.Rename.Renderer != nil {
+		m.editors.Rename.Renderer.SetSize(m.viewports.Width, m.viewports.Height)
+		finalView = m.editors.Rename.Renderer.RenderOverlay(finalView, m.editors.Rename.State)
 	}
 
 	return finalView
 }
 
 func (m *PipelineBuilderModel) SetSize(width, height int) {
-	m.width = width
-	m.height = height
+	m.viewports.Width = width
+	m.viewports.Height = height
 	// Update search bar width
-	m.searchBar.SetWidth(width)
+	m.search.Bar.SetWidth(width)
 	// Update clone renderer size
-	if m.cloneRenderer != nil {
-		m.cloneRenderer.SetSize(width, height)
+	if m.editors.Clone.Renderer != nil {
+		m.editors.Clone.Renderer.SetSize(width, height)
 	}
 	// Update rename renderer size
-	if m.renameRenderer != nil {
-		m.renameRenderer.SetSize(width, height)
+	if m.editors.Rename.Renderer != nil {
+		m.editors.Rename.Renderer.SetSize(width, height)
 	}
 	m.updateViewportSizes()
 }
 
 func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 	// For new pipelines, check if components have been added
-	if m.pipeline.Path == "" {
-		return len(m.selectedComponents) > 0
+	if m.data.Pipeline.Path == "" {
+		return len(m.data.SelectedComponents) > 0
 	}
 
 	// For existing pipelines, check if components have changed
-	if len(m.selectedComponents) != len(m.originalComponents) {
+	if len(m.data.SelectedComponents) != len(m.data.OriginalComponents) {
 		return true
 	}
 
 	// Check if components are the same (order matters)
-	for i := range m.selectedComponents {
-		if m.selectedComponents[i].Path != m.originalComponents[i].Path {
+	for i := range m.data.SelectedComponents {
+		if m.data.SelectedComponents[i].Path != m.data.OriginalComponents[i].Path {
 			return true
 		}
 	}
@@ -1962,18 +1863,18 @@ func (m *PipelineBuilderModel) hasUnsavedChanges() bool {
 // hasTagChanges - DEPRECATED, to be removed
 func (m *PipelineBuilderModel) hasTagChanges() bool {
 	// Check if the number of tags has changed
-	if len(m.currentTags) != len(m.originalTags) {
+	if len(m.ui.CurrentTags) != len(m.ui.OriginalTags) {
 		return true
 	}
 
 	// Create maps for efficient comparison
 	originalMap := make(map[string]bool)
-	for _, tag := range m.originalTags {
+	for _, tag := range m.ui.OriginalTags {
 		originalMap[tag] = true
 	}
 
 	// Check if all current tags exist in original
-	for _, tag := range m.currentTags {
+	for _, tag := range m.ui.CurrentTags {
 		if !originalMap[tag] {
 			return true
 		}
@@ -1984,11 +1885,11 @@ func (m *PipelineBuilderModel) hasTagChanges() bool {
 
 func (m *PipelineBuilderModel) updateViewportSizes() {
 	// Calculate dimensions
-	columnWidth := (m.width - 6) / 2                 // Account for gap, padding, and ensure border visibility
+	columnWidth := (m.viewports.Width - 6) / 2                 // Account for gap, padding, and ensure border visibility
 	searchBarHeight := 3                             // Height for search bar
-	contentHeight := m.height - 14 - searchBarHeight // Reserve space for search bar, help pane, status bar, and spacing
+	contentHeight := m.viewports.Height - 14 - searchBarHeight // Reserve space for search bar, help pane, status bar, and spacing
 
-	if m.showPreview {
+	if m.ui.ShowPreview {
 		contentHeight = contentHeight / 2
 	}
 
@@ -2011,19 +1912,19 @@ func (m *PipelineBuilderModel) updateViewportSizes() {
 	}
 
 	// Update left table renderer
-	m.leftTableRenderer.SetSize(columnWidth, contentHeight)
+	m.viewports.LeftTable.SetSize(columnWidth, contentHeight)
 
-	m.rightViewport.Width = columnWidth - 4 // Account for borders (2) and padding (2)
-	m.rightViewport.Height = rightViewportHeight
+	m.viewports.RightViewport.Width = columnWidth - 4 // Account for borders (2) and padding (2)
+	m.viewports.RightViewport.Height = rightViewportHeight
 
 	// Update preview viewport
-	if m.showPreview {
-		previewHeight := m.height/2 - 5
+	if m.ui.ShowPreview {
+		previewHeight := m.viewports.Height/2 - 5
 		if previewHeight < 5 {
 			previewHeight = 5
 		}
-		m.previewViewport.Width = m.width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
-		m.previewViewport.Height = previewHeight
+		m.viewports.Preview.Width = m.viewports.Width - 8 // Account for outer padding (2), borders (2), and inner padding (2) + extra spacing
+		m.viewports.Preview.Height = previewHeight
 	}
 }
 
@@ -2035,22 +1936,22 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 			m.err = err
 			return
 		}
-		m.pipeline = p
-		m.selectedComponents = p.Components
-		m.editingName = false // Don't show name input when editing
-		m.nameInput = p.Name
+		m.data.Pipeline = p
+		m.data.SelectedComponents = p.Components
+		m.editors.EditingName = false // Don't show name input when editing
+		m.editors.NameInput = p.Name
 
 		// Reorganize components by type to match display
 		m.reorganizeComponentsByType()
 
 		// Store original components for change detection AFTER reorganization
 		// This ensures the comparison baseline matches the displayed order
-		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
-		copy(m.originalComponents, m.selectedComponents)
+		m.data.OriginalComponents = make([]models.ComponentRef, len(m.data.SelectedComponents))
+		copy(m.data.OriginalComponents, m.data.SelectedComponents)
 
 		// Update local usage counts to reflect this pipeline's components
 		// This ensures the counts show what would happen if we save
-		for _, comp := range m.selectedComponents {
+		for _, comp := range m.data.SelectedComponents {
 			componentPath := strings.TrimPrefix(comp.Path, "../")
 			m.updateLocalUsageCount(componentPath, 1)
 		}
@@ -2059,13 +1960,13 @@ func (m *PipelineBuilderModel) SetPipeline(pipeline string) {
 		m.updatePreview()
 
 		// Set viewport content if preview is enabled
-		if m.showPreview && m.previewContent != "" {
+		if m.ui.ShowPreview && m.ui.PreviewContent != "" {
 			// Preprocess content to handle carriage returns and ensure proper line breaks
-			processedContent := strings.ReplaceAll(m.previewContent, "\r\r", "\n\n")
+			processedContent := strings.ReplaceAll(m.ui.PreviewContent, "\r\r", "\n\n")
 			processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
 			// Wrap content to viewport width to prevent overflow
-			wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
-			m.previewViewport.SetContent(wrappedContent)
+			wrappedContent := wordwrap.String(processedContent, m.viewports.Preview.Width)
+			m.viewports.Preview.SetContent(wrappedContent)
 		}
 	}
 }
@@ -2080,9 +1981,9 @@ func (m *PipelineBuilderModel) getAllAvailableComponents() []componentItem {
 
 	// Group components by type - use filtered lists when searching
 	typeGroups := make(map[string][]componentItem)
-	typeGroups[models.ComponentTypeContext] = m.filteredContexts
-	typeGroups[models.ComponentTypePrompt] = m.filteredPrompts
-	typeGroups[models.ComponentTypeRules] = m.filteredRules
+	typeGroups[models.ComponentTypeContext] = m.data.FilteredContexts
+	typeGroups[models.ComponentTypePrompt] = m.data.FilteredPrompts
+	typeGroups[models.ComponentTypeRules] = m.data.FilteredRules
 
 	// Build ordered list based on sections
 	var all []componentItem
@@ -2096,27 +1997,27 @@ func (m *PipelineBuilderModel) getAllAvailableComponents() []componentItem {
 }
 
 func (m *PipelineBuilderModel) moveCursor(delta int) {
-	if m.activeColumn == leftColumn {
+	if m.ui.ActiveColumn == leftColumn {
 		components := m.getAllAvailableComponents()
-		m.leftCursor += delta
-		if m.leftCursor < 0 {
-			m.leftCursor = 0
+		m.ui.LeftCursor += delta
+		if m.ui.LeftCursor < 0 {
+			m.ui.LeftCursor = 0
 		}
-		if m.leftCursor >= len(components) {
-			m.leftCursor = len(components) - 1
+		if m.ui.LeftCursor >= len(components) {
+			m.ui.LeftCursor = len(components) - 1
 		}
-	} else if m.activeColumn == rightColumn {
-		m.rightCursor += delta
-		if m.rightCursor < 0 {
-			m.rightCursor = 0
+	} else if m.ui.ActiveColumn == rightColumn {
+		m.ui.RightCursor += delta
+		if m.ui.RightCursor < 0 {
+			m.ui.RightCursor = 0
 		}
-		if m.rightCursor >= len(m.selectedComponents) {
-			m.rightCursor = len(m.selectedComponents) - 1
+		if m.ui.RightCursor >= len(m.data.SelectedComponents) {
+			m.ui.RightCursor = len(m.data.SelectedComponents) - 1
 		}
 		// Adjust viewport to ensure cursor is visible after movement
 		m.adjustRightViewportScroll()
 		// Sync preview scroll when navigating components in right column (Pipeline Components)
-		if m.showPreview && len(m.selectedComponents) > 0 {
+		if m.ui.ShowPreview && len(m.data.SelectedComponents) > 0 {
 			m.syncPreviewToSelectedComponent()
 		}
 	}
@@ -2126,24 +2027,24 @@ func (m *PipelineBuilderModel) moveCursor(delta int) {
 
 func (m *PipelineBuilderModel) addSelectedComponent() {
 	components := m.getAllAvailableComponents()
-	if m.leftCursor >= 0 && m.leftCursor < len(components) {
-		selected := components[m.leftCursor]
+	if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+		selected := components[m.ui.LeftCursor]
 
 		// Check if component is already added
 		componentPath := "../" + selected.path
-		for i, existing := range m.selectedComponents {
+		for i, existing := range m.data.SelectedComponents {
 			if existing.Path == componentPath {
 				// Component already exists, remove it from the pipeline
 				// Update the usage count before removing
 				m.updateLocalUsageCount(selected.path, -1)
 
 				// Set cursor to the position being removed so viewport scrolls there
-				m.rightCursor = i
+				m.ui.RightCursor = i
 
 				// Remove the component
-				m.selectedComponents = append(
-					m.selectedComponents[:i],
-					m.selectedComponents[i+1:]...,
+				m.data.SelectedComponents = append(
+					m.data.SelectedComponents[:i],
+					m.data.SelectedComponents[i+1:]...,
 				)
 
 				// Reorganize to maintain grouping
@@ -2151,10 +2052,10 @@ func (m *PipelineBuilderModel) addSelectedComponent() {
 
 				// After reorganization, find where the cursor should be
 				// If we removed the last item, move cursor to the new last item
-				if m.rightCursor >= len(m.selectedComponents) && len(m.selectedComponents) > 0 {
-					m.rightCursor = len(m.selectedComponents) - 1
-				} else if len(m.selectedComponents) == 0 {
-					m.rightCursor = 0
+				if m.ui.RightCursor >= len(m.data.SelectedComponents) && len(m.data.SelectedComponents) > 0 {
+					m.ui.RightCursor = len(m.data.SelectedComponents) - 1
+				} else if len(m.data.SelectedComponents) == 0 {
+					m.ui.RightCursor = 0
 				}
 				// Otherwise keep cursor at the same position to show where removal happened
 
@@ -2201,7 +2102,7 @@ func (m *PipelineBuilderModel) adjustRightViewportScroll() {
 
 	// Group components by type
 	typeGroups := make(map[string][]models.ComponentRef)
-	for _, comp := range m.selectedComponents {
+	for _, comp := range m.data.SelectedComponents {
 		typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 	}
 
@@ -2215,7 +2116,7 @@ func (m *PipelineBuilderModel) adjustRightViewportScroll() {
 		currentLine++ // Section header
 
 		for range components {
-			if overallIndex == m.rightCursor {
+			if overallIndex == m.ui.RightCursor {
 				goto found
 			}
 			currentLine++
@@ -2237,25 +2138,25 @@ func (m *PipelineBuilderModel) adjustRightViewportScroll() {
 
 found:
 	// Ensure the cursor line is visible
-	if currentLine < m.rightViewport.YOffset {
-		m.rightViewport.SetYOffset(currentLine)
-	} else if currentLine >= m.rightViewport.YOffset+m.rightViewport.Height {
-		m.rightViewport.SetYOffset(currentLine - m.rightViewport.Height + 1)
+	if currentLine < m.viewports.RightViewport.YOffset {
+		m.viewports.RightViewport.SetYOffset(currentLine)
+	} else if currentLine >= m.viewports.RightViewport.YOffset+m.viewports.RightViewport.Height {
+		m.viewports.RightViewport.SetYOffset(currentLine - m.viewports.RightViewport.Height + 1)
 	}
 }
 
 // insertComponentByType inserts a component in the correct position based on type grouping
 func (m *PipelineBuilderModel) insertComponentByType(newComp models.ComponentRef) {
 	// Add the component to the list
-	m.selectedComponents = append(m.selectedComponents, newComp)
+	m.data.SelectedComponents = append(m.data.SelectedComponents, newComp)
 
 	// Reorganize to maintain type grouping
 	m.reorganizeComponentsByType()
 
 	// Find the position of the newly added component and move cursor there
-	for i, comp := range m.selectedComponents {
+	for i, comp := range m.data.SelectedComponents {
 		if comp.Path == newComp.Path && comp.Type == newComp.Type {
-			m.rightCursor = i
+			m.ui.RightCursor = i
 			// Immediately adjust viewport to show the cursor
 			m.adjustRightViewportScroll()
 			break
@@ -2273,54 +2174,54 @@ func (m *PipelineBuilderModel) reorganizeComponentsByType() {
 
 	// Group components by type
 	typeGroups := make(map[string][]models.ComponentRef)
-	for _, comp := range m.selectedComponents {
+	for _, comp := range m.data.SelectedComponents {
 		typeGroups[comp.Type] = append(typeGroups[comp.Type], comp)
 	}
 
 	// Rebuild the array in configured order
-	m.selectedComponents = nil
+	m.data.SelectedComponents = nil
 	for _, section := range settings.Output.Formatting.Sections {
 		if components, exists := typeGroups[section.Type]; exists {
-			m.selectedComponents = append(m.selectedComponents, components...)
+			m.data.SelectedComponents = append(m.data.SelectedComponents, components...)
 		}
 	}
 
 	// Update order numbers
-	for i := range m.selectedComponents {
-		m.selectedComponents[i].Order = i + 1
+	for i := range m.data.SelectedComponents {
+		m.data.SelectedComponents[i].Order = i + 1
 	}
 }
 
 // updateLocalUsageCount updates the usage count for a component locally
 func (m *PipelineBuilderModel) updateLocalUsageCount(componentPath string, delta int) {
 	// Update in prompts
-	for i := range m.prompts {
-		if m.prompts[i].path == componentPath {
-			m.prompts[i].usageCount += delta
-			if m.prompts[i].usageCount < 0 {
-				m.prompts[i].usageCount = 0
+	for i := range m.data.Prompts {
+		if m.data.Prompts[i].path == componentPath {
+			m.data.Prompts[i].usageCount += delta
+			if m.data.Prompts[i].usageCount < 0 {
+				m.data.Prompts[i].usageCount = 0
 			}
 			return
 		}
 	}
 
 	// Update in contexts
-	for i := range m.contexts {
-		if m.contexts[i].path == componentPath {
-			m.contexts[i].usageCount += delta
-			if m.contexts[i].usageCount < 0 {
-				m.contexts[i].usageCount = 0
+	for i := range m.data.Contexts {
+		if m.data.Contexts[i].path == componentPath {
+			m.data.Contexts[i].usageCount += delta
+			if m.data.Contexts[i].usageCount < 0 {
+				m.data.Contexts[i].usageCount = 0
 			}
 			return
 		}
 	}
 
 	// Update in rules
-	for i := range m.rules {
-		if m.rules[i].path == componentPath {
-			m.rules[i].usageCount += delta
-			if m.rules[i].usageCount < 0 {
-				m.rules[i].usageCount = 0
+	for i := range m.data.Rules {
+		if m.data.Rules[i].path == componentPath {
+			m.data.Rules[i].usageCount += delta
+			if m.data.Rules[i].usageCount < 0 {
+				m.data.Rules[i].usageCount = 0
 			}
 			return
 		}
@@ -2328,39 +2229,39 @@ func (m *PipelineBuilderModel) updateLocalUsageCount(componentPath string, delta
 }
 
 func (m *PipelineBuilderModel) removeSelectedComponent() {
-	if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
+	if m.ui.RightCursor >= 0 && m.ui.RightCursor < len(m.data.SelectedComponents) {
 		// Get the component path to update usage count
-		removedComponent := m.selectedComponents[m.rightCursor]
+		removedComponent := m.data.SelectedComponents[m.ui.RightCursor]
 		componentPath := strings.TrimPrefix(removedComponent.Path, "../")
 
 		// Remember the type of component we're removing to adjust cursor properly
 		removedType := removedComponent.Type
 
 		// Remove component
-		m.selectedComponents = append(
-			m.selectedComponents[:m.rightCursor],
-			m.selectedComponents[m.rightCursor+1:]...,
+		m.data.SelectedComponents = append(
+			m.data.SelectedComponents[:m.ui.RightCursor],
+			m.data.SelectedComponents[m.ui.RightCursor+1:]...,
 		)
 
 		// Reorganize to maintain grouping
 		m.reorganizeComponentsByType()
 
 		// Adjust cursor - try to stay in the same position or move to the last item of the same type
-		if m.rightCursor >= len(m.selectedComponents) && m.rightCursor > 0 {
-			m.rightCursor = len(m.selectedComponents) - 1
+		if m.ui.RightCursor >= len(m.data.SelectedComponents) && m.ui.RightCursor > 0 {
+			m.ui.RightCursor = len(m.data.SelectedComponents) - 1
 		}
 
 		// Try to position cursor on a component of the same type
-		if len(m.selectedComponents) > 0 {
+		if len(m.data.SelectedComponents) > 0 {
 			// Find the last component of the same type before or at cursor position
 			newCursor := -1
-			for i := 0; i <= m.rightCursor && i < len(m.selectedComponents); i++ {
-				if m.selectedComponents[i].Type == removedType {
+			for i := 0; i <= m.ui.RightCursor && i < len(m.data.SelectedComponents); i++ {
+				if m.data.SelectedComponents[i].Type == removedType {
 					newCursor = i
 				}
 			}
 			if newCursor >= 0 {
-				m.rightCursor = newCursor
+				m.ui.RightCursor = newCursor
 			}
 		}
 
@@ -2376,21 +2277,21 @@ func (m *PipelineBuilderModel) removeSelectedComponent() {
 }
 
 func (m *PipelineBuilderModel) moveComponentUp() {
-	if m.rightCursor > 0 && m.rightCursor < len(m.selectedComponents) {
-		currentType := m.selectedComponents[m.rightCursor].Type
-		previousType := m.selectedComponents[m.rightCursor-1].Type
+	if m.ui.RightCursor > 0 && m.ui.RightCursor < len(m.data.SelectedComponents) {
+		currentType := m.data.SelectedComponents[m.ui.RightCursor].Type
+		previousType := m.data.SelectedComponents[m.ui.RightCursor-1].Type
 
 		// Only allow moving within the same type group
 		if currentType == previousType {
 			// Swap with previous
-			m.selectedComponents[m.rightCursor-1], m.selectedComponents[m.rightCursor] =
-				m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor-1]
+			m.data.SelectedComponents[m.ui.RightCursor-1], m.data.SelectedComponents[m.ui.RightCursor] =
+				m.data.SelectedComponents[m.ui.RightCursor], m.data.SelectedComponents[m.ui.RightCursor-1]
 
 			// Update order numbers
-			m.selectedComponents[m.rightCursor-1].Order = m.rightCursor
-			m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
+			m.data.SelectedComponents[m.ui.RightCursor-1].Order = m.ui.RightCursor
+			m.data.SelectedComponents[m.ui.RightCursor].Order = m.ui.RightCursor + 1
 
-			m.rightCursor--
+			m.ui.RightCursor--
 
 			// Adjust viewport to ensure cursor is visible after move
 			m.adjustRightViewportScroll()
@@ -2399,21 +2300,21 @@ func (m *PipelineBuilderModel) moveComponentUp() {
 }
 
 func (m *PipelineBuilderModel) moveComponentDown() {
-	if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents)-1 {
-		currentType := m.selectedComponents[m.rightCursor].Type
-		nextType := m.selectedComponents[m.rightCursor+1].Type
+	if m.ui.RightCursor >= 0 && m.ui.RightCursor < len(m.data.SelectedComponents)-1 {
+		currentType := m.data.SelectedComponents[m.ui.RightCursor].Type
+		nextType := m.data.SelectedComponents[m.ui.RightCursor+1].Type
 
 		// Only allow moving within the same type group
 		if currentType == nextType {
 			// Swap with next
-			m.selectedComponents[m.rightCursor], m.selectedComponents[m.rightCursor+1] =
-				m.selectedComponents[m.rightCursor+1], m.selectedComponents[m.rightCursor]
+			m.data.SelectedComponents[m.ui.RightCursor], m.data.SelectedComponents[m.ui.RightCursor+1] =
+				m.data.SelectedComponents[m.ui.RightCursor+1], m.data.SelectedComponents[m.ui.RightCursor]
 
 			// Update order numbers
-			m.selectedComponents[m.rightCursor].Order = m.rightCursor + 1
-			m.selectedComponents[m.rightCursor+1].Order = m.rightCursor + 2
+			m.data.SelectedComponents[m.ui.RightCursor].Order = m.ui.RightCursor + 1
+			m.data.SelectedComponents[m.ui.RightCursor+1].Order = m.ui.RightCursor + 2
 
-			m.rightCursor++
+			m.ui.RightCursor++
 
 			// Adjust viewport to ensure cursor is visible after move
 			m.adjustRightViewportScroll()
@@ -2422,53 +2323,53 @@ func (m *PipelineBuilderModel) moveComponentDown() {
 }
 
 func (m *PipelineBuilderModel) updatePreview() {
-	if !m.showPreview {
+	if !m.ui.ShowPreview {
 		return
 	}
 
 	// Show preview based on active column
-	if m.activeColumn == leftColumn {
+	if m.ui.ActiveColumn == leftColumn {
 		// Show component preview for left column
 		components := m.getAllAvailableComponents()
 		if len(components) == 0 {
-			m.previewContent = "No components to preview."
+			m.ui.PreviewContent = "No components to preview."
 			return
 		}
 
-		if m.leftCursor >= 0 && m.leftCursor < len(components) {
-			comp := components[m.leftCursor]
+		if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+			comp := components[m.ui.LeftCursor]
 
 			// Read component content
 			content, err := files.ReadComponent(comp.path)
 			if err != nil {
-				m.previewContent = fmt.Sprintf("Error loading component: %v", err)
+				m.ui.PreviewContent = fmt.Sprintf("Error loading component: %v", err)
 				return
 			}
 
 			// Set preview content to just the component content without metadata
-			m.previewContent = content.Content
+			m.ui.PreviewContent = content.Content
 		}
 	} else {
 		// Show pipeline preview for right column
-		if len(m.selectedComponents) == 0 {
-			m.previewContent = "No components selected yet.\n\nAdd components to see the pipeline preview."
+		if len(m.data.SelectedComponents) == 0 {
+			m.ui.PreviewContent = "No components selected yet.\n\nAdd components to see the pipeline preview."
 			return
 		}
 
 		// Create a temporary pipeline with current components
 		tempPipeline := &models.Pipeline{
-			Name:       m.pipeline.Name,
-			Components: m.selectedComponents,
+			Name:       m.data.Pipeline.Name,
+			Components: m.data.SelectedComponents,
 		}
 
 		// Generate the preview
 		output, err := composer.ComposePipeline(tempPipeline)
 		if err != nil {
-			m.previewContent = fmt.Sprintf("Error generating preview: %v", err)
+			m.ui.PreviewContent = fmt.Sprintf("Error generating preview: %v", err)
 			return
 		}
 
-		m.previewContent = output
+		m.ui.PreviewContent = output
 	}
 }
 
@@ -2491,15 +2392,15 @@ func (m *PipelineBuilderModel) findComponentInPreview(componentContent, componen
 	}
 
 	// Calculate line position in the preview
-	lines := strings.Split(m.previewContent, "\n")
+	lines := strings.Split(m.ui.PreviewContent, "\n")
 
 	// Track which occurrence we're looking for (components might repeat)
 	occurrenceCount := 0
 	targetOccurrence := 0
 
 	// Count how many times this component appears before our target
-	for i := 0; i < m.rightCursor; i++ {
-		if m.selectedComponents[i].Path == componentPath {
+	for i := 0; i < m.ui.RightCursor; i++ {
+		if m.data.SelectedComponents[i].Path == componentPath {
 			targetOccurrence++
 		}
 	}
@@ -2524,22 +2425,22 @@ func (m *PipelineBuilderModel) findComponentInPreview(componentContent, componen
 
 // estimateComponentPosition estimates the line position of a component based on its order
 func (m *PipelineBuilderModel) estimateComponentPosition() int {
-	if m.rightCursor == 0 {
+	if m.ui.RightCursor == 0 {
 		return 0
 	}
 
-	lines := strings.Split(m.previewContent, "\n")
+	lines := strings.Split(m.ui.PreviewContent, "\n")
 
 	// Calculate average lines per component
 	linesPerComponent := 0
-	if len(lines) > 0 && len(m.selectedComponents) > 0 {
-		linesPerComponent = len(lines) / len(m.selectedComponents)
+	if len(lines) > 0 && len(m.data.SelectedComponents) > 0 {
+		linesPerComponent = len(lines) / len(m.data.SelectedComponents)
 	}
 	if linesPerComponent < minLinesPerComponent {
 		linesPerComponent = defaultLinesPerComponent
 	}
 
-	targetLine := (m.rightCursor * linesPerComponent) + 5
+	targetLine := (m.ui.RightCursor * linesPerComponent) + 5
 	if targetLine >= len(lines)-scrollBottomPadding {
 		targetLine = len(lines) - scrollBottomPadding
 	}
@@ -2552,12 +2453,12 @@ func (m *PipelineBuilderModel) estimateComponentPosition() int {
 
 // syncPreviewToSelectedComponent scrolls the preview viewport to show the currently selected component in the pipeline
 func (m *PipelineBuilderModel) syncPreviewToSelectedComponent() {
-	if !m.showPreview || len(m.selectedComponents) == 0 || m.rightCursor < 0 || m.rightCursor >= len(m.selectedComponents) {
+	if !m.ui.ShowPreview || len(m.data.SelectedComponents) == 0 || m.ui.RightCursor < 0 || m.ui.RightCursor >= len(m.data.SelectedComponents) {
 		return
 	}
 
 	// Get the currently selected component in the right column
-	selectedComp := m.selectedComponents[m.rightCursor]
+	selectedComp := m.data.SelectedComponents[m.ui.RightCursor]
 
 	// Read the component content to match it in the preview
 	// Component paths in YAML are relative to the pipelines directory
@@ -2573,7 +2474,7 @@ func (m *PipelineBuilderModel) syncPreviewToSelectedComponent() {
 	targetLine := m.findComponentInPreview(content.Content, selectedComp.Path)
 
 	// If we couldn't find by content, estimate position by component order
-	if targetLine == -1 && m.rightCursor > 0 {
+	if targetLine == -1 && m.ui.RightCursor > 0 {
 		targetLine = m.estimateComponentPosition()
 	}
 
@@ -2583,13 +2484,13 @@ func (m *PipelineBuilderModel) syncPreviewToSelectedComponent() {
 	}
 
 	// Scroll to the target line, centering it if possible
-	viewportHeight := m.previewViewport.Height
+	viewportHeight := m.viewports.Preview.Height
 	if targetLine > viewportHeight/2 {
 		// Scroll so the target line is centered
-		m.previewViewport.SetYOffset(targetLine - viewportHeight/2)
+		m.viewports.Preview.SetYOffset(targetLine - viewportHeight/2)
 	} else {
 		// Scroll to top if target is near the beginning
-		m.previewViewport.SetYOffset(0)
+		m.viewports.Preview.SetYOffset(0)
 	}
 }
 
@@ -2628,10 +2529,10 @@ func sanitizeFileName(name string) string {
 func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 	return func() tea.Msg {
 		// Update pipeline with selected components
-		m.pipeline.Components = m.selectedComponents
+		m.data.Pipeline.Components = m.data.SelectedComponents
 
 		// Create filename from name using sanitization
-		filename := sanitizeFileName(m.pipeline.Name) + ".yaml"
+		filename := sanitizeFileName(m.data.Pipeline.Name) + ".yaml"
 
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
@@ -2642,39 +2543,39 @@ func (m *PipelineBuilderModel) savePipeline() tea.Cmd {
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
-				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
+				if m.data.Pipeline.Path == "" || !strings.EqualFold(m.data.Pipeline.Path, existing) {
+					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.data.Pipeline.Name))
 				}
 			}
 		}
 
-		m.pipeline.Path = filename
+		m.data.Pipeline.Path = filename
 
 		// Save pipeline
-		err = files.WritePipeline(m.pipeline)
+		err = files.WritePipeline(m.data.Pipeline)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save pipeline: %v", err))
 		}
 
 		// Update original components to match saved state
-		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
-		copy(m.originalComponents, m.selectedComponents)
+		m.data.OriginalComponents = make([]models.ComponentRef, len(m.data.SelectedComponents))
+		copy(m.data.OriginalComponents, m.data.SelectedComponents)
 
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
 
 		// Return success message
-		return StatusMsg(fmt.Sprintf("✓ Pipeline saved: %s", m.pipeline.Path))
+		return StatusMsg(fmt.Sprintf("✓ Pipeline saved: %s", m.data.Pipeline.Path))
 	}
 }
 
 func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 	return func() tea.Msg {
 		// Update pipeline with selected components
-		m.pipeline.Components = m.selectedComponents
+		m.data.Pipeline.Components = m.data.SelectedComponents
 
 		// Create filename from name using sanitization
-		filename := sanitizeFileName(m.pipeline.Name) + ".yaml"
+		filename := sanitizeFileName(m.data.Pipeline.Name) + ".yaml"
 
 		// Check if pipeline already exists (case-insensitive)
 		existingPipelines, err := files.ListPipelines()
@@ -2685,28 +2586,28 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, filename) {
 				// Don't overwrite if it's not the same pipeline we're editing
-				if m.pipeline.Path == "" || !strings.EqualFold(m.pipeline.Path, existing) {
-					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.pipeline.Name))
+				if m.data.Pipeline.Path == "" || !strings.EqualFold(m.data.Pipeline.Path, existing) {
+					return StatusMsg(fmt.Sprintf("× Pipeline '%s' already exists. Please choose a different name.", m.data.Pipeline.Name))
 				}
 			}
 		}
 
-		m.pipeline.Path = filename
+		m.data.Pipeline.Path = filename
 
 		// Save pipeline
-		err = files.WritePipeline(m.pipeline)
+		err = files.WritePipeline(m.data.Pipeline)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to save pipeline: %v", err))
 		}
 
 		// Generate pipeline output
-		output, err := composer.ComposePipeline(m.pipeline)
+		output, err := composer.ComposePipeline(m.data.Pipeline)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to generate output: %v", err))
 		}
 
 		// Write to PLUQQY.md
-		outputPath := m.pipeline.OutputPath
+		outputPath := m.data.Pipeline.OutputPath
 		if outputPath == "" {
 			outputPath = files.DefaultOutputFile
 		}
@@ -2717,19 +2618,19 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 		}
 
 		// Update preview if showing
-		if m.showPreview {
-			m.previewContent = output
+		if m.ui.ShowPreview {
+			m.ui.PreviewContent = output
 			// Preprocess content to handle carriage returns and ensure proper line breaks
 			processedContent := strings.ReplaceAll(output, "\r\r", "\n\n")
 			processedContent = strings.ReplaceAll(processedContent, "\r", "\n")
 			// Wrap content to viewport width to prevent overflow
-			wrappedContent := wordwrap.String(processedContent, m.previewViewport.Width)
-			m.previewViewport.SetContent(wrappedContent)
+			wrappedContent := wordwrap.String(processedContent, m.viewports.Preview.Width)
+			m.viewports.Preview.SetContent(wrappedContent)
 		}
 
 		// Update original components to match saved state
-		m.originalComponents = make([]models.ComponentRef, len(m.selectedComponents))
-		copy(m.originalComponents, m.selectedComponents)
+		m.data.OriginalComponents = make([]models.ComponentRef, len(m.data.SelectedComponents))
+		copy(m.data.OriginalComponents, m.data.SelectedComponents)
 
 		// Reload components to update usage stats after save
 		m.loadAvailableComponents()
@@ -2741,22 +2642,22 @@ func (m *PipelineBuilderModel) saveAndSetPipeline() tea.Cmd {
 
 func (m *PipelineBuilderModel) deletePipeline() tea.Cmd {
 	return func() tea.Msg {
-		if m.pipeline == nil || m.pipeline.Path == "" {
+		if m.data.Pipeline == nil || m.data.Pipeline.Path == "" {
 			return StatusMsg("× No pipeline to delete")
 		}
 
 		// Store tags before deletion for cleanup
-		tagsToCleanup := make([]string, len(m.pipeline.Tags))
-		copy(tagsToCleanup, m.pipeline.Tags)
+		tagsToCleanup := make([]string, len(m.data.Pipeline.Tags))
+		copy(tagsToCleanup, m.data.Pipeline.Tags)
 
 		// Delete the pipeline file
-		err := files.DeletePipeline(m.pipeline.Path)
+		err := files.DeletePipeline(m.data.Pipeline.Path)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("× Failed to delete pipeline: %v", err))
 		}
 
 		// Extract pipeline name from path
-		pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+		pipelineName := strings.TrimSuffix(filepath.Base(m.data.Pipeline.Path), ".yaml")
 
 		// Start async tag cleanup if there were tags
 		if len(tagsToCleanup) > 0 {
@@ -2817,8 +2718,8 @@ func (m *PipelineBuilderModel) nameInputView() string {
 		Width(60)
 
 	// Calculate dimensions
-	contentWidth := m.width - 4    // Match help pane width
-	contentHeight := m.height - 11 // Reserve space for help pane and status bar
+	contentWidth := m.viewports.Width - 4    // Match help pane width
+	contentHeight := m.viewports.Height - 11 // Reserve space for help pane and status bar
 
 	// Build main content
 	var mainContent strings.Builder
@@ -2851,7 +2752,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	mainContent.WriteString("\n\n")
 
 	// Input field with cursor
-	input := m.nameInput + "│" // cursor
+	input := m.editors.NameInput + "│" // cursor
 
 	// Render input field with padding for centering
 	inputFieldContent := inputStyle.Render(input)
@@ -2864,8 +2765,8 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	mainContent.WriteString(headerPadding.Render(centeredInputStyle.Render(inputFieldContent)))
 
 	// Check if pipeline name already exists and show warning
-	if m.nameInput != "" {
-		testFilename := sanitizeFileName(m.nameInput) + ".yaml"
+	if m.editors.NameInput != "" {
+		testFilename := sanitizeFileName(m.editors.NameInput) + ".yaml"
 		existingPipelines, _ := files.ListPipelines()
 		for _, existing := range existingPipelines {
 			if strings.EqualFold(existing, testFilename) {
@@ -2873,7 +2774,7 @@ func (m *PipelineBuilderModel) nameInputView() string {
 				warningStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("214")). // Orange/yellow for warning
 					Bold(true)
-				warningText := warningStyle.Render(fmt.Sprintf("⚠ Warning: Pipeline '%s' already exists", m.nameInput))
+				warningText := warningStyle.Render(fmt.Sprintf("⚠ Warning: Pipeline '%s' already exists", m.editors.NameInput))
 				mainContent.WriteString("\n\n")
 				mainContent.WriteString(headerPadding.Render(centeredPromptStyle.Render(warningText)))
 				break
@@ -2896,13 +2797,13 @@ func (m *PipelineBuilderModel) nameInputView() string {
 	helpBorderStyle := lipgloss.NewStyle().
 		Border(lipgloss.RoundedBorder()).
 		BorderForeground(lipgloss.Color("240")).
-		Width(m.width-4).
+		Width(m.viewports.Width-4).
 		Padding(0, 1)
 
 	helpContent := formatHelpText(help)
 	// Right-align help text
 	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
+		Width(m.viewports.Width - 8).
 		Align(lipgloss.Right).
 		Render(helpContent)
 	helpContent = alignedHelp
@@ -2923,10 +2824,10 @@ func (m *PipelineBuilderModel) nameInputView() string {
 }
 
 func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.componentCreator.GetCurrentStep() {
+	switch m.editors.ComponentCreator.GetCurrentStep() {
 	case 0: // Type selection
-		if m.componentCreator.HandleTypeSelection(msg) {
-			if !m.componentCreator.IsActive() {
+		if m.editors.ComponentCreator.HandleTypeSelection(msg) {
+			if !m.editors.ComponentCreator.IsActive() {
 				// Component creation was cancelled
 				return m, nil
 			}
@@ -2934,8 +2835,8 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 		}
 
 	case 1: // Name input
-		if m.componentCreator.HandleNameInput(msg) {
-			if !m.componentCreator.IsActive() {
+		if m.editors.ComponentCreator.HandleNameInput(msg) {
+			if !m.editors.ComponentCreator.IsActive() {
 				// Component creation was cancelled
 				return m, nil
 			}
@@ -2944,23 +2845,23 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 
 	case 2: // Content input
 		// Use enhanced editor if enabled and active
-		if m.componentCreator.IsEnhancedEditorActive() {
+		if m.editors.ComponentCreator.IsEnhancedEditorActive() {
 			// Use the ComponentCreator's handler which properly manages save state
-			handled, cmd := m.componentCreator.HandleEnhancedEditorInput(msg, m.width)
+			handled, cmd := m.editors.ComponentCreator.HandleEnhancedEditorInput(msg, m.viewports.Width)
 			if handled {
 				// Check if component was saved (but editor stays open)
-				if m.componentCreator.WasSaveSuccessful() {
+				if m.editors.ComponentCreator.WasSaveSuccessful() {
 					// Component was saved successfully
 					m.loadAvailableComponents()
 					return m, tea.Batch(
 						cmd,
 						func() tea.Msg {
-							return StatusMsg(m.componentCreator.GetStatusMessage())
+							return StatusMsg(m.editors.ComponentCreator.GetStatusMessage())
 						},
 					)
 				}
 				// Check if component creation was cancelled
-				if !m.componentCreator.IsActive() {
+				if !m.editors.ComponentCreator.IsActive() {
 					// Component creation ended (saved or cancelled)
 					// Always reload to ensure list is current
 					m.loadAvailableComponents()
@@ -2978,32 +2879,32 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 }
 
 func (m *PipelineBuilderModel) componentCreationView() string {
-	renderer := NewComponentCreationViewRenderer(m.width, m.height)
+	renderer := NewComponentCreationViewRenderer(m.viewports.Width, m.viewports.Height)
 
-	switch m.componentCreator.GetCurrentStep() {
+	switch m.editors.ComponentCreator.GetCurrentStep() {
 	case 0:
-		return renderer.RenderTypeSelection(m.componentCreator.GetTypeCursor())
+		return renderer.RenderTypeSelection(m.editors.ComponentCreator.GetTypeCursor())
 	case 1:
-		return renderer.RenderNameInput(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName())
+		return renderer.RenderNameInput(m.editors.ComponentCreator.GetComponentType(), m.editors.ComponentCreator.GetComponentName())
 	case 2:
 		// Use enhanced editor if available
-		if m.componentCreator.IsEnhancedEditorActive() {
+		if m.editors.ComponentCreator.IsEnhancedEditorActive() {
 			return renderer.RenderWithEnhancedEditor(
-				m.componentCreator.GetEnhancedEditor(),
-				m.componentCreator.GetComponentType(),
-				m.componentCreator.GetComponentName(),
+				m.editors.ComponentCreator.GetEnhancedEditor(),
+				m.editors.ComponentCreator.GetComponentType(),
+				m.editors.ComponentCreator.GetComponentName(),
 			)
 		}
 		// Fallback to simple editor
-		return renderer.RenderContentEdit(m.componentCreator.GetComponentType(), m.componentCreator.GetComponentName(), m.componentCreator.GetComponentContent())
+		return renderer.RenderContentEdit(m.editors.ComponentCreator.GetComponentType(), m.editors.ComponentCreator.GetComponentName(), m.editors.ComponentCreator.GetComponentContent())
 	}
 
 	return "Unknown creation step"
 }
 
 func (m *PipelineBuilderModel) editComponent() tea.Cmd {
-	if m.rightCursor >= 0 && m.rightCursor < len(m.selectedComponents) {
-		comp := m.selectedComponents[m.rightCursor]
+	if m.ui.RightCursor >= 0 && m.ui.RightCursor < len(m.data.SelectedComponents) {
+		comp := m.data.SelectedComponents[m.ui.RightCursor]
 		componentPath := filepath.Join(files.PipelinesDir, comp.Path)
 		componentPath = filepath.Clean(componentPath)
 
@@ -3014,8 +2915,8 @@ func (m *PipelineBuilderModel) editComponent() tea.Cmd {
 
 func (m *PipelineBuilderModel) editComponentFromLeft() tea.Cmd {
 	components := m.getAllAvailableComponents()
-	if m.leftCursor >= 0 && m.leftCursor < len(components) {
-		comp := components[m.leftCursor]
+	if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+		comp := components[m.ui.LeftCursor]
 		return m.openInEditor(comp.path)
 	}
 	return nil
@@ -3053,13 +2954,13 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 // editor or the legacy editor based on configuration
 func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// Handle input through the enhanced editor
-	if m.enhancedEditor.IsActive() {
-		handled, cmd := HandleEnhancedEditorInput(m.enhancedEditor, msg, m.width)
+	if m.editors.Enhanced.IsActive() {
+		handled, cmd := HandleEnhancedEditorInput(m.editors.Enhanced, msg, m.viewports.Width)
 		if handled {
 			// Check if editor is still active after handling input
-			if !m.enhancedEditor.IsActive() {
+			if !m.editors.Enhanced.IsActive() {
 				// Editor was closed, exit editing mode
-				m.editingComponent = false
+				m.editors.EditingComponent = false
 				// Reload components to reflect any changes
 				m.loadAvailableComponents()
 			}
@@ -3070,8 +2971,8 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 
 	// If enhanced editor is not active but we're in editing mode, something is wrong
 	// Exit editing mode
-	if m.editingComponent {
-		m.editingComponent = false
+	if m.editors.EditingComponent {
+		m.editors.EditingComponent = false
 	}
 
 	return m, nil
@@ -3082,8 +2983,8 @@ func (m *PipelineBuilderModel) handleComponentEditing(msg tea.KeyMsg) (tea.Model
 // to allow these letters to be entered as part of tag text. This matches the behavior
 // of the Main List View's tag editor. Arrow keys are used for navigation instead.
 func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if m.tagDeleteConfirm.Active() {
-		return m, m.tagDeleteConfirm.Update(msg)
+	if m.ui.TagDeleteConfirm.Active() {
+		return m, m.ui.TagDeleteConfirm.Update(msg)
 	}
 
 	switch msg.String() {
@@ -3091,23 +2992,23 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		// Check for unsaved changes
 		if m.hasTagChanges() {
 			// Show confirmation dialog
-			m.exitConfirmationType = "tags"
-			m.exitConfirm.ShowDialog(
+			m.ui.ExitConfirmationType = "tags"
+			m.ui.ExitConfirm.ShowDialog(
 				"⚠️  Unsaved Changes",
 				"You have unsaved changes to tags.",
 				"Exit without saving?",
 				true, // destructive
-				m.width-4,   // width
+				m.viewports.Width-4,   // width
 				10,   // height
 				func() tea.Cmd {
 					// Exit without saving
-					m.editingTags = false
-					m.tagInput = ""
-					m.currentTags = nil
-					m.originalTags = nil
-					m.showTagSuggestions = false
-					m.tagCloudActive = false
-					m.tagCloudCursor = 0
+					m.ui.EditingTags = false
+					m.ui.TagInput = ""
+					m.ui.CurrentTags = nil
+					m.ui.OriginalTags = nil
+					m.ui.ShowTagSuggestions = false
+					m.ui.TagCloudActive = false
+					m.ui.TagCloudCursor = 0
 					return nil
 				},
 				func() tea.Cmd {
@@ -3118,13 +3019,13 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 			return m, nil
 		} else {
 			// No changes, exit directly
-			m.editingTags = false
-			m.tagInput = ""
-			m.currentTags = nil
-			m.originalTags = nil
-			m.showTagSuggestions = false
-			m.tagCloudActive = false
-			m.tagCloudCursor = 0
+			m.ui.EditingTags = false
+			m.ui.TagInput = ""
+			m.ui.CurrentTags = nil
+			m.ui.OriginalTags = nil
+			m.ui.ShowTagSuggestions = false
+			m.ui.TagCloudActive = false
+			m.ui.TagCloudCursor = 0
 			return m, nil
 		}
 
@@ -3132,147 +3033,147 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 		return m, m.saveTags()
 
 	case "enter":
-		if m.tagCloudActive {
+		if m.ui.TagCloudActive {
 			availableForSelection := m.getAvailableTagsForCloud()
-			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
-				tag := availableForSelection[m.tagCloudCursor]
+			if m.ui.TagCloudCursor >= 0 && m.ui.TagCloudCursor < len(availableForSelection) {
+				tag := availableForSelection[m.ui.TagCloudCursor]
 				if !m.hasTag(tag) {
-					m.currentTags = append(m.currentTags, tag)
+					m.ui.CurrentTags = append(m.ui.CurrentTags, tag)
 				}
 			}
-		} else if m.tagInput != "" {
+		} else if m.ui.TagInput != "" {
 			// Only use suggestion if user actively navigated to select it
-			if m.hasNavigatedSuggestions && m.showTagSuggestions {
+			if m.ui.HasNavigatedSuggestions && m.ui.ShowTagSuggestions {
 				suggestions := m.getFilteredSuggestions()
-				if m.tagSuggestionCursor >= 0 && m.tagSuggestionCursor < len(suggestions) {
+				if m.ui.TagSuggestionCursor >= 0 && m.ui.TagSuggestionCursor < len(suggestions) {
 					// Limit to 5 suggestions as per the view
 					maxIndex := len(suggestions)
 					if maxIndex > 5 {
 						maxIndex = 5
 					}
-					if m.tagSuggestionCursor < maxIndex {
-						tag := suggestions[m.tagSuggestionCursor]
+					if m.ui.TagSuggestionCursor < maxIndex {
+						tag := suggestions[m.ui.TagSuggestionCursor]
 						if !m.hasTag(tag) {
-							m.currentTags = append(m.currentTags, tag)
+							m.ui.CurrentTags = append(m.ui.CurrentTags, tag)
 						}
-						m.tagInput = ""
-						m.tagCursor = len(m.currentTags)
-						m.tagSuggestionCursor = 0
-						m.hasNavigatedSuggestions = false
+						m.ui.TagInput = ""
+						m.ui.TagCursor = len(m.ui.CurrentTags)
+						m.ui.TagSuggestionCursor = 0
+						m.ui.HasNavigatedSuggestions = false
 					}
 				}
 			} else {
 				// User just typed and hit enter - add exactly what they typed
-				normalized := models.NormalizeTagName(m.tagInput)
+				normalized := models.NormalizeTagName(m.ui.TagInput)
 				if normalized != "" && !m.hasTag(normalized) {
-					m.currentTags = append(m.currentTags, normalized)
+					m.ui.CurrentTags = append(m.ui.CurrentTags, normalized)
 				}
-				m.tagInput = ""
-				m.tagCursor = len(m.currentTags)
-				m.tagSuggestionCursor = 0
-				m.hasNavigatedSuggestions = false
+				m.ui.TagInput = ""
+				m.ui.TagCursor = len(m.ui.CurrentTags)
+				m.ui.TagSuggestionCursor = 0
+				m.ui.HasNavigatedSuggestions = false
 			}
 		}
 		return m, nil
 
 	case "tab":
-		m.tagCloudActive = !m.tagCloudActive
-		if m.tagCloudActive {
-			m.tagCloudCursor = 0
+		m.ui.TagCloudActive = !m.ui.TagCloudActive
+		if m.ui.TagCloudActive {
+			m.ui.TagCloudCursor = 0
 		}
 		return m, nil
 
 	case "up":
-		if !m.tagCloudActive && m.showTagSuggestions && m.tagInput != "" {
+		if !m.ui.TagCloudActive && m.ui.ShowTagSuggestions && m.ui.TagInput != "" {
 			// Navigate up in suggestions
-			if m.tagSuggestionCursor > 0 {
-				m.tagSuggestionCursor--
+			if m.ui.TagSuggestionCursor > 0 {
+				m.ui.TagSuggestionCursor--
 			}
 			// Mark as navigated even if cursor doesn't move (for single suggestion case)
-			m.hasNavigatedSuggestions = true
-		} else if m.tagCloudActive {
+			m.ui.HasNavigatedSuggestions = true
+		} else if m.ui.TagCloudActive {
 			// Navigate in tag cloud
-			if m.tagCloudCursor > 0 {
-				m.tagCloudCursor--
+			if m.ui.TagCloudCursor > 0 {
+				m.ui.TagCloudCursor--
 			}
 		}
 		return m, nil
 
 	case "down":
-		if !m.tagCloudActive && m.showTagSuggestions && m.tagInput != "" {
+		if !m.ui.TagCloudActive && m.ui.ShowTagSuggestions && m.ui.TagInput != "" {
 			// Navigate down in suggestions
 			suggestions := m.getFilteredSuggestions()
 			maxSuggestions := len(suggestions)
 			if maxSuggestions > 5 {
 				maxSuggestions = 5 // Limit to 5 suggestions as per the view
 			}
-			if m.tagSuggestionCursor < maxSuggestions-1 {
-				m.tagSuggestionCursor++
+			if m.ui.TagSuggestionCursor < maxSuggestions-1 {
+				m.ui.TagSuggestionCursor++
 			}
 			// Mark as navigated even if cursor doesn't move (for single suggestion case)
-			m.hasNavigatedSuggestions = true
-		} else if m.tagCloudActive {
+			m.ui.HasNavigatedSuggestions = true
+		} else if m.ui.TagCloudActive {
 			// Navigate in tag cloud
 			availableForSelection := m.getAvailableTagsForCloud()
-			if m.tagCloudCursor < len(availableForSelection)-1 {
-				m.tagCloudCursor++
+			if m.ui.TagCloudCursor < len(availableForSelection)-1 {
+				m.ui.TagCloudCursor++
 			}
 		}
 		return m, nil
 
 	case "left":
-		if m.tagCloudActive {
+		if m.ui.TagCloudActive {
 			// Navigate in tag cloud
-			if m.tagCloudCursor > 0 {
-				m.tagCloudCursor--
+			if m.ui.TagCloudCursor > 0 {
+				m.ui.TagCloudCursor--
 			}
 		} else {
 			// Move cursor left in current tags
-			if m.tagInput == "" && m.tagCursor > 0 {
-				m.tagCursor--
+			if m.ui.TagInput == "" && m.ui.TagCursor > 0 {
+				m.ui.TagCursor--
 			}
 		}
 		return m, nil
 
 	case "right":
-		if m.tagCloudActive {
+		if m.ui.TagCloudActive {
 			// Navigate in tag cloud
 			availableForSelection := m.getAvailableTagsForCloud()
-			if m.tagCloudCursor < len(availableForSelection)-1 {
-				m.tagCloudCursor++
+			if m.ui.TagCloudCursor < len(availableForSelection)-1 {
+				m.ui.TagCloudCursor++
 			}
 		} else {
 			// Move cursor right in current tags
-			if m.tagInput == "" && m.tagCursor < len(m.currentTags)-1 {
-				m.tagCursor++
+			if m.ui.TagInput == "" && m.ui.TagCursor < len(m.ui.CurrentTags)-1 {
+				m.ui.TagCursor++
 			}
 		}
 		return m, nil
 
 	case "backspace":
-		if !m.tagCloudActive {
-			if m.tagInput != "" {
-				if len(m.tagInput) > 0 {
-					m.tagInput = m.tagInput[:len(m.tagInput)-1]
-					m.showTagSuggestions = len(m.tagInput) > 0
-					m.tagSuggestionCursor = 0
-					m.hasNavigatedSuggestions = false
+		if !m.ui.TagCloudActive {
+			if m.ui.TagInput != "" {
+				if len(m.ui.TagInput) > 0 {
+					m.ui.TagInput = m.ui.TagInput[:len(m.ui.TagInput)-1]
+					m.ui.ShowTagSuggestions = len(m.ui.TagInput) > 0
+					m.ui.TagSuggestionCursor = 0
+					m.ui.HasNavigatedSuggestions = false
 				}
-			} else if m.tagCursor > 0 && m.tagCursor <= len(m.currentTags) {
-				m.currentTags = append(m.currentTags[:m.tagCursor-1], m.currentTags[m.tagCursor:]...)
-				m.tagCursor--
+			} else if m.ui.TagCursor > 0 && m.ui.TagCursor <= len(m.ui.CurrentTags) {
+				m.ui.CurrentTags = append(m.ui.CurrentTags[:m.ui.TagCursor-1], m.ui.CurrentTags[m.ui.TagCursor:]...)
+				m.ui.TagCursor--
 			}
 		}
 		return m, nil
 
 	case "ctrl+d":
-		if m.tagCloudActive {
+		if m.ui.TagCloudActive {
 			// In tag cloud: delete from registry (project-wide)
 			availableForSelection := m.getAvailableTagsForCloud()
-			if m.tagCloudCursor >= 0 && m.tagCloudCursor < len(availableForSelection) {
-				m.deletingTag = availableForSelection[m.tagCloudCursor]
-				usage := m.getTagUsage(m.deletingTag)
-				m.deletingTagUsage = usage
+			if m.ui.TagCloudCursor >= 0 && m.ui.TagCloudCursor < len(availableForSelection) {
+				m.ui.DeletingTag = availableForSelection[m.ui.TagCloudCursor]
+				usage := m.getTagUsage(m.ui.DeletingTag)
+				m.ui.DeletingTagUsage = usage
 
 				// Show confirmation dialog for tag deletion
 				var details []string
@@ -3282,9 +3183,9 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 					}
 				}
 
-				m.tagDeleteConfirm.Show(ConfirmationConfig{
+				m.ui.TagDeleteConfirm.Show(ConfirmationConfig{
 					Title:   "Delete Tag from Registry?",
-					Message: fmt.Sprintf("Tag: %s", m.deletingTag),
+					Message: fmt.Sprintf("Tag: %s", m.ui.DeletingTag),
 					Warning: func() string {
 						if len(usage) > 0 {
 							return "This tag is currently in use by:"
@@ -3294,43 +3195,43 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 					Details:     details,
 					Destructive: true,
 					Type:        ConfirmTypeDialog,
-					Width:       m.width - 4,
+					Width:       m.viewports.Width - 4,
 					Height:      15,
 				}, func() tea.Cmd {
 					return m.deleteTagFromRegistry()
 				}, func() tea.Cmd {
-					m.deletingTag = ""
-					m.deletingTagUsage = nil
+					m.ui.DeletingTag = ""
+					m.ui.DeletingTagUsage = nil
 					return nil
 				})
 			}
-		} else if m.tagInput == "" && m.tagCursor < len(m.currentTags) {
+		} else if m.ui.TagInput == "" && m.ui.TagCursor < len(m.ui.CurrentTags) {
 			// In current tags: just remove from component
-			if m.tagCursor < len(m.currentTags) {
-				m.currentTags = append(m.currentTags[:m.tagCursor], m.currentTags[m.tagCursor+1:]...)
-				if m.tagCursor >= len(m.currentTags) && m.tagCursor > 0 {
-					m.tagCursor--
+			if m.ui.TagCursor < len(m.ui.CurrentTags) {
+				m.ui.CurrentTags = append(m.ui.CurrentTags[:m.ui.TagCursor], m.ui.CurrentTags[m.ui.TagCursor+1:]...)
+				if m.ui.TagCursor >= len(m.ui.CurrentTags) && m.ui.TagCursor > 0 {
+					m.ui.TagCursor--
 				}
 			}
 		}
 		return m, nil
 
 	case " ":
-		if !m.tagCloudActive {
-			m.tagInput += " "
-			m.showTagSuggestions = m.tagInput != ""
-			m.tagSuggestionCursor = 0
-			m.hasNavigatedSuggestions = false
+		if !m.ui.TagCloudActive {
+			m.ui.TagInput += " "
+			m.ui.ShowTagSuggestions = m.ui.TagInput != ""
+			m.ui.TagSuggestionCursor = 0
+			m.ui.HasNavigatedSuggestions = false
 		}
 		return m, nil
 
 	default:
 		// Add to input only when in main pane (matching Main List View logic)
-		if !m.tagCloudActive && len(msg.String()) == 1 {
-			m.tagInput += msg.String()
-			m.showTagSuggestions = m.tagInput != ""
-			m.tagSuggestionCursor = 0
-			m.hasNavigatedSuggestions = false
+		if !m.ui.TagCloudActive && len(msg.String()) == 1 {
+			m.ui.TagInput += msg.String()
+			m.ui.ShowTagSuggestions = m.ui.TagInput != ""
+			m.ui.TagSuggestionCursor = 0
+			m.ui.HasNavigatedSuggestions = false
 		}
 	}
 
@@ -3339,7 +3240,7 @@ func (m *PipelineBuilderModel) handleTagEditing(msg tea.KeyMsg) (tea.Model, tea.
 
 func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
 	available := []string{}
-	for _, tag := range m.availableTags {
+	for _, tag := range m.ui.AvailableTags {
 		if !m.hasTag(tag) {
 			available = append(available, tag)
 		}
@@ -3348,22 +3249,22 @@ func (m *PipelineBuilderModel) getAvailableTagsForCloud() []string {
 }
 
 func (m *PipelineBuilderModel) getFilteredSuggestions() []string {
-	if m.tagInput == "" {
+	if m.ui.TagInput == "" {
 		return []string{}
 	}
 	
-	input := strings.ToLower(m.tagInput)
+	input := strings.ToLower(m.ui.TagInput)
 	var suggestions []string
 	
 	// First, exact prefix matches
-	for _, tag := range m.availableTags {
+	for _, tag := range m.ui.AvailableTags {
 		if strings.HasPrefix(strings.ToLower(tag), input) && !m.hasTag(tag) {
 			suggestions = append(suggestions, tag)
 		}
 	}
 	
 	// Then, contains matches
-	for _, tag := range m.availableTags {
+	for _, tag := range m.ui.AvailableTags {
 		lowerTag := strings.ToLower(tag)
 		if !strings.HasPrefix(lowerTag, input) && strings.Contains(lowerTag, input) && !m.hasTag(tag) {
 			suggestions = append(suggestions, tag)
@@ -3394,7 +3295,7 @@ func (m *PipelineBuilderModel) deleteTagFromRegistry() tea.Cmd {
 			return StatusMsg(fmt.Sprintf("Failed to load tag registry: %v", err))
 		}
 
-		if err := registry.RemoveTag(m.deletingTag); err != nil {
+		if err := registry.RemoveTag(m.ui.DeletingTag); err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to delete tag: %v", err))
 		}
 
@@ -3405,18 +3306,18 @@ func (m *PipelineBuilderModel) deleteTagFromRegistry() tea.Cmd {
 		m.loadAvailableTags()
 
 		newAvailable := []string{}
-		for _, tag := range m.currentTags {
-			if tag != m.deletingTag {
+		for _, tag := range m.ui.CurrentTags {
+			if tag != m.ui.DeletingTag {
 				newAvailable = append(newAvailable, tag)
 			}
 		}
-		m.currentTags = newAvailable
+		m.ui.CurrentTags = newAvailable
 
-		if m.tagCursor > len(m.currentTags) {
-			m.tagCursor = len(m.currentTags)
+		if m.ui.TagCursor > len(m.ui.CurrentTags) {
+			m.ui.TagCursor = len(m.ui.CurrentTags)
 		}
 
-		return StatusMsg(fmt.Sprintf("✓ Deleted tag: %s", m.deletingTag))
+		return StatusMsg(fmt.Sprintf("✓ Deleted tag: %s", m.ui.DeletingTag))
 	}
 }
 
@@ -3432,39 +3333,39 @@ func (m *PipelineBuilderModel) startTagEditing(path string, currentTags []string
 	}
 	
 	// Start the tag editor
-	if m.tagEditor == nil {
-		m.tagEditor = NewTagEditor()
+	if m.editors.TagEditor == nil {
+		m.editors.TagEditor = NewTagEditor()
 	}
-	m.tagEditor.Start(path, currentTags, "component", itemName)
-	m.tagEditor.SetSize(m.width, m.height)
+	m.editors.TagEditor.Start(path, currentTags, "component", itemName)
+	m.editors.TagEditor.SetSize(m.viewports.Width, m.viewports.Height)
 }
 
 func (m *PipelineBuilderModel) startPipelineTagEditing(currentTags []string) {
 	// For pipeline tags, use the pipeline name
-	if m.tagEditor == nil {
-		m.tagEditor = NewTagEditor()
+	if m.editors.TagEditor == nil {
+		m.editors.TagEditor = NewTagEditor()
 	}
-	m.tagEditor.Start(m.pipeline.Path, currentTags, "pipeline", m.pipeline.Name)
-	m.tagEditor.SetSize(m.width, m.height)
+	m.editors.TagEditor.Start(m.data.Pipeline.Path, currentTags, "pipeline", m.data.Pipeline.Name)
+	m.editors.TagEditor.SetSize(m.viewports.Width, m.viewports.Height)
 }
 
 func (m *PipelineBuilderModel) loadAvailableTags() {
 	// Get all tags from registry
 	registry, err := tags.NewRegistry()
 	if err != nil {
-		m.availableTags = []string{}
+		m.ui.AvailableTags = []string{}
 		return
 	}
 
 	allTags := registry.ListTags()
-	m.availableTags = make([]string, 0, len(allTags))
+	m.ui.AvailableTags = make([]string, 0, len(allTags))
 	for _, tag := range allTags {
-		m.availableTags = append(m.availableTags, tag.Name)
+		m.ui.AvailableTags = append(m.ui.AvailableTags, tag.Name)
 	}
 
 	// Also add tags that exist in components but not in registry
 	seenTags := make(map[string]bool)
-	for _, tag := range m.availableTags {
+	for _, tag := range m.ui.AvailableTags {
 		seenTags[tag] = true
 	}
 
@@ -3474,7 +3375,7 @@ func (m *PipelineBuilderModel) loadAvailableTags() {
 		for _, tag := range comp.tags {
 			normalized := models.NormalizeTagName(tag)
 			if !seenTags[normalized] {
-				m.availableTags = append(m.availableTags, normalized)
+				m.ui.AvailableTags = append(m.ui.AvailableTags, normalized)
 				seenTags[normalized] = true
 			}
 		}
@@ -3482,7 +3383,7 @@ func (m *PipelineBuilderModel) loadAvailableTags() {
 }
 
 func (m *PipelineBuilderModel) hasTag(tag string) bool {
-	for _, t := range m.currentTags {
+	for _, t := range m.ui.CurrentTags {
 		if strings.EqualFold(t, tag) {
 			return true
 		}
@@ -3494,14 +3395,14 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 	return func() tea.Msg {
 		var err error
 
-		if m.editingTagsPath == "" {
+		if m.ui.EditingTagsPath == "" {
 			// Editing pipeline tags
-			if m.pipeline != nil {
-				m.pipeline.Tags = make([]string, len(m.currentTags))
-				copy(m.pipeline.Tags, m.currentTags)
+			if m.data.Pipeline != nil {
+				m.data.Pipeline.Tags = make([]string, len(m.ui.CurrentTags))
+				copy(m.data.Pipeline.Tags, m.ui.CurrentTags)
 				// Save the pipeline to persist the tags immediately
-				if m.pipeline.Path != "" {
-					err = files.WritePipeline(m.pipeline)
+				if m.data.Pipeline.Path != "" {
+					err = files.WritePipeline(m.data.Pipeline)
 					if err != nil {
 						return StatusMsg(fmt.Sprintf("Failed to save pipeline tags: %v", err))
 					}
@@ -3509,26 +3410,26 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 			}
 		} else {
 			// Editing component tags
-			err = files.UpdateComponentTags(m.editingTagsPath, m.currentTags)
+			err = files.UpdateComponentTags(m.ui.EditingTagsPath, m.ui.CurrentTags)
 			if err != nil {
 				return StatusMsg(fmt.Sprintf("Failed to save tags: %v", err))
 			}
 		}
 
 		// Exit tag editing mode
-		m.editingTags = false
-		m.tagInput = ""
-		m.currentTags = nil
-		m.originalTags = nil
-		m.showTagSuggestions = false
-		m.tagCloudActive = false
-		m.tagCloudCursor = 0
+		m.ui.EditingTags = false
+		m.ui.TagInput = ""
+		m.ui.CurrentTags = nil
+		m.ui.OriginalTags = nil
+		m.ui.ShowTagSuggestions = false
+		m.ui.TagCloudActive = false
+		m.ui.TagCloudCursor = 0
 
 		// Reload components to reflect the changes
 		m.loadAvailableComponents()
 
 		// Update filtered components if search is active
-		if m.searchQuery != "" {
+		if m.search.Query != "" {
 			m.performSearch()
 		}
 
@@ -3542,20 +3443,20 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	selectedSuggestionStyle := lipgloss.NewStyle().Background(lipgloss.Color("236")).Foreground(lipgloss.Color("170"))
 
 	// Calculate dimensions for side-by-side layout
-	paneWidth := (m.width - 6) / 2 // Same calculation as main list view
-	paneHeight := m.height - 10    // Leave room for help pane
+	paneWidth := (m.viewports.Width - 6) / 2 // Same calculation as main list view
+	paneHeight := m.viewports.Height - 10    // Leave room for help pane
 	headerPadding := lipgloss.NewStyle().PaddingLeft(1).PaddingRight(1)
 
 	var mainContent strings.Builder
 
-	if m.tagDeleteConfirm.Active() {
-		return m.tagDeleteConfirm.View()
+	if m.ui.TagDeleteConfirm.Active() {
+		return m.ui.TagDeleteConfirm.View()
 	}
 
 	components := m.getAllAvailableComponents()
 	itemName := ""
-	if m.leftCursor >= 0 && m.leftCursor < len(components) {
-		itemName = components[m.leftCursor].name
+	if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+		itemName = components[m.ui.LeftCursor].name
 	}
 
 	heading := fmt.Sprintf("EDIT TAGS: %s", strings.ToUpper(itemName))
@@ -3567,14 +3468,14 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	mainHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(func() string {
-			if !m.tagCloudActive {
+			if !m.ui.TagCloudActive {
 				return "170" // Purple when active
 			}
 			return "214" // Orange when inactive
 		}()))
 	mainColonStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(func() string {
-			if !m.tagCloudActive {
+			if !m.ui.TagCloudActive {
 				return "170" // Purple when active
 			}
 			return "240" // Gray when inactive
@@ -3584,7 +3485,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 	mainContent.WriteString(headerPadding.Render("Current tags:"))
 	mainContent.WriteString("\n\n")
-	if len(m.currentTags) == 0 {
+	if len(m.ui.CurrentTags) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		mainContent.WriteString(headerPadding.Render(dimStyle.Render("(no tags)")))
 	} else {
@@ -3592,9 +3493,9 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		rowTags := 0
 		currentRowWidth := 0
 		// Calculate max width for tags (account for padding and border)
-		maxRowWidth := m.width/2 - 6 // Half width minus padding
+		maxRowWidth := m.viewports.Width/2 - 6 // Half width minus padding
 		
-		for i, tag := range m.currentTags {
+		for i, tag := range m.ui.CurrentTags {
 			registry, _ := tags.NewRegistry()
 			color := models.GetTagColor(tag, "")
 			if registry != nil {
@@ -3607,7 +3508,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 			// Build tag display with selection indicators
 			var tagDisplay string
-			if i == m.tagCursor && m.tagInput == "" {
+			if i == m.ui.TagCursor && m.ui.TagInput == "" {
 				// Selected tag with triangle indicators
 				indicatorStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("170")). // Bright green for indicators
@@ -3633,7 +3534,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			rows.WriteString(tagDisplay)
 			
 			// Add space between tags (but not at end of row)
-			if i < len(m.currentTags)-1 {
+			if i < len(m.ui.CurrentTags)-1 {
 				rows.WriteString("  ")
 			}
 			
@@ -3652,18 +3553,18 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		Foreground(lipgloss.Color("170")).
 		Bold(true)
 
-	inputDisplay := m.tagInput
-	if !m.tagCloudActive && m.tagInput != "" {
+	inputDisplay := m.ui.TagInput
+	if !m.ui.TagCloudActive && m.ui.TagInput != "" {
 		// Add cursor to existing input when active
-		inputDisplay = m.tagInput + cursorStyle.Render("│")
+		inputDisplay = m.ui.TagInput + cursorStyle.Render("│")
 	}
 
 	// Show placeholder if empty
-	if m.tagInput == "" {
+	if m.ui.TagInput == "" {
 		placeholderStyle := lipgloss.NewStyle().
 			Foreground(lipgloss.Color("241")).
 			Italic(true)
-		if !m.tagCloudActive {
+		if !m.ui.TagCloudActive {
 			inputDisplay = placeholderStyle.Render("Type to add a new or existing tag...") + cursorStyle.Render("│")
 		} else {
 			inputDisplay = placeholderStyle.Render("Type to add a new or existing tag...")
@@ -3672,13 +3573,13 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 	// Highlight input border when active
 	activeInputStyle := inputStyle
-	if !m.tagCloudActive {
+	if !m.ui.TagCloudActive {
 		activeInputStyle = inputStyle.BorderForeground(lipgloss.Color("170"))
 	}
 
 	mainContent.WriteString(headerPadding.Render(activeInputStyle.Render(inputDisplay)))
 
-	if m.showTagSuggestions && len(m.availableTags) > 0 {
+	if m.ui.ShowTagSuggestions && len(m.ui.AvailableTags) > 0 {
 		mainContent.WriteString("\n\n")
 		mainContent.WriteString(headerPadding.Render("Suggestions:\n"))
 
@@ -3697,8 +3598,8 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			
 			for i := 0; i < maxSuggestions; i++ {
 				var suggestionLine string
-				if i == m.tagSuggestionCursor {
-					if m.hasNavigatedSuggestions {
+				if i == m.ui.TagSuggestionCursor {
+					if m.ui.HasNavigatedSuggestions {
 						// Actively selected - show with arrow indicators
 						suggestionLine = indicatorStyle.Render("▶ ") + 
 							selectedSuggestionStyle.Render(suggestions[i]) +
@@ -3730,14 +3631,14 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	tagCloudHeaderStyle := lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color(func() string {
-			if m.tagCloudActive {
+			if m.ui.TagCloudActive {
 				return "170" // Purple when active
 			}
 			return "214" // Orange when inactive
 		}()))
 	tagCloudColonStyle := lipgloss.NewStyle().
 		Foreground(lipgloss.Color(func() string {
-			if m.tagCloudActive {
+			if m.ui.TagCloudActive {
 				return "170" // Purple when active
 			}
 			return "240" // Gray when inactive
@@ -3746,7 +3647,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 	rightContent.WriteString("\n\n")
 
 	// Always display available tags
-	if len(m.availableTags) == 0 {
+	if len(m.ui.AvailableTags) == 0 {
 		dimStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("241"))
 		rightContent.WriteString(headerPadding.Render(dimStyle.Render("(no available tags)")))
 	} else {
@@ -3758,7 +3659,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 		// Get available tags that haven't been added yet
 		var availableForCloud []string
-		for _, tag := range m.availableTags {
+		for _, tag := range m.ui.AvailableTags {
 			if !m.hasTag(tag) {
 				availableForCloud = append(availableForCloud, tag)
 			}
@@ -3781,7 +3682,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 			// Calculate tag display width
 			var tagDisplay string
-			if m.tagCloudActive && i == m.tagCloudCursor {
+			if m.ui.TagCloudActive && i == m.ui.TagCloudCursor {
 				indicatorStyle := lipgloss.NewStyle().
 					Foreground(lipgloss.Color("170")).
 					Bold(true)
@@ -3821,7 +3722,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		BorderForeground(lipgloss.Color("240"))
 
 	leftPaneBorder := inactiveBorderStyle
-	if !m.tagCloudActive {
+	if !m.ui.TagCloudActive {
 		leftPaneBorder = activeBorderStyle
 	}
 
@@ -3831,7 +3732,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 		Render(mainContent.String())
 
 	rightPaneBorder := inactiveBorderStyle
-	if m.tagCloudActive {
+	if m.ui.TagCloudActive {
 		rightPaneBorder = activeBorderStyle
 	}
 
@@ -3850,7 +3751,7 @@ func (m *PipelineBuilderModel) tagEditView() string {
 
 	// Help section - match Main List View exactly
 	var help []string
-	if m.tagCloudActive {
+	if m.ui.TagCloudActive {
 		help = []string{
 			"tab switch pane",
 			"enter add tag",
@@ -3870,11 +3771,11 @@ func (m *PipelineBuilderModel) tagEditView() string {
 			"esc cancel",
 		}
 	}
-	helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.width-4).Padding(0, 1)
+	helpBorderStyle := lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("240")).Width(m.viewports.Width-4).Padding(0, 1)
 	helpContent := formatHelpText(help)
 	// Right-align help text
 	alignedHelp := lipgloss.NewStyle().
-		Width(m.width - 8).
+		Width(m.viewports.Width - 8).
 		Align(lipgloss.Right).
 		Render(helpContent)
 	helpContent = alignedHelp
@@ -3901,7 +3802,7 @@ func (m *PipelineBuilderModel) archiveComponent(comp componentItem) tea.Cmd {
 		m.loadAvailableComponents()
 
 		// Refresh search if active
-		if m.searchQuery != "" {
+		if m.search.Query != "" {
 			m.performSearch()
 		}
 
@@ -3921,7 +3822,7 @@ func (m *PipelineBuilderModel) unarchiveComponent(comp componentItem) tea.Cmd {
 		m.loadAvailableComponents()
 
 		// Refresh search if active
-		if m.searchQuery != "" {
+		if m.search.Query != "" {
 			m.performSearch()
 		}
 
@@ -3932,17 +3833,17 @@ func (m *PipelineBuilderModel) unarchiveComponent(comp componentItem) tea.Cmd {
 // archivePipeline archives the pipeline being edited
 func (m *PipelineBuilderModel) archivePipeline() tea.Cmd {
 	return func() tea.Msg {
-		if m.pipeline == nil || m.pipeline.Path == "" {
+		if m.data.Pipeline == nil || m.data.Pipeline.Path == "" {
 			return StatusMsg("× No pipeline to archive")
 		}
 
-		err := files.ArchivePipeline(m.pipeline.Path)
+		err := files.ArchivePipeline(m.data.Pipeline.Path)
 		if err != nil {
 			return StatusMsg(fmt.Sprintf("Failed to archive pipeline: %v", err))
 		}
 
 		// Extract pipeline name from path
-		pipelineName := strings.TrimSuffix(filepath.Base(m.pipeline.Path), ".yaml")
+		pipelineName := strings.TrimSuffix(filepath.Base(m.data.Pipeline.Path), ".yaml")
 
 		// Return to main list after archiving
 		return SwitchViewMsg{

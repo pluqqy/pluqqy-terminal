@@ -26,47 +26,78 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		config = DefaultPipelineBuilderConfig()
 	}
 
-	m := &PipelineBuilderModel{
-		activeColumn: leftColumn,
-		showPreview:  config.ShowPreviewByDefault,
-		editingName:  true,
-		nameInput:    "",
-		pipeline: &models.Pipeline{
+	// Initialize data store
+	dataStore := &BuilderDataStore{
+		Pipeline: &models.Pipeline{
 			Name:       "",
 			Components: []models.ComponentRef{},
 		},
-		originalComponents: []models.ComponentRef{},
-		previewViewport:    viewport.New(80, 20),
-		leftTableRenderer:  NewComponentTableRenderer(40, 20, true),
-		rightViewport:      viewport.New(40, 20),
-		searchBar:          NewSearchBar(),
-		exitConfirm:        NewConfirmation(),
-		tagEditor:          NewTagEditor(),
-		tagDeleteConfirm:    NewConfirmation(), // Initialize for compatibility
-		deleteConfirm:      NewConfirmation(),
-		archiveConfirm:     NewConfirmation(),
-		componentCreator:   NewComponentCreator(),
-		enhancedEditor:     NewEnhancedEditorState(),
-		renameState:        NewRenameState(),
-		renameRenderer:     NewRenameRenderer(),
-		renameOperator:     NewRenameOperator(),
-		cloneState:         NewCloneState(),
-		cloneRenderer:      NewCloneRenderer(),
-		cloneOperator:      NewCloneOperator(),
-		sharedLayout:       NewSharedLayout(80, 24, config.ShowPreviewByDefault),
-		searchFilterHelper: NewSearchFilterHelper(),
+		SelectedComponents: []models.ComponentRef{},
+		OriginalComponents: []models.ComponentRef{},
+	}
+
+	// Initialize viewport manager
+	viewportManager := &BuilderViewportManager{
+		Preview:       viewport.New(80, 20),
+		LeftTable:     NewComponentTableRenderer(40, 20, true),
+		RightViewport: viewport.New(40, 20),
+		Width:         80,
+		Height:        24,
+	}
+
+	// Configure table renderer for pipeline builder
+	viewportManager.LeftTable.ShowAddedIndicator = true
+
+	// Initialize editor components
+	editorComponents := &BuilderEditorComponents{
+		Enhanced:         NewEnhancedEditorState(),
+		TagEditor:        NewTagEditor(),
+		ComponentCreator: NewComponentCreator(),
+		EditingName:      true,
+		NameInput:        "",
+		Rename: &BuilderRenameComponents{
+			State:    NewRenameState(),
+			Renderer: NewRenameRenderer(),
+			Operator: NewRenameOperator(),
+		},
+		Clone: &BuilderCloneComponents{
+			State:    NewCloneState(),
+			Renderer: NewCloneRenderer(),
+			Operator: NewCloneOperator(),
+		},
+	}
+
+	// Initialize search components
+	searchComponents := &BuilderSearchComponents{
+		Engine:       search.NewEngine(),
+		Bar:          NewSearchBar(),
+		FilterHelper: NewSearchFilterHelper(),
 	}
 
 	// Initialize mermaid state and operator
 	mermaidState := NewMermaidState()
-	m.mermaidState = mermaidState
-	m.mermaidOperator = NewMermaidOperator(mermaidState)
+	mermaidOperator := NewMermaidOperator(mermaidState)
 
-	// Initialize search engine
-	m.searchEngine = search.NewEngine()
+	// Initialize UI components
+	uiComponents := &BuilderUIComponents{
+		ActiveColumn:         leftColumn,
+		ShowPreview:          config.ShowPreviewByDefault,
+		ExitConfirm:          NewConfirmation(),
+		DeleteConfirm:        NewConfirmation(),
+		ArchiveConfirm:       NewConfirmation(),
+		TagDeleteConfirm:     NewConfirmation(), // Initialize for compatibility
+		MermaidState:         mermaidState,
+		MermaidOperator:      mermaidOperator,
+		SharedLayout:         NewSharedLayout(80, 24, config.ShowPreviewByDefault),
+	}
 
-	// Configure table renderer for pipeline builder
-	m.leftTableRenderer.ShowAddedIndicator = true
+	m := &PipelineBuilderModel{
+		data:      dataStore,
+		viewports: viewportManager,
+		editors:   editorComponents,
+		search:    searchComponents,
+		ui:        uiComponents,
+	}
 
 	m.loadAvailableComponents()
 	return m
@@ -79,21 +110,21 @@ func LoadPipelineWithConfig(pipeline *models.Pipeline, config *PipelineBuilderCo
 	}
 
 	m := NewPipelineBuilderModelWithConfig(config)
-	m.pipeline = pipeline
-	m.editingName = false // Don't edit name for existing pipeline
-	m.nameInput = pipeline.Name
+	m.data.Pipeline = pipeline
+	m.editors.EditingName = false // Don't edit name for existing pipeline
+	m.editors.NameInput = pipeline.Name
 
 	// Copy components to track original state
-	m.originalComponents = make([]models.ComponentRef, len(pipeline.Components))
-	copy(m.originalComponents, pipeline.Components)
+	m.data.OriginalComponents = make([]models.ComponentRef, len(pipeline.Components))
+	copy(m.data.OriginalComponents, pipeline.Components)
 
 	// Copy components for editing
-	m.selectedComponents = make([]models.ComponentRef, len(pipeline.Components))
-	copy(m.selectedComponents, pipeline.Components)
+	m.data.SelectedComponents = make([]models.ComponentRef, len(pipeline.Components))
+	copy(m.data.SelectedComponents, pipeline.Components)
 
 	// Set the right cursor position if there are components
-	if len(m.selectedComponents) > 0 {
-		m.rightCursor = 0
+	if len(m.data.SelectedComponents) > 0 {
+		m.ui.RightCursor = 0
 	}
 
 	// Update preview

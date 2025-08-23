@@ -19,12 +19,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "can type j in tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -40,12 +40,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "can type k in tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -61,12 +61,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "can type l in tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -81,12 +81,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "can type h in tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -102,12 +102,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "can type all vim keys in tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -123,12 +123,12 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			name: "vim keys work in complex tag name",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = false
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = false
 				return m
 			},
 			inputs: []tea.KeyMsg{
@@ -154,8 +154,8 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			}
 
 			// Check the result
-			if m.tagInput != tt.wantInput {
-				t.Errorf("tagInput = %q, want %q (%s)", m.tagInput, tt.wantInput, tt.desc)
+			if m.ui.TagInput != tt.wantInput {
+				t.Errorf("tagInput = %q, want %q (%s)", m.ui.TagInput, tt.wantInput, tt.desc)
 			}
 		})
 	}
@@ -173,14 +173,14 @@ func TestPipelineBuilder_HandleTagEditing_ArrowNavigation(t *testing.T) {
 			name: "up arrow navigates tag cloud",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = true
-				m.tagCloudCursor = 2
-				m.availableTags = []string{"tag1", "tag2", "tag3"}
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = true
+				m.ui.TagCloudCursor = 2
+				m.ui.AvailableTags = []string{"tag1", "tag2", "tag3"}
 				return m
 			},
 			input:           "up",
@@ -191,14 +191,14 @@ func TestPipelineBuilder_HandleTagEditing_ArrowNavigation(t *testing.T) {
 			name: "down arrow navigates tag cloud",
 			setup: func() *PipelineBuilderModel {
 				m := makeTestBuilderModel()
-				m.pipeline = &models.Pipeline{
+				m.data.Pipeline = &models.Pipeline{
 					Name: "test",
 					Path: "/test/pipeline.yaml",
 				}
-				m.editingTags = true
-				m.tagCloudActive = true
-				m.tagCloudCursor = 0
-				m.availableTags = []string{"tag1", "tag2", "tag3"}
+				m.ui.EditingTags = true
+				m.ui.TagCloudActive = true
+				m.ui.TagCloudCursor = 0
+				m.ui.AvailableTags = []string{"tag1", "tag2", "tag3"}
 				return m
 			},
 			input:           "down",
@@ -224,8 +224,8 @@ func TestPipelineBuilder_HandleTagEditing_ArrowNavigation(t *testing.T) {
 			_, _ = m.handleTagEditing(msg)
 
 			// Check the result
-			if m.tagCloudCursor != tt.wantCloudCursor {
-				t.Errorf("tagCloudCursor = %d, want %d (%s)", m.tagCloudCursor, tt.wantCloudCursor, tt.desc)
+			if m.ui.TagCloudCursor != tt.wantCloudCursor {
+				t.Errorf("tagCloudCursor = %d, want %d (%s)", m.ui.TagCloudCursor, tt.wantCloudCursor, tt.desc)
 			}
 		})
 	}

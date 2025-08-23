@@ -41,7 +41,7 @@ func TestEnhancedEditorAlwaysUsed(t *testing.T) {
 				m := model.(*PipelineBuilderModel)
 
 				// Check that enhanced editor is initialized
-				if m.enhancedEditor == nil {
+				if m.editors.Enhanced == nil {
 					t.Error("Enhanced editor should be initialized")
 				}
 			},
@@ -159,16 +159,16 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 			name: "edit from left column uses enhanced editor",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.activeColumn = leftColumn
-				m.contexts = []componentItem{
+				m.ui.ActiveColumn = leftColumn
+				m.data.Contexts = []componentItem{
 					{
 						name:     "Test Context",
 						path:     "components/contexts/test.md",
 						compType: models.ComponentTypeContext,
 					},
 				}
-				m.filteredContexts = m.contexts
-				m.leftCursor = 0
+				m.data.FilteredContexts = m.data.Contexts
+				m.ui.LeftCursor = 0
 				return m
 			},
 			triggerEdit: func(m *PipelineBuilderModel) (tea.Model, tea.Cmd) {
@@ -176,7 +176,7 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 				return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 			},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {
-				if m.enhancedEditor == nil {
+				if m.editors.Enhanced == nil {
 					t.Error("Enhanced editor should be initialized")
 				}
 				// After triggering edit, editingComponent should be true
@@ -187,11 +187,11 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 			name: "edit from right column uses enhanced editor",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.activeColumn = rightColumn
-				m.selectedComponents = []models.ComponentRef{
+				m.ui.ActiveColumn = rightColumn
+				m.data.SelectedComponents = []models.ComponentRef{
 					{Type: "contexts", Path: "../components/contexts/test.md", Order: 1},
 				}
-				m.rightCursor = 0
+				m.ui.RightCursor = 0
 				return m
 			},
 			triggerEdit: func(m *PipelineBuilderModel) (tea.Model, tea.Cmd) {
@@ -199,7 +199,7 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 				return m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})
 			},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {
-				if m.enhancedEditor == nil {
+				if m.editors.Enhanced == nil {
 					t.Error("Enhanced editor should be initialized")
 				}
 			},
@@ -208,19 +208,19 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 			name: "component creation in builder uses enhanced editor",
 			setup: func() *PipelineBuilderModel {
 				m := NewPipelineBuilderModel()
-				m.componentCreator.Start()
+				m.editors.ComponentCreator.Start()
 				return m
 			},
 			triggerEdit: func(m *PipelineBuilderModel) (tea.Model, tea.Cmd) {
 				// Move through creation steps
-				m.componentCreator.componentCreationType = models.ComponentTypePrompt
-				m.componentCreator.componentName = "Test Prompt"
-				m.componentCreator.creationStep = 2
-				m.componentCreator.initializeEnhancedEditor()
+				m.editors.ComponentCreator.componentCreationType = models.ComponentTypePrompt
+				m.editors.ComponentCreator.componentName = "Test Prompt"
+				m.editors.ComponentCreator.creationStep = 2
+				m.editors.ComponentCreator.initializeEnhancedEditor()
 				return m, nil
 			},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {
-				if !m.componentCreator.IsEnhancedEditorActive() {
+				if !m.editors.ComponentCreator.IsEnhancedEditorActive() {
 					t.Error("Component creator should use enhanced editor")
 				}
 			},
@@ -289,7 +289,7 @@ func TestNoLegacyEditorFallback(t *testing.T) {
 		m := NewPipelineBuilderModel()
 
 		// Enhanced editor should always be present
-		if m.enhancedEditor == nil {
+		if m.editors.Enhanced == nil {
 			t.Fatal("Enhanced editor must be initialized")
 		}
 
