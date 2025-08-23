@@ -287,36 +287,35 @@ func cleanCurrentContent(state *EnhancedEditorState) tea.Cmd {
 
 // saveEnhancedComponent saves the component to disk
 func saveEnhancedComponent(state *EnhancedEditorState) tea.Cmd {
+	// Get content from textarea and clean it BEFORE the async operation
+	content := state.Textarea.Value()
+	cleanedContent := state.PasteHelper.CleanForSave(content)
+	
+	// Immediately update state to prevent "unsaved changes" false positive
+	// This happens synchronously before the async save operation
+	state.OriginalContent = cleanedContent
+	state.Content = cleanedContent
+	state.Textarea.SetValue(cleanedContent) // Sync textarea with cleaned content
+	state.UnsavedChanges = false // Mark as saved immediately
+	
 	return func() tea.Msg {
-		// Get content from textarea
-		content := state.Textarea.Value()
-
-		// Auto-trim and clean content before saving
-		content = state.PasteHelper.CleanForSave(content)
-
 		// Validate content
-		if err := ValidateComponentContent(content); err != nil {
+		if err := ValidateComponentContent(cleanedContent); err != nil {
+			// Revert state on validation failure
+			state.UnsavedChanges = true
 			return StatusMsg(fmt.Sprintf("× Validation failed: %v", err))
 		}
 
 		// Write component - always use WriteComponentWithNameAndTags to preserve both name and tags
-		err := files.WriteComponentWithNameAndTags(state.ComponentPath, content, state.ComponentName, state.ComponentTags)
+		err := files.WriteComponentWithNameAndTags(state.ComponentPath, cleanedContent, state.ComponentName, state.ComponentTags)
 
-		// After first save, it's no longer a new component
-		if state.IsNewComponent {
-			state.IsNewComponent = false
-		}
 		if err != nil {
+			// Revert state on write failure
+			state.UnsavedChanges = true
 			return StatusMsg(fmt.Sprintf("× Failed to save: %v", err))
 		}
-
-		// Update original content to reflect saved state
-		state.OriginalContent = content
-		state.Content = content
-		state.Textarea.SetValue(content) // Sync textarea with saved content
-		state.UnsavedChanges = false // Mark as saved
-
-		// Mark as no longer new after first save
+		
+		// After first save, it's no longer a new component
 		if state.IsNewComponent {
 			state.IsNewComponent = false
 		}

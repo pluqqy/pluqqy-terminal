@@ -140,17 +140,76 @@ func TestComponentCreator_EnhancedEditorCancel(t *testing.T) {
 	// Set some content
 	creator.enhancedEditor.Textarea.SetValue("Test content")
 
-	// Simulate ESC to cancel
+	// Simulate ESC to cancel through component creator handler
 	escKey := tea.KeyMsg{Type: tea.KeyEscape}
-	handled, _ := HandleEnhancedEditorInput(creator.enhancedEditor, escKey, 80)
+	handled, _ := creator.HandleEnhancedEditorInput(escKey, 80)
 
 	if !handled {
 		t.Error("ESC key should be handled")
 	}
 
+	// Component creation should be reset entirely (not just go back to name input)
+	if creator.IsActive() {
+		t.Error("Component creator should not be active after ESC")
+	}
+
 	// Editor should have exited
-	if creator.enhancedEditor.IsActive() {
+	if creator.enhancedEditor != nil && creator.enhancedEditor.IsActive() {
 		t.Error("Enhanced editor should not be active after ESC")
+	}
+}
+
+func TestComponentCreator_SaveKeepsEditorOpen(t *testing.T) {
+	// Create component creator
+	creator := NewComponentCreator()
+
+	// Start creation and set up for content editing
+	creator.Start()
+	creator.componentCreationType = models.ComponentTypeContext
+	creator.componentName = "Test Component"
+	creator.creationStep = 2
+	creator.initializeEnhancedEditor()
+
+	// Set some content
+	testContent := "Test content for save"
+	creator.enhancedEditor.Textarea.SetValue(testContent)
+
+	// Manually simulate a successful save
+	// This simulates what happens when Ctrl+S is pressed and save succeeds
+	creator.enhancedEditor.OriginalContent = testContent
+	creator.enhancedEditor.Content = testContent  // Also set Content field
+	creator.enhancedEditor.UnsavedChanges = false
+	creator.enhancedEditor.IsNewComponent = false
+	creator.lastSaveSuccessful = true
+
+	// Editor should still be active after save
+	if !creator.enhancedEditor.IsActive() {
+		t.Error("Enhanced editor should remain active after save")
+	}
+
+	// Check that save was marked as successful
+	if !creator.WasSaveSuccessful() {
+		t.Error("Save should have been marked as successful")
+	}
+
+	// Calling WasSaveSuccessful again should return false (flag is reset)
+	if creator.WasSaveSuccessful() {
+		t.Error("WasSaveSuccessful should reset flag after being called")
+	}
+
+	// Enhanced editor should have no unsaved changes
+	if creator.enhancedEditor.UnsavedChanges {
+		t.Error("Editor should have no unsaved changes after save")
+	}
+
+	// IsNewComponent should be false after save
+	if creator.enhancedEditor.IsNewComponent {
+		t.Error("IsNewComponent should be false after save")
+	}
+
+	// Verify that Content and OriginalContent match (no unsaved changes)
+	if creator.enhancedEditor.Content != creator.enhancedEditor.OriginalContent {
+		t.Error("Content and OriginalContent should match after save")
 	}
 }
 

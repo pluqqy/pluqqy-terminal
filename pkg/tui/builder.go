@@ -2948,8 +2948,8 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 			// Use the ComponentCreator's handler which properly manages save state
 			handled, cmd := m.componentCreator.HandleEnhancedEditorInput(msg, m.width)
 			if handled {
-				// Check if component creation is complete
-				if !m.componentCreator.IsActive() {
+				// Check if component was saved (but editor stays open)
+				if m.componentCreator.WasSaveSuccessful() {
 					// Component was saved successfully
 					m.loadAvailableComponents()
 					return m, tea.Batch(
@@ -2958,6 +2958,11 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 							return StatusMsg(m.componentCreator.GetStatusMessage())
 						},
 					)
+				}
+				// Check if component creation was cancelled
+				if !m.componentCreator.IsActive() {
+					// Editor was closed without saving
+					return m, cmd
 				}
 				return m, cmd
 			}

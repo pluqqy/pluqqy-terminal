@@ -58,9 +58,13 @@ func TestComponentCreator_GetterMethods(t *testing.T) {
 				c.Start()
 				c.componentCreationType = models.ComponentTypeContext
 				c.componentName = "Test Component"
-				c.componentContent = "Test content"
 				c.creationStep = 2
 				c.typeCursor = 1
+				// Initialize and activate enhanced editor with content
+				c.initializeEnhancedEditor()
+				c.enhancedEditor.Active = true
+				c.enhancedEditor.Content = "Test content"
+				c.enhancedEditor.Textarea.SetValue("Test content")
 				return c
 			},
 			tests: func(t *testing.T, c *ComponentCreator) {
@@ -285,14 +289,16 @@ func TestComponentCreator_FullFlow(t *testing.T) {
 			t.Error("Should move to content input step")
 		}
 
-		// Step 4: Set content
-		c.componentContent = "Test content for component"
+		// Step 4: Set content in enhanced editor
+		c.initializeEnhancedEditor()
+		c.enhancedEditor.Content = "Test content for component"
+		c.enhancedEditor.Textarea.SetValue("Test content for component")
 
 		// Verify the component state is ready for save
 		if c.componentName != "Test" {
 			t.Error("Component name should be set")
 		}
-		if c.componentContent == "" {
+		if c.GetComponentContent() == "" {
 			t.Error("Component content should be set")
 		}
 		if c.componentCreationType != models.ComponentTypeContext {

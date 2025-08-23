@@ -228,6 +228,22 @@ func (m *MainListModel) getEditingItemName() string {
 }
 
 func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	// Handle non-keyboard messages for component creation FIRST
+	// This ensures the enhanced editor gets all necessary messages
+	if _, isKeyMsg := msg.(tea.KeyMsg); !isKeyMsg {
+		if m.componentCreator.IsActive() && m.componentCreator.IsEnhancedEditorActive() {
+			if editor := m.componentCreator.GetEnhancedEditor(); editor != nil {
+				// Handle file picker messages if file picking
+				if editor.IsFilePicking() {
+					cmd := editor.UpdateFilePicker(msg)
+					if cmd != nil {
+						return m, cmd
+					}
+				}
+			}
+		}
+	}
+
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		// Handle clone mode input first if active
@@ -890,17 +906,9 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.KeyMsg:
 		// Don't forward key messages - they're already handled
 	default:
-		// Handle component creation mode for non-key messages (textarea updates, etc.)
-		if m.componentCreator.IsActive() && m.componentCreator.IsEnhancedEditorActive() {
-			if editor := m.componentCreator.GetEnhancedEditor(); editor != nil {
-				var cmd tea.Cmd
-				editor.Textarea, cmd = editor.Textarea.Update(msg)
-				if cmd != nil {
-					cmds = append(cmds, cmd)
-				}
-			}
-		}
-
+		// Don't handle component creator's textarea here - let the component creator handle everything
+		// This matches how the Builder view works where it doesn't directly update the textarea
+		
 		// Forward other messages to viewports
 		if m.stateManager.ShowPreview {
 			m.previewViewport, cmd = m.previewViewport.Update(msg)
@@ -1138,38 +1146,23 @@ func (m *MainListModel) handleComponentCreation(msg tea.KeyMsg) (tea.Model, tea.
 		}
 
 	case 2: // Content input
-		// Special handling for escape with unsaved content
-		if msg.String() == "esc" && strings.TrimSpace(m.componentCreator.GetComponentContent()) != "" {
-			m.exitConfirmationType = "component"
-			m.exitConfirm.ShowDialog(
-				"⚠️  Unsaved Changes",
-				"You have unsaved content in this component.",
-				"Exit without saving?",
-				true, // destructive
-				m.width-4,
-				10,
-				func() tea.Cmd {
-					// Exit - reset component creator
-					m.componentCreator.Reset()
-					return nil
-				},
-				nil, // onCancel
-			)
-			return m, nil
-		}
-
 		// Check if enhanced editor is active for component creation
 		if m.componentCreator.IsEnhancedEditorActive() {
 			handled, cmd := m.componentCreator.HandleEnhancedEditorInput(msg, m.width)
 			if handled {
-				// Check if component was saved
-				if !m.componentCreator.IsActive() {
+				// Check if component was saved (but editor stays open)
+				if m.componentCreator.WasSaveSuccessful() {
 					// Component was saved, reload components
 					m.reloadComponents()
 					return m, tea.Batch(
 						cmd,
 						func() tea.Msg { return StatusMsg(m.componentCreator.GetStatusMessage()) },
 					)
+				}
+				// Check if component creation was cancelled
+				if !m.componentCreator.IsActive() {
+					// Editor was closed without saving
+					return m, cmd
 				}
 				return m, cmd
 			}

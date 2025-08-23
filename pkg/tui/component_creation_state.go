@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
@@ -17,9 +16,9 @@ type ComponentCreator struct {
 	creatingComponent     bool
 	componentCreationType string
 	componentName         string
-	componentContent      string
 	creationStep          int // 0: type, 1: name, 2: content
 	typeCursor            int
+	lastSaveSuccessful    bool // Track if last save was successful
 
 	// Enhanced editor integration
 	enhancedEditor *EnhancedEditorState
@@ -36,10 +35,10 @@ func NewComponentCreator() *ComponentCreator {
 func (c *ComponentCreator) Reset() {
 	c.creatingComponent = false
 	c.componentName = ""
-	c.componentContent = ""
 	c.creationStep = 0
 	c.typeCursor = 0
 	c.componentCreationType = ""
+	c.lastSaveSuccessful = false
 }
 
 // Start initiates component creation
@@ -48,7 +47,6 @@ func (c *ComponentCreator) Start() {
 	c.creationStep = 0
 	c.typeCursor = 0
 	c.componentName = ""
-	c.componentContent = ""
 	c.componentCreationType = ""
 }
 
@@ -77,9 +75,12 @@ func (c *ComponentCreator) GetComponentName() string {
 	return c.componentName
 }
 
-// GetComponentContent returns the component content
+// GetComponentContent returns the component content from the enhanced editor
 func (c *ComponentCreator) GetComponentContent() string {
-	return c.componentContent
+	if c.enhancedEditor != nil && c.enhancedEditor.Active {
+		return c.enhancedEditor.GetContent()
+	}
+	return ""
 }
 
 // HandleTypeSelection handles keyboard input for type selection step
@@ -138,52 +139,6 @@ func (c *ComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
 	return false
 }
 
-// SaveComponent saves the component to disk
-func (c *ComponentCreator) SaveComponent() error {
-	// Determine the component subdirectory
-	var subDir string
-	switch c.componentCreationType {
-	case models.ComponentTypeContext:
-		subDir = models.ComponentTypeContext
-	case models.ComponentTypePrompt:
-		subDir = models.ComponentTypePrompt
-	case models.ComponentTypeRules:
-		subDir = models.ComponentTypeRules
-	default:
-		return fmt.Errorf("unknown component type: %s", c.componentCreationType)
-	}
-
-	// Ensure directory exists
-	dir := filepath.Join(files.PluqqyDir, files.ComponentsDir, subDir)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("failed to create directory: %w", err)
-	}
-
-	// Generate filename
-	filename := sanitizeFileName(c.componentName) + ".md"
-	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
-	fullPath := filepath.Join(files.PluqqyDir, relativePath)
-
-	// Check if file already exists
-	if _, err := os.Stat(fullPath); err == nil {
-		return fmt.Errorf("component already exists: %s", filename)
-	}
-
-	// Prepare content
-	content := c.componentContent
-	if !strings.HasSuffix(content, "\n") {
-		content += "\n"
-	}
-
-	// Use the files package to write with name in frontmatter
-	// The display name is the component name provided by the user
-	err := files.WriteComponentWithNameAndTags(relativePath, content, c.componentName, nil)
-	if err != nil {
-		return fmt.Errorf("failed to write component: %w", err)
-	}
-
-	return nil
-}
 
 // GetStatusMessage returns a status message after successful save
 func (c *ComponentCreator) GetStatusMessage() string {
@@ -207,6 +162,10 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 	case models.ComponentTypeRules:
 		subDir = models.ComponentTypeRules
 	}
+
+	// Ensure directory exists for new components
+	dir := filepath.Join(files.PluqqyDir, files.ComponentsDir, subDir)
+	os.MkdirAll(dir, 0755) // Create directory if it doesn't exist
 
 	// Generate filename and path
 	filename := sanitizeFileName(c.componentName) + ".md"
@@ -240,23 +199,20 @@ func (c *ComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) 
 		return false, nil
 	}
 
-	// Let the enhanced editor handle the input
+	// Let the enhanced editor handle ALL input, including Ctrl+S
+	// This matches how editing existing components works
 	handled, cmd := HandleEnhancedEditorInput(c.enhancedEditor, msg, width)
 
-	// Check if save was requested (Ctrl+S pressed)
-	if msg.String() == "ctrl+s" && c.enhancedEditor.Active {
-		c.componentContent = c.enhancedEditor.GetContent()
-		if err := c.SaveComponent(); err == nil {
-			c.enhancedEditor.Active = false
-			c.Reset()
-			return true, cmd
-		}
+	// Check if a save occurred (Ctrl+S was pressed and handled)
+	if msg.String() == "ctrl+s" && handled {
+		// Mark that a save was successful for the views to reload components
+		c.lastSaveSuccessful = true
 	}
 
 	// Check if editor was closed (ESC or similar)
 	if !c.enhancedEditor.IsActive() {
-		c.creationStep = 1 // Go back to name input
-		c.componentContent = ""
+		// Exit component creation entirely instead of going back to name input
+		c.Reset()
 		return true, cmd
 	}
 
@@ -271,4 +227,13 @@ func (c *ComponentCreator) IsEnhancedEditorActive() bool {
 // GetEnhancedEditor returns the enhanced editor instance
 func (c *ComponentCreator) GetEnhancedEditor() *EnhancedEditorState {
 	return c.enhancedEditor
+}
+
+// WasSaveSuccessful checks if a save just occurred and resets the flag
+func (c *ComponentCreator) WasSaveSuccessful() bool {
+	if c.lastSaveSuccessful {
+		c.lastSaveSuccessful = false // Reset flag after checking
+		return true
+	}
+	return false
 }
