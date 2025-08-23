@@ -2961,7 +2961,9 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 				}
 				// Check if component creation was cancelled
 				if !m.componentCreator.IsActive() {
-					// Editor was closed without saving
+					// Component creation ended (saved or cancelled)
+					// Always reload to ensure list is current
+					m.loadAvailableComponents()
 					return m, cmd
 				}
 				return m, cmd
