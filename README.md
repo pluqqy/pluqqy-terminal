@@ -19,12 +19,13 @@ This approach keeps your context minimal and focused - only including what's rel
 | Feature                 | Description                                                                  |
 | ----------------------- | ---------------------------------------------------------------------------- |
 | **TUI**                 | Clean, intuitive terminal interface                                          |
+| **CLI Commands**        | Full-featured command-line interface for automation and scripting            |
 | **Tagging**             | Organize and categorize components and pipelines with colored tags           |
 | **Search**              | Search engine with field-based queries (tag:api, type:prompt)                |
 | **Built-in Editor**     | Minimal editor for quick edits with undo, paste cleaning, and token counting |
 | **Live Preview**        | See your composed pipeline as you build                                      |
 | **Pipeline Visualizer** | Generate HTML-based interactive Mermaid diagrams of your pipelines           |
-| **Clipboard Copy**      | Copy composed pipeline content directly to clipboard with `y` key            |
+| **Clipboard Copy**      | Copy composed pipeline content directly to clipboard (TUI: `y` key, CLI: `clipboard` command) |
 
 <br>
 
@@ -91,6 +92,243 @@ This creates the following structure:
 
 ```bash
 pluqqy
+```
+
+<br>
+
+## CLI Commands
+
+Pluqqy provides a comprehensive set of CLI commands for managing pipelines and components without the TUI. All commands support multiple output formats (`--output json|yaml`) and global flags (`--quiet`, `--yes`, `--no-color`).
+
+### Pipeline Commands
+
+#### Set Active Pipeline or Component
+
+```bash
+# Set a pipeline as active (generates output file)
+pluqqy set cli-development
+
+# Set a specific component as active
+pluqqy set contexts/api-docs
+pluqqy set prompts/user-story
+
+# Set with custom output filename
+pluqqy set cli-development --output-file MY_PROMPT.md
+pluqqy set contexts/api-docs --output-file CONTEXT.md
+```
+
+#### List Items
+
+```bash
+# List all items (pipelines and components)
+pluqqy list
+
+# List specific types
+pluqqy list pipelines
+pluqqy list components
+pluqqy list contexts
+pluqqy list prompts
+pluqqy list rules
+
+# Show only archived items
+pluqqy list --archived
+
+# Show file paths
+pluqqy list --paths
+
+# Output as JSON or YAML
+pluqqy list -o json
+pluqqy list pipelines -o yaml
+```
+
+#### Show Content
+
+```bash
+# Show composed pipeline output (what the AI sees)
+pluqqy show cli-development
+
+# Show component content
+pluqqy show api-docs
+pluqqy show contexts/api-docs
+
+# Show with metadata header
+pluqqy show cli-development --metadata
+
+# Output pipeline/component structure as JSON/YAML
+pluqqy show cli-development -o json
+pluqqy show api-docs -o yaml
+```
+
+#### Export Content
+
+```bash
+# Export composed pipeline to stdout
+pluqqy export cli-development
+
+# Export component to stdout
+pluqqy export contexts/api-docs
+
+# Export to file
+pluqqy export cli-development --file output.md
+pluqqy export prompts/user-story --file prompt.md
+
+# Export structure as JSON/YAML
+pluqqy export cli-development -o json
+pluqqy export contexts/api-docs -o yaml --file context.yaml
+```
+
+#### Copy to Clipboard
+
+```bash
+# Copy pipeline content to clipboard
+pluqqy clipboard cli-development
+
+# Copy component content to clipboard
+pluqqy clipboard contexts/api-docs
+pluqqy clipboard prompts/user-story
+
+# Using aliases
+pluqqy clip cli-development
+pluqqy copy contexts/api-docs
+```
+
+### Component Commands
+
+#### Create Components
+
+```bash
+# Create a new component (opens editor)
+pluqqy create context api-docs
+pluqqy create prompt user-story
+pluqqy create rule security
+
+# Create with tags
+pluqqy create context api-docs --tags api,documentation
+```
+
+#### Edit Components
+
+```bash
+# Edit a component in your external editor
+pluqqy edit api-docs
+pluqqy edit prompts/user-story
+
+# Handle ambiguous names by specifying type
+pluqqy edit contexts/api-docs
+```
+
+#### Archive & Restore
+
+```bash
+# Archive a component or pipeline
+pluqqy archive api-docs
+pluqqy archive my-pipeline
+
+# Archive without confirmation
+pluqqy archive old-component -y
+
+# Restore from archive
+pluqqy restore api-docs
+pluqqy restore my-pipeline -y
+
+# List archived items
+pluqqy list --archived
+```
+
+#### Delete Items
+
+```bash
+# Delete with confirmation
+pluqqy delete old-component
+
+# Force delete without confirmation
+pluqqy delete old-component --force
+
+# Skip confirmation with -y flag
+pluqqy delete old-component -y
+
+# Delete specific type when ambiguous
+pluqqy delete contexts/old-component
+```
+
+### Search Commands
+
+```bash
+# Search with query syntax
+pluqqy search "tag:api"
+pluqqy search "type:prompt"
+pluqqy search "content:authentication"
+
+# Complex searches
+pluqqy search "tag:api AND type:context"
+pluqqy search "status:archived"
+
+# Output search results as JSON
+pluqqy search "tag:api" -o json
+```
+
+### Global Flags
+
+All commands support these global flags:
+
+```bash
+# Output format (text, json, yaml)
+pluqqy list -o json
+pluqqy show api-docs -o yaml
+
+# Quiet mode (suppress non-error output)
+pluqqy set cli-development -q
+
+# Skip confirmations
+pluqqy delete old-component -y
+pluqqy archive api-docs --yes
+
+# Disable colored output
+pluqqy list --no-color
+
+# Verbose output
+pluqqy search "tag:api" -v
+```
+
+### Handling Ambiguous Names
+
+When components share the same filename across different types:
+
+```bash
+# If you have both prompts/api.md and contexts/api.md
+pluqqy show api              # Error: multiple components found
+pluqqy show prompts/api      # Shows the prompt version
+pluqqy show contexts/api     # Shows the context version
+
+# Same applies to all commands
+pluqqy edit prompts/api
+pluqqy archive contexts/api
+pluqqy delete prompts/api
+```
+
+### Examples
+
+```bash
+# Typical workflow
+pluqqy init                                    # Initialize project
+pluqqy create context project-architecture     # Create a context
+pluqqy create prompt implement-feature         # Create a prompt
+pluqqy create rule coding-standards           # Create rules
+pluqqy list components                        # See all components
+pluqqy set contexts/project-architecture      # Set just the context
+pluqqy clipboard prompts/implement-feature    # Copy prompt to clipboard
+
+# Pipeline workflow
+pluqqy list pipelines                         # See available pipelines
+pluqqy show cli-development --metadata        # Preview with metadata
+pluqqy set cli-development                    # Set as active
+pluqqy clipboard cli-development              # Copy to clipboard
+
+# Maintenance workflow
+pluqqy list --archived                        # See archived items
+pluqqy archive old-component -y               # Archive without confirmation
+pluqqy restore old-component                  # Restore from archive
+pluqqy delete contexts/deprecated --force     # Force delete
 ```
 
 <br>

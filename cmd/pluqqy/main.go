@@ -10,6 +10,8 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
+	"github.com/pluqqy/pluqqy-cli/cmd/commands"
+	"github.com/pluqqy/pluqqy-cli/internal/cli"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/tui"
@@ -129,9 +131,42 @@ var settingsCmd = &cobra.Command{
 }
 
 func init() {
+	// Add global flags
+	rootCmd.PersistentFlags().StringP("output", "o", "text", "Output format (text|json|yaml)")
+	rootCmd.PersistentFlags().BoolP("quiet", "q", false, "Suppress non-error output")
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Detailed output")
+	rootCmd.PersistentFlags().Bool("no-color", false, "Disable colored output")
+	rootCmd.PersistentFlags().BoolP("yes", "y", false, "Skip confirmations")
+
+	// Set global flags for CLI helpers
+	rootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		quiet, _ := cmd.Flags().GetBool("quiet")
+		noColor, _ := cmd.Flags().GetBool("no-color")
+		skipConfirm, _ := cmd.Flags().GetBool("yes")
+		cli.SetGlobalFlags(quiet, noColor, skipConfirm)
+	}
+	
+	// Core commands
 	rootCmd.AddCommand(initCmd)
 	rootCmd.AddCommand(versionCmd)
 	rootCmd.AddCommand(settingsCmd)
+	
+	// Pipeline commands
+	rootCmd.AddCommand(commands.NewSetCommand())
+	rootCmd.AddCommand(commands.NewListCommand())
+	rootCmd.AddCommand(commands.NewExportCommand())
+	rootCmd.AddCommand(commands.NewClipboardCommand())
+	
+	// Component commands
+	rootCmd.AddCommand(commands.NewCreateCommand())
+	rootCmd.AddCommand(commands.NewEditCommand())
+	rootCmd.AddCommand(commands.NewShowCommand())
+	rootCmd.AddCommand(commands.NewArchiveCommand())
+	rootCmd.AddCommand(commands.NewRestoreCommand())
+	rootCmd.AddCommand(commands.NewDeleteCommand())
+	
+	// Search commands
+	rootCmd.AddCommand(commands.NewSearchCommand())
 }
 
 func main() {
