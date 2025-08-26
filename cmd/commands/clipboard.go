@@ -138,7 +138,7 @@ func runClipboard(cmd *cobra.Command, args []string) error {
 					errMsg.WriteString("  pluqqy clipboard prompts/user-story\n\n")
 					errMsg.WriteString("Run 'pluqqy list' to see available items\n")
 					
-					return fmt.Errorf(errMsg.String())
+					return fmt.Errorf("%s", errMsg.String())
 				}
 				return fmt.Errorf("failed to load item: %w", pipelineErr)
 			}
