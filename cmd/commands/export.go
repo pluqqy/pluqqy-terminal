@@ -3,15 +3,12 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/pluqqy/pluqqy-cli/internal/cli"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 var (
@@ -51,13 +48,11 @@ Examples:
   pluqqy export my-assistant -o yaml`,
 		Args: cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
 			}
-			
-			// Don't validate here since it could be a pipeline or component
-			return nil
+			return ctx.ValidateProject()
 		},
 		RunE: runExport,
 	}
@@ -70,12 +65,12 @@ Examples:
 func runExport(cmd *cobra.Command, args []string) error {
 	itemRef := args[0]
 
-	// Load settings for composition
-	settings, err := files.ReadSettings()
+	// Create command context and load settings
+	ctx, err := cli.NewCommandContext()
 	if err != nil {
-		// Use default settings if can't read
-		settings = models.DefaultSettings()
+		return err
 	}
+	settings := ctx.LoadSettingsWithDefault()
 
 	// Get output format
 	outputFormat, _ := cmd.Flags().GetString("output")
@@ -85,16 +80,37 @@ func runExport(cmd *cobra.Command, args []string) error {
 	var itemName string
 	var exportData interface{} // For structured output formats
 
-	// Check if it's a component reference (contains /)
-	if strings.Contains(itemRef, "/") {
-		// It's a component reference like "contexts/api-docs"
-		componentPath, err := findComponentFile(itemRef)
+	// Create resolver to find items
+	resolver := cli.NewItemResolver(ctx.ProjectPath)
+
+	// Try to resolve the item
+	itemTypeResolved, itemPath, err := resolver.ResolveItem(itemRef)
+	if err != nil {
+		return err
+	}
+
+	switch itemTypeResolved {
+	case "pipeline":
+		pipeline, err := files.LoadPipeline(itemPath)
 		if err != nil {
-			return fmt.Errorf("failed to find component: %w", err)
+			return fmt.Errorf("failed to load pipeline: %w", err)
 		}
 
-		// Load the component
-		component, err := files.LoadComponent(componentPath)
+		itemType = "Pipeline"
+		itemName = pipeline.Name
+		exportData = pipeline
+
+		// Compose the pipeline for text output
+		if outputFormat != "json" && outputFormat != "yaml" {
+			composed, err := composer.ComposePipelineWithSettings(pipeline, settings)
+			if err != nil {
+				return fmt.Errorf("failed to compose pipeline: %w", err)
+			}
+			output = composed
+		}
+
+	case "component":
+		component, err := files.LoadComponent(itemPath)
 		if err != nil {
 			return fmt.Errorf("failed to load component: %w", err)
 		}
@@ -111,55 +127,12 @@ func runExport(cmd *cobra.Command, args []string) error {
 			}
 			output = composed
 		}
-	} else {
-		// Try as pipeline first
-		pipelineName := strings.TrimSuffix(itemRef, ".yaml")
-		pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", pipelineName+".yaml")
-		pipeline, pipelineErr := files.LoadPipeline(pipelinePath)
-		
-		if pipelineErr == nil {
-			// It's a pipeline
-			itemType = "Pipeline"
-			itemName = pipeline.Name
-			exportData = pipeline
 
-			// Compose the pipeline for text output
-			if outputFormat != "json" && outputFormat != "yaml" {
-				composed, err := composer.ComposePipelineWithSettings(pipeline, settings)
-				if err != nil {
-					return fmt.Errorf("failed to compose pipeline: %w", err)
-				}
-				output = composed
-			}
-		} else {
-			// Try as component without type prefix
-			componentPath, componentErr := findComponentFile(itemRef)
-			if componentErr == nil {
-				component, err := files.LoadComponent(componentPath)
-				if err != nil {
-					return fmt.Errorf("failed to load component: %w", err)
-				}
+	case "archived":
+		return fmt.Errorf("item '%s' is archived at %s", itemRef, itemPath)
 
-				itemType = "Component"
-				itemName = component.Name
-				exportData = component
-
-				// Compose the component for text output
-				if outputFormat != "json" && outputFormat != "yaml" {
-					composed, err := composer.ComposeComponentWithSettings(component, settings)
-					if err != nil {
-						return fmt.Errorf("failed to compose component: %w", err)
-					}
-					output = composed
-				}
-			} else {
-				// Not found as either pipeline or component
-				if os.IsNotExist(pipelineErr) || strings.Contains(pipelineErr.Error(), "no such file or directory") {
-					return fmt.Errorf("item '%s' not found as pipeline or component", itemRef)
-				}
-				return fmt.Errorf("failed to load item: %w", pipelineErr)
-			}
-		}
+	default:
+		return fmt.Errorf("unknown item type: %s", itemTypeResolved)
 	}
 
 	// Handle structured output formats

@@ -2,8 +2,6 @@ package commands
 
 import (
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -50,11 +48,11 @@ Examples:
   pluqqy show cli-development -o json`,
 		Args: cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
 			}
-			return nil
+			return ctx.ValidateProject()
 		},
 		RunE: runShow,
 	}
@@ -70,38 +68,33 @@ func runShow(cmd *cobra.Command, args []string) error {
 	// Get output format
 	outputFormat, _ := cmd.Flags().GetString("output")
 
-	// Check if it's a component reference (contains /)
-	if strings.Contains(itemRef, "/") {
-		// It's definitely a component reference like "contexts/api-docs"
-		return showComponent(cmd, itemRef, outputFormat)
+	// Create command context and resolver
+	ctx, err := cli.NewCommandContext()
+	if err != nil {
+		return err
+	}
+	resolver := cli.NewItemResolver(ctx.ProjectPath)
+
+	// Resolve the item
+	itemType, itemPath, err := resolver.ResolveItem(itemRef)
+	if err != nil {
+		return err
 	}
 
-	// Try as pipeline first
-	pipelineName := strings.TrimSuffix(itemRef, ".yaml")
-	pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", pipelineName+".yaml")
-	pipeline, pipelineErr := files.LoadPipeline(pipelinePath)
-	
-	if pipelineErr == nil {
-		// It's a pipeline
-		return showPipeline(cmd, pipeline, pipelinePath, outputFormat)
-	}
-
-	// Try as component
-	_, componentErr := findComponentFile(itemRef)
-	if componentErr == nil {
-		return showComponent(cmd, itemRef, outputFormat)
-	}
-
-	// Not found as either
-	if os.IsNotExist(pipelineErr) || strings.Contains(pipelineErr.Error(), "no such file or directory") {
-		// Check if component error is about multiple matches
-		if componentErr != nil && strings.Contains(componentErr.Error(), "multiple components found") {
-			return componentErr
+	switch itemType {
+	case "pipeline":
+		pipeline, err := files.LoadPipeline(itemPath)
+		if err != nil {
+			return fmt.Errorf("failed to load pipeline: %w", err)
 		}
-		return fmt.Errorf("item '%s' not found as pipeline or component", itemRef)
+		return showPipeline(cmd, pipeline, itemPath, outputFormat)
+		case "component":
+		return showComponentByPath(cmd, itemPath, outputFormat)
+	case "archived":
+		return fmt.Errorf("item '%s' is archived at %s", itemRef, itemPath)
+	default:
+		return fmt.Errorf("unknown item type: %s", itemType)
 	}
-	
-	return fmt.Errorf("failed to load item: %w", pipelineErr)
 }
 
 func showPipeline(cmd *cobra.Command, pipeline interface{}, pipelinePath string, outputFormat string) error {
@@ -120,11 +113,8 @@ func showPipeline(cmd *cobra.Command, pipeline interface{}, pipelinePath string,
 		// Text output - show composed pipeline content
 		
 		// Load settings for composition
-		settings, err := files.ReadSettings()
-		if err != nil {
-			// Use default settings if can't read
-			settings = models.DefaultSettings()
-		}
+		ctx, _ := cli.NewCommandContext()
+		settings := ctx.LoadSettingsWithDefault()
 
 		// Compose the pipeline
 		composed, err := composer.ComposePipelineWithSettings(p, settings)
@@ -158,11 +148,17 @@ func showPipeline(cmd *cobra.Command, pipeline interface{}, pipelinePath string,
 
 func showComponent(cmd *cobra.Command, componentRef string, outputFormat string) error {
 	// Find the component file
-	componentPath, err := findComponentFile(componentRef)
+	ctx, _ := cli.NewCommandContext()
+	finder := cli.NewComponentFinder(ctx.ProjectPath)
+	componentPath, err := finder.FindByReference(componentRef)
 	if err != nil {
 		return err
 	}
 
+	return showComponentByPath(cmd, componentPath, outputFormat)
+}
+
+func showComponentByPath(cmd *cobra.Command, componentPath string, outputFormat string) error {
 	// Load the component
 	component, err := files.LoadComponent(componentPath)
 	if err != nil {

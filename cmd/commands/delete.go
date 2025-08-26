@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -37,11 +36,11 @@ Examples:
   pluqqy delete old-component --force`,
 		Args: cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
 			}
-			return nil
+			return ctx.ValidateProject()
 		},
 		RunE: runDelete,
 	}
@@ -54,38 +53,41 @@ Examples:
 func runDelete(cmd *cobra.Command, args []string) error {
 	itemRef := args[0]
 
-	// Try to find the item
-	var itemPath string
+	// Create command context and resolver
+	ctx, err := cli.NewCommandContext()
+	if err != nil {
+		return err
+	}
+	resolver := cli.NewItemResolver(ctx.ProjectPath)
+
+	// Try to resolve the item
+	itemTypeResolved, itemPath, resolveErr := resolver.ResolveItem(itemRef)
+	if resolveErr != nil {
+		return resolveErr
+	}
+
 	var itemType string
 	var isArchived bool
 
-	// Try to find as component (active or archived)
-	componentPath, componentErr := findComponentFile(itemRef)
-	if componentErr == nil {
-		itemPath = componentPath
+	switch itemTypeResolved {
+	case "pipeline":
+		itemType = "pipeline"
+		isArchived = false
+	case "component":
 		itemType = "component"
-		isArchived = strings.Contains(componentPath, "/archive/")
-	} else {
-		// Try to find as pipeline (active)
-		pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", itemRef+".yaml")
-		if _, err := os.Stat(pipelinePath); err == nil {
-			itemPath = pipelinePath
+		isArchived = false
+	case "archived":
+		isArchived = true
+		// Determine if it's a component or pipeline based on path
+		if strings.Contains(itemPath, "/components/") {
+			itemType = "component"
+		} else if strings.Contains(itemPath, "/pipelines/") {
 			itemType = "pipeline"
 		} else {
-			// Try to find as archived pipeline
-			archivedPipelinePath := filepath.Join(files.PluqqyDir, "archive", "pipelines", itemRef+".yaml")
-			if _, err := os.Stat(archivedPipelinePath); err == nil {
-				itemPath = archivedPipelinePath
-				itemType = "pipeline"
-				isArchived = true
-			} else {
-				// Check if the component error is about multiple matches
-				if componentErr != nil && strings.Contains(componentErr.Error(), "multiple components found") {
-					return componentErr
-				}
-				return fmt.Errorf("item not found: %s", itemRef)
-			}
+			return fmt.Errorf("cannot determine type of archived item: %s", itemPath)
 		}
+	default:
+		return fmt.Errorf("unknown item type: %s", itemTypeResolved)
 	}
 
 	// Show warning for non-archived items
@@ -111,26 +113,26 @@ func runDelete(cmd *cobra.Command, args []string) error {
 	}
 
 	// Perform deletion
-	var err error
+	var deleteErr error
 	if itemType == "component" {
 		// DeleteComponent and DeleteArchivedComponent expect relative paths
-		// Extract the relative path from the full path
-		relativePath := strings.TrimPrefix(itemPath, files.PluqqyDir+string(os.PathSeparator))
+		// Use resolver to convert to relative path
+		relativePath := resolver.ConvertToRelativePath(itemPath)
 		
 		if isArchived {
 			// For archived components, remove the "archive/" prefix to get the standard component path
 			relativePath = strings.TrimPrefix(relativePath, "archive"+string(os.PathSeparator))
-			err = files.DeleteArchivedComponent(relativePath)
+			deleteErr = files.DeleteArchivedComponent(relativePath)
 		} else {
-			err = files.DeleteComponent(relativePath)
+			deleteErr = files.DeleteComponent(relativePath)
 		}
 	} else {
 		// For pipelines, use standard os.Remove
-		err = os.Remove(itemPath)
+		deleteErr = os.Remove(itemPath)
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to delete %s: %w", itemType, err)
+	if deleteErr != nil {
+		return fmt.Errorf("failed to delete %s: %w", itemType, deleteErr)
 	}
 
 	cli.PrintSuccess("Deleted %s: %s", itemType, itemRef)

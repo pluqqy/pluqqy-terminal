@@ -3,7 +3,6 @@ package commands
 import (
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -42,9 +41,12 @@ Examples:
   EDITOR=vim pluqqy create rule security-rules`,
 		Args: cobra.ExactArgs(2),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
+			}
+			if err := ctx.ValidateProject(); err != nil {
+				return err
 			}
 			
 			// Validate component type
@@ -87,46 +89,20 @@ func runCreate(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("component '%s' already exists", componentName)
 	}
 
-	// Create a temporary file for editing
-	tmpFile, err := os.CreateTemp("", componentName+"_*.md")
-	if err != nil {
-		return fmt.Errorf("failed to create temporary file: %w", err)
-	}
-	defer os.Remove(tmpFile.Name())
-
-	// Write initial template to temp file
+	// Create template content
 	template := createComponentTemplate(componentName, componentType, createTags)
-	if err := os.WriteFile(tmpFile.Name(), []byte(template), 0644); err != nil {
-		return fmt.Errorf("failed to write template: %w", err)
-	}
-
-	// Open in editor
-	editor := os.Getenv("EDITOR")
-	if editor == "" {
-		editor = "vi"
-	}
-
-	// Parse editor command to handle arguments like "--wait" or "-w"
-	parts := strings.Fields(editor)
-	var editorCmd *exec.Cmd
-	if len(parts) > 1 {
-		// Editor has arguments (e.g., "code --wait")
-		editorCmd = exec.Command(parts[0], append(parts[1:], tmpFile.Name())...)
-	} else {
-		// Simple editor command (e.g., "vim")
-		editorCmd = exec.Command(editor, tmpFile.Name())
-	}
-	editorCmd.Stdin = os.Stdin
-	editorCmd.Stdout = os.Stdout
-	editorCmd.Stderr = os.Stderr
-
+	
+	// Open in editor with template
+	launcher := cli.NewEditorLauncher()
 	cli.PrintInfo("Opening editor to create component...")
-	if err := editorCmd.Run(); err != nil {
-		return fmt.Errorf("failed to open editor: %w", err)
+	tmpFilePath, err := launcher.OpenTempFile(componentName+"_*.md", template)
+	if err != nil {
+		return err
 	}
+	defer os.Remove(tmpFilePath)
 
 	// Read the edited content
-	content, err := os.ReadFile(tmpFile.Name())
+	content, err := os.ReadFile(tmpFilePath)
 	if err != nil {
 		return fmt.Errorf("failed to read edited content: %w", err)
 	}

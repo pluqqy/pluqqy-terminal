@@ -11,7 +11,6 @@ import (
 	"github.com/pluqqy/pluqqy-cli/internal/cli"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
 var (
@@ -47,13 +46,11 @@ Examples:
   pluqqy set cli-development -q`,
 		Args: cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
 			}
-			
-			// Don't validate here since it could be a pipeline or component
-			return nil
+			return ctx.ValidateProject()
 		},
 		RunE: runSet,
 	}
@@ -66,12 +63,12 @@ Examples:
 func runSet(cmd *cobra.Command, args []string) error {
 	itemRef := args[0]
 	
-	// Load settings for output configuration
-	settings, err := files.ReadSettings()
+	// Create command context and load settings
+	ctx, err := cli.NewCommandContext()
 	if err != nil {
-		// Use default settings if can't read
-		settings = models.DefaultSettings()
+		return err
 	}
+	settings := ctx.LoadSettingsWithDefault()
 
 	// Override output filename if specified
 	if outputFilename != "" {
@@ -82,76 +79,60 @@ func runSet(cmd *cobra.Command, args []string) error {
 	var itemType string
 	var itemName string
 
-	// Check if it's a component reference (contains /)
-	if strings.Contains(itemRef, "/") {
-		// It's a component reference like "contexts/api-docs"
-		componentPath, err := findComponentFile(itemRef)
+	// Create resolver to find items
+	resolver := cli.NewItemResolver(ctx.ProjectPath)
+
+	// Try to resolve the item
+	itemTypeResolved, itemPath, err := resolver.ResolveItem(itemRef)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			var errMsg strings.Builder
+			errMsg.WriteString(fmt.Sprintf("Item '%s' not found as pipeline or component\n\n", itemRef))
+			errMsg.WriteString("Usage:\n")
+			errMsg.WriteString("  For pipelines: pluqqy set <pipeline-filename>\n")
+			errMsg.WriteString("  For components: pluqqy set <type>/<component-name>\n\n")
+			errMsg.WriteString("Examples:\n")
+			errMsg.WriteString("  pluqqy set cli-development\n")
+			errMsg.WriteString("  pluqqy set contexts/api-docs\n")
+			errMsg.WriteString("  pluqqy set prompts/user-story\n\n")
+			errMsg.WriteString("Run 'pluqqy list' to see available items\n")
+			return fmt.Errorf("%s", errMsg.String())
+		}
+		return err
+	}
+
+	switch itemTypeResolved {
+	case "pipeline":
+		pipeline, err := files.LoadPipeline(itemPath)
 		if err != nil {
-			return fmt.Errorf("failed to find component: %w", err)
+			return fmt.Errorf("failed to load pipeline: %w", err)
 		}
 
-		// Load the component
-		component, err := files.LoadComponent(componentPath)
+		composed, err = composer.ComposePipelineWithSettings(pipeline, settings)
+		if err != nil {
+			return fmt.Errorf("failed to compose pipeline: %w", err)
+		}
+		itemType = "Pipeline"
+		itemName = pipeline.Name
+
+	case "component":
+		component, err := files.LoadComponent(itemPath)
 		if err != nil {
 			return fmt.Errorf("failed to load component: %w", err)
 		}
 
-		// Compose the component
 		composed, err = composer.ComposeComponentWithSettings(component, settings)
 		if err != nil {
 			return fmt.Errorf("failed to compose component: %w", err)
 		}
-
 		itemType = "Component"
 		itemName = component.Name
-	} else {
-		// Try as pipeline first
-		pipelineName := strings.TrimSuffix(itemRef, ".yaml")
-		pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", pipelineName+".yaml")
-		pipeline, pipelineErr := files.LoadPipeline(pipelinePath)
-		
-		if pipelineErr == nil {
-			// It's a pipeline
-			composed, err = composer.ComposePipelineWithSettings(pipeline, settings)
-			if err != nil {
-				return fmt.Errorf("failed to compose pipeline: %w", err)
-			}
-			itemType = "Pipeline"
-			itemName = pipeline.Name
-		} else {
-			// Try as component without type prefix
-			componentPath, componentErr := findComponentFile(itemRef)
-			if componentErr == nil {
-				component, err := files.LoadComponent(componentPath)
-				if err != nil {
-					return fmt.Errorf("failed to load component: %w", err)
-				}
 
-				composed, err = composer.ComposeComponentWithSettings(component, settings)
-				if err != nil {
-					return fmt.Errorf("failed to compose component: %w", err)
-				}
-				itemType = "Component"
-				itemName = component.Name
-			} else {
-				// Not found as either pipeline or component
-				if os.IsNotExist(pipelineErr) || strings.Contains(pipelineErr.Error(), "no such file or directory") {
-					var errMsg strings.Builder
-					errMsg.WriteString(fmt.Sprintf("Item '%s' not found as pipeline or component\n\n", itemRef))
-					errMsg.WriteString("Usage:\n")
-					errMsg.WriteString("  For pipelines: pluqqy set <pipeline-filename>\n")
-					errMsg.WriteString("  For components: pluqqy set <type>/<component-name>\n\n")
-					errMsg.WriteString("Examples:\n")
-					errMsg.WriteString("  pluqqy set cli-development\n")
-					errMsg.WriteString("  pluqqy set contexts/api-docs\n")
-					errMsg.WriteString("  pluqqy set prompts/user-story\n\n")
-					errMsg.WriteString("Run 'pluqqy list' to see available items\n")
-					
-					return fmt.Errorf("%s", errMsg.String())
-				}
-				return fmt.Errorf("failed to load item: %w", pipelineErr)
-			}
-		}
+	case "archived":
+		return fmt.Errorf("cannot set archived item '%s'. Please restore it first", itemRef)
+
+	default:
+		return fmt.Errorf("unknown item type: %s", itemTypeResolved)
 	}
 
 	// Determine output path
@@ -179,5 +160,3 @@ func runSet(cmd *cobra.Command, args []string) error {
 
 	return nil
 }
-
-// findComponentFile is defined in edit.go

@@ -2,9 +2,7 @@ package commands
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -33,11 +31,11 @@ Examples:
   pluqqy archive old-component -y`,
 		Args: cobra.ExactArgs(1),
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
+			ctx, err := cli.NewCommandContext()
+			if err != nil {
+				return err
 			}
-			return nil
+			return ctx.ValidateProject()
 		},
 		RunE: runArchive,
 	}
@@ -48,33 +46,29 @@ Examples:
 func runArchive(cmd *cobra.Command, args []string) error {
 	itemRef := args[0]
 
-	// Try to find as component first
-	componentPath, componentErr := findComponentFile(itemRef)
-	
-	// Try to find as pipeline
-	pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", itemRef+".yaml")
-	_, pipelineErr := os.Stat(pipelinePath)
+	// Create command context and resolver
+	ctx, err := cli.NewCommandContext()
+	if err != nil {
+		return err
+	}
+	resolver := cli.NewItemResolver(ctx.ProjectPath)
 
-	var itemPath string
-	var itemType string
-
-	if componentErr == nil {
-		itemPath = componentPath
-		itemType = "component"
-	} else if pipelineErr == nil {
-		itemPath = pipelinePath
-		itemType = "pipeline"
-	} else {
-		// Check if the component error is about multiple matches
-		if componentErr != nil && strings.Contains(componentErr.Error(), "multiple components found") {
-			return componentErr
-		}
-		return fmt.Errorf("item not found: %s", itemRef)
+	// Try to resolve the item
+	itemTypeResolved, itemPath, err := resolver.ResolveItem(itemRef)
+	if err != nil {
+		return err
 	}
 
-	// Check if already archived
-	if strings.Contains(itemPath, "/archive/") {
+	var itemType string
+	switch itemTypeResolved {
+	case "pipeline":
+		itemType = "pipeline"
+	case "component":
+		itemType = "component"
+	case "archived":
 		return fmt.Errorf("item is already archived: %s", itemRef)
+	default:
+		return fmt.Errorf("unknown item type: %s", itemTypeResolved)
 	}
 
 	// Confirm archive
@@ -91,19 +85,18 @@ func runArchive(cmd *cobra.Command, args []string) error {
 	}
 
 	// Perform archive
-	var err error
+	var archiveErr error
 	if itemType == "component" {
 		// ArchiveComponent expects a relative path like "components/contexts/item.md"
-		// Extract the relative path from the full path
-		relativePath := strings.TrimPrefix(itemPath, files.PluqqyDir+string(os.PathSeparator))
-		err = files.ArchiveComponent(relativePath)
+		relativePath := resolver.ConvertToRelativePath(itemPath)
+		archiveErr = files.ArchiveComponent(relativePath)
 	} else {
 		// ArchivePipeline expects just the filename
-		err = files.ArchivePipeline(filepath.Base(itemPath))
+		archiveErr = files.ArchivePipeline(filepath.Base(itemPath))
 	}
 
-	if err != nil {
-		return fmt.Errorf("failed to archive %s: %w", itemType, err)
+	if archiveErr != nil {
+		return fmt.Errorf("failed to archive %s: %w", itemType, archiveErr)
 	}
 
 	cli.PrintSuccess("Archived %s: %s", itemType, itemRef)
