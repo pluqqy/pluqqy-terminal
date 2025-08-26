@@ -13,38 +13,11 @@ import (
 )
 
 type SettingsEditorModel struct {
-	width  int
-	height int
-
-	// Current settings
-	settings         *models.Settings
-	originalSettings *models.Settings // For detecting changes
-
-	// Form fields
-	defaultFilenameInput textinput.Model
-	exportPathInput      textinput.Model
-	outputPathInput      textinput.Model
-	showHeadings         bool
-
-	// Viewport for scrolling
-	viewport viewport.Model
-
-	// Current focus
-	focusIndex  int
-	totalFields int
-
-	// Section management
-	sectionCursor       int
-	editingSection      bool
-	sectionTypeInput    textinput.Model
-	sectionHeadingInput textinput.Model
-
-	// State
-	hasChanges bool
-	err        error
-
-	// Confirmation dialog
-	exitConfirm *ConfirmationModel
+	SettingsDataStore
+	SettingsUIComponents
+	SettingsViewportManager
+	SettingsFormInputs
+	SettingsSectionManager
 }
 
 const (
@@ -57,14 +30,22 @@ const (
 
 func NewSettingsEditorModel() *SettingsEditorModel {
 	m := &SettingsEditorModel{
-		defaultFilenameInput: textinput.New(),
-		exportPathInput:      textinput.New(),
-		outputPathInput:      textinput.New(),
-		sectionTypeInput:     textinput.New(),
-		sectionHeadingInput:  textinput.New(),
-		showHeadings:         true,
-		viewport:             viewport.New(80, 20), // Default size
-		exitConfirm:          NewConfirmation(),
+		SettingsDataStore: SettingsDataStore{},
+		SettingsUIComponents: SettingsUIComponents{
+			viewport:    viewport.New(80, 20), // Default size
+			exitConfirm: NewConfirmation(),
+		},
+		SettingsViewportManager: SettingsViewportManager{},
+		SettingsFormInputs: SettingsFormInputs{
+			defaultFilenameInput: textinput.New(),
+			exportPathInput:      textinput.New(),
+			outputPathInput:      textinput.New(),
+			sectionTypeInput:     textinput.New(),
+			sectionHeadingInput:  textinput.New(),
+			showHeadings:         true,
+			focusIndex:           0,
+		},
+		SettingsSectionManager: SettingsSectionManager{},
 	}
 
 	// Configure text inputs
@@ -89,7 +70,6 @@ func NewSettingsEditorModel() *SettingsEditorModel {
 	m.sectionHeadingInput.Width = 40
 
 	// Set initial focus
-	m.focusIndex = 0
 	m.updateFocus()
 
 	return m
