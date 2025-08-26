@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/testhelpers"
 )
 
 // Integration test helpers
@@ -16,10 +17,10 @@ func createFullyInitializedModel(t *testing.T) *MainListModel {
 	m.viewports.Height = 50
 
 	// Initialize with test data
-	m.data.Prompts = makeTestComponents("prompts", "greeting", "farewell", "question")
-	m.data.Contexts = makeTestComponents("contexts", "general", "technical", "creative")
-	m.data.Rules = makeTestComponents("rules", "format", "style", "security")
-	m.data.Pipelines = makeTestPipelines("basic", "advanced", "custom")
+	m.data.Prompts = toComponentItems(testhelpers.MakeTestComponents("prompts", "greeting", "farewell", "question"))
+	m.data.Contexts = toComponentItems(testhelpers.MakeTestComponents("contexts", "general", "technical", "creative"))
+	m.data.Rules = toComponentItems(testhelpers.MakeTestComponents("rules", "format", "style", "security"))
+	m.data.Pipelines = toPipelineItems(testhelpers.MakeTestPipelines("basic", "advanced", "custom"))
 
 	// Set up business logic
 	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
@@ -116,10 +117,10 @@ func TestCompleteInitialization(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewMainListModel()
 			// Add test data for validation
-			m.data.Prompts = makeTestComponents("prompts", "test")
-			m.data.Contexts = makeTestComponents("contexts", "test")
-			m.data.Rules = makeTestComponents("rules", "test")
-			m.data.Pipelines = makeTestPipelines("test")
+			m.data.Prompts = toComponentItems(testhelpers.MakeTestComponents("prompts", "test"))
+			m.data.Contexts = toComponentItems(testhelpers.MakeTestComponents("contexts", "test"))
+			m.data.Rules = toComponentItems(testhelpers.MakeTestComponents("rules", "test"))
+			m.data.Pipelines = toPipelineItems(testhelpers.MakeTestPipelines("test"))
 			m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 			m.data.FilteredComponents = m.getAllComponents()
 			m.data.FilteredPipelines = m.data.Pipelines
@@ -335,7 +336,7 @@ func TestErrorHandlingAndEdgeCases(t *testing.T) {
 			name: "Handle cursor bounds when list shrinks",
 			setup: func(m *MainListModel) {
 				m.stateManager.ComponentCursor = 5
-				m.data.FilteredComponents = makeTestComponents("prompts", "one", "two") // Only 2 items
+				m.data.FilteredComponents = toComponentItems(testhelpers.MakeTestComponents("prompts", "one", "two")) // Only 2 items
 				m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
 			},
 			action: tea.KeyMsg{Type: tea.KeyDown},
@@ -567,10 +568,10 @@ func BenchmarkInitialization(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		m := NewMainListModel()
 		// Add test data
-		m.data.Prompts = makeTestComponents("prompts", "test1", "test2", "test3")
-		m.data.Contexts = makeTestComponents("contexts", "test1", "test2", "test3")
-		m.data.Rules = makeTestComponents("rules", "test1", "test2", "test3")
-		m.data.Pipelines = makeTestPipelines("test1", "test2", "test3")
+		m.data.Prompts = toComponentItems(testhelpers.MakeTestComponents("prompts", "test1", "test2", "test3"))
+		m.data.Contexts = toComponentItems(testhelpers.MakeTestComponents("contexts", "test1", "test2", "test3"))
+		m.data.Rules = toComponentItems(testhelpers.MakeTestComponents("rules", "test1", "test2", "test3"))
+		m.data.Pipelines = toPipelineItems(testhelpers.MakeTestPipelines("test1", "test2", "test3"))
 		m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 		m.data.FilteredComponents = m.getAllComponents()
 		m.data.FilteredPipelines = m.data.Pipelines

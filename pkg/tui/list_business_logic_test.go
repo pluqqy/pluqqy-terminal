@@ -4,61 +4,50 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/testhelpers"
 )
 
-// Test helpers for creating components
-func makeTestComponent(name, compType string) componentItem {
+// Convert testhelpers.ComponentItem to componentItem
+func toComponentItem(item testhelpers.ComponentItem) componentItem {
 	return componentItem{
-		name:         name,
-		path:         "/test/components/" + compType + "/" + name,
-		compType:     compType,
-		lastModified: time.Now(),
-		usageCount:   0,
-		tokenCount:   100,
-		tags:         []string{},
+		name:         item.Name,
+		path:         item.Path,
+		compType:     item.CompType,
+		lastModified: item.LastModified,
+		usageCount:   item.UsageCount,
+		tokenCount:   item.TokenCount,
+		tags:         item.Tags,
+		isArchived:   item.IsArchived,
 	}
 }
 
-func makeTestComponents(compType string, names ...string) []componentItem {
-	components := make([]componentItem, len(names))
-	for i, name := range names {
-		components[i] = makeTestComponent(name, compType)
+// Convert slice of testhelpers.ComponentItem to []componentItem
+func toComponentItems(items []testhelpers.ComponentItem) []componentItem {
+	result := make([]componentItem, len(items))
+	for i, item := range items {
+		result[i] = toComponentItem(item)
 	}
-	return components
+	return result
 }
 
-// Test helpers for creating pipelines
-func makeTestPipeline(name string) pipelineItem {
+// Convert testhelpers.PipelineItem to pipelineItem
+func toPipelineItem(item testhelpers.PipelineItem) pipelineItem {
 	return pipelineItem{
-		name:       name,
-		path:       "/test/pipelines/" + name + ".yaml",
-		tags:       []string{},
-		tokenCount: 200,
+		name:       item.Name,
+		path:       item.Path,
+		tags:       item.Tags,
+		tokenCount: item.TokenCount,
+		isArchived: item.IsArchived,
 	}
 }
 
-func makeTestPipelines(names ...string) []pipelineItem {
-	pipelines := make([]pipelineItem, len(names))
-	for i, name := range names {
-		pipelines[i] = makeTestPipeline(name)
+// Convert slice of testhelpers.PipelineItem to []pipelineItem
+func toPipelineItems(items []testhelpers.PipelineItem) []pipelineItem {
+	result := make([]pipelineItem, len(items))
+	for i, item := range items {
+		result[i] = toPipelineItem(item)
 	}
-	return pipelines
-}
-
-// Helper to create test settings with custom section order
-func makeTestSettings(order ...string) *models.Settings {
-	sections := make([]models.Section, len(order))
-	for i, typ := range order {
-		sections[i] = models.Section{Type: typ}
-	}
-	return &models.Settings{
-		Output: models.OutputSettings{
-			Formatting: models.FormattingSettings{
-				Sections: sections,
-			},
-		},
-	}
+	return result
 }
 
 // TestNewBusinessLogic tests the constructor
@@ -84,9 +73,9 @@ func TestNewBusinessLogic(t *testing.T) {
 func TestSetComponents(t *testing.T) {
 	bl := NewBusinessLogic()
 
-	prompts := makeTestComponents("prompt", "p1", "p2")
-	contexts := makeTestComponents("context", "c1", "c2", "c3")
-	rules := makeTestComponents("rules", "r1")
+	prompts := toComponentItems(testhelpers.MakeTestComponents("prompt", "p1", "p2"))
+	contexts := toComponentItems(testhelpers.MakeTestComponents("context", "c1", "c2", "c3"))
+	rules := toComponentItems(testhelpers.MakeTestComponents("rules", "r1"))
 
 	bl.SetComponents(prompts, contexts, rules)
 
@@ -108,9 +97,9 @@ func TestGetAllComponents_DefaultOrder(t *testing.T) {
 	// we'll test with the actual default behavior when settings can't be read
 	bl := NewBusinessLogic()
 
-	prompts := makeTestComponents("prompts", "p1", "p2")
-	contexts := makeTestComponents("contexts", "c1")
-	rules := makeTestComponents("rules", "r1", "r2", "r3")
+	prompts := toComponentItems(testhelpers.MakeTestComponents("prompts", "p1", "p2"))
+	contexts := toComponentItems(testhelpers.MakeTestComponents("contexts", "c1"))
+	rules := toComponentItems(testhelpers.MakeTestComponents("rules", "r1", "r2", "r3"))
 
 	bl.SetComponents(prompts, contexts, rules)
 
@@ -156,7 +145,7 @@ func TestGetAllComponents_SingleTypeOnly(t *testing.T) {
 		{
 			name: "only prompts",
 			setFunc: func(bl *BusinessLogic) {
-				bl.SetComponents(makeTestComponents("prompts", "p1", "p2"), nil, nil)
+				bl.SetComponents(toComponentItems(testhelpers.MakeTestComponents("prompts", "p1", "p2")), nil, nil)
 			},
 			expected: "prompts",
 			count:    2,
@@ -164,7 +153,7 @@ func TestGetAllComponents_SingleTypeOnly(t *testing.T) {
 		{
 			name: "only contexts",
 			setFunc: func(bl *BusinessLogic) {
-				bl.SetComponents(nil, makeTestComponents("contexts", "c1", "c2", "c3"), nil)
+				bl.SetComponents(nil, toComponentItems(testhelpers.MakeTestComponents("contexts", "c1", "c2", "c3")), nil)
 			},
 			expected: "contexts",
 			count:    3,
@@ -172,7 +161,7 @@ func TestGetAllComponents_SingleTypeOnly(t *testing.T) {
 		{
 			name: "only rules",
 			setFunc: func(bl *BusinessLogic) {
-				bl.SetComponents(nil, nil, makeTestComponents("rules", "r1"))
+				bl.SetComponents(nil, nil, toComponentItems(testhelpers.MakeTestComponents("rules", "r1")))
 			},
 			expected: "rules",
 			count:    1,
@@ -217,8 +206,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "component",
 			componentCursor: 1,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1", "comp2", "comp3"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1", "comp2", "comp3")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "comp2",
 		},
 		{
@@ -226,8 +215,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "component",
 			componentCursor: 2,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1", "comp2", "comp3"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1", "comp2", "comp3")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "comp3",
 		},
 		{
@@ -235,8 +224,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "component",
 			componentCursor: 5,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1", "comp2"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1", "comp2")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "",
 		},
 		{
@@ -244,8 +233,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "component",
 			componentCursor: -1,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "",
 		},
 		{
@@ -253,8 +242,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "pipeline",
 			componentCursor: 0,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1"),
-			pipelines:       makeTestPipelines("pipe1", "pipe2"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1", "pipe2")),
 			want:            "pipe1",
 		},
 		{
@@ -262,8 +251,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "pipeline",
 			componentCursor: 0,
 			pipelineCursor:  3,
-			components:      makeTestComponents("prompt", "comp1"),
-			pipelines:       makeTestPipelines("pipe1", "pipe2"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1", "pipe2")),
 			want:            "",
 		},
 		{
@@ -271,8 +260,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "pipeline",
 			componentCursor: 0,
 			pipelineCursor:  -2,
-			components:      makeTestComponents("prompt", "comp1"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "",
 		},
 		{
@@ -281,7 +270,7 @@ func TestGetEditingItemName(t *testing.T) {
 			componentCursor: 0,
 			pipelineCursor:  0,
 			components:      []componentItem{},
-			pipelines:       makeTestPipelines("pipe1"),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "",
 		},
 		{
@@ -289,7 +278,7 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "pipeline",
 			componentCursor: 0,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
 			pipelines:       []pipelineItem{},
 			want:            "",
 		},
@@ -298,8 +287,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "unknown",
 			componentCursor: 0,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "comp1"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "pipe1", // unknown types are treated as pipeline
 		},
 		{
@@ -307,8 +296,8 @@ func TestGetEditingItemName(t *testing.T) {
 			itemType:        "component",
 			componentCursor: 0,
 			pipelineCursor:  0,
-			components:      makeTestComponents("prompt", "single"),
-			pipelines:       makeTestPipelines("pipe1"),
+			components:      toComponentItems(testhelpers.MakeTestComponents("prompt", "single")),
+			pipelines:       toPipelineItems(testhelpers.MakeTestPipelines("pipe1")),
 			want:            "single",
 		},
 	}
@@ -337,50 +326,46 @@ func TestGetAllComponentsIntegration(t *testing.T) {
 	// Test with actual component data
 	bl := NewBusinessLogic()
 
-	// Create components with realistic data
+	// Create components with realistic data using testhelpers
 	prompts := []componentItem{
-		{
-			name:         "code-review",
-			path:         "/prompts/code-review.md",
-			compType:     "prompts",
-			lastModified: time.Now().Add(-24 * time.Hour),
-			usageCount:   10,
-			tokenCount:   150,
-			tags:         []string{"review", "code"},
-		},
-		{
-			name:         "refactor",
-			path:         "/prompts/refactor.md",
-			compType:     "prompts",
-			lastModified: time.Now().Add(-48 * time.Hour),
-			usageCount:   5,
-			tokenCount:   200,
-			tags:         []string{"refactor"},
-		},
+		toComponentItem(testhelpers.NewComponentBuilder("code-review").
+			WithType("prompts").
+			WithPath("/prompts/code-review.md").
+			WithLastModified(time.Now().Add(-24 * time.Hour)).
+			WithUsageCount(10).
+			WithTokens(150).
+			WithTags("review", "code").
+			Build()),
+		toComponentItem(testhelpers.NewComponentBuilder("refactor").
+			WithType("prompts").
+			WithPath("/prompts/refactor.md").
+			WithLastModified(time.Now().Add(-48 * time.Hour)).
+			WithUsageCount(5).
+			WithTokens(200).
+			WithTags("refactor").
+			Build()),
 	}
 
 	contexts := []componentItem{
-		{
-			name:         "project-context",
-			path:         "/contexts/project.md",
-			compType:     "contexts",
-			lastModified: time.Now().Add(-12 * time.Hour),
-			usageCount:   20,
-			tokenCount:   500,
-			tags:         []string{"project", "context"},
-		},
+		toComponentItem(testhelpers.NewComponentBuilder("project-context").
+			WithType("contexts").
+			WithPath("/contexts/project.md").
+			WithLastModified(time.Now().Add(-12 * time.Hour)).
+			WithUsageCount(20).
+			WithTokens(500).
+			WithTags("project", "context").
+			Build()),
 	}
 
 	rules := []componentItem{
-		{
-			name:         "coding-standards",
-			path:         "/rules/standards.md",
-			compType:     "rules",
-			lastModified: time.Now(),
-			usageCount:   15,
-			tokenCount:   300,
-			tags:         []string{"standards"},
-		},
+		toComponentItem(testhelpers.NewComponentBuilder("coding-standards").
+			WithType("rules").
+			WithPath("/rules/standards.md").
+			WithLastModified(time.Now()).
+			WithUsageCount(15).
+			WithTokens(300).
+			WithTags("standards").
+			Build()),
 	}
 
 	bl.SetComponents(prompts, contexts, rules)
@@ -413,7 +398,7 @@ func TestGetEditingItemName_EdgeCases(t *testing.T) {
 		{
 			name: "nil tag editor",
 			setupFunc: func() (*TagEditor, *StateManager, []componentItem, []pipelineItem) {
-				return nil, &StateManager{}, makeTestComponents("prompt", "comp1"), makeTestPipelines("pipe1")
+				return nil, &StateManager{}, toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")), toPipelineItems(testhelpers.MakeTestPipelines("pipe1"))
 			},
 			want: "",
 		},
@@ -422,7 +407,7 @@ func TestGetEditingItemName_EdgeCases(t *testing.T) {
 			setupFunc: func() (*TagEditor, *StateManager, []componentItem, []pipelineItem) {
 				te := NewTagEditor()
 				te.ItemType = "component"
-				return te, nil, makeTestComponents("prompt", "comp1"), makeTestPipelines("pipe1")
+				return te, nil, toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")), toPipelineItems(testhelpers.MakeTestPipelines("pipe1"))
 			},
 			want: "",
 		},
@@ -433,8 +418,8 @@ func TestGetEditingItemName_EdgeCases(t *testing.T) {
 				te.ItemType = "component"
 				return te,
 					&StateManager{ComponentCursor: 999999},
-					makeTestComponents("prompt", "comp1"),
-					makeTestPipelines("pipe1")
+					toComponentItems(testhelpers.MakeTestComponents("prompt", "comp1")),
+					toPipelineItems(testhelpers.MakeTestPipelines("pipe1"))
 			},
 			want: "",
 		},

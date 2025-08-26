@@ -8,139 +8,27 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/tags"
-	"gopkg.in/yaml.v3"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/testhelpers"
 )
-
-// Test helper to create a temporary test environment
-func setupTestEnvironment(t *testing.T) (string, func()) {
-	// Save current directory
-	originalWd, err := os.Getwd()
-	if err != nil {
-		t.Fatalf("Failed to get working directory: %v", err)
-	}
-
-	// Create temporary directory
-	tmpDir, err := os.MkdirTemp("", "pipeline-ops-test-*")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-
-	// Change to temp directory
-	if err := os.Chdir(tmpDir); err != nil {
-		os.RemoveAll(tmpDir)
-		t.Fatalf("Failed to change to temp dir: %v", err)
-	}
-
-	// Create necessary directories
-	os.MkdirAll(filepath.Join(files.PluqqyDir, "pipelines"), 0755)
-	os.MkdirAll(filepath.Join(files.PluqqyDir, "components/prompts"), 0755)
-	os.MkdirAll(filepath.Join(files.PluqqyDir, "components/contexts"), 0755)
-	os.MkdirAll(filepath.Join(files.PluqqyDir, "components/rules"), 0755)
-
-	// Cleanup function
-	cleanup := func() {
-		os.Chdir(originalWd)
-		os.RemoveAll(tmpDir)
-	}
-
-	return tmpDir, cleanup
-}
-
-// Test helper to create a test pipeline
-func createTestPipeline(t *testing.T, name string, tags []string) string {
-	pipeline := &models.Pipeline{
-		Name: name,
-		Path: name + ".yaml",
-		Tags: tags,
-	}
-
-	pipelinePath := filepath.Join(files.PluqqyDir, "pipelines", pipeline.Path)
-	data, err := yaml.Marshal(pipeline)
-	if err != nil {
-		t.Fatalf("Failed to marshal pipeline: %v", err)
-	}
-
-	if err := os.WriteFile(pipelinePath, data, 0644); err != nil {
-		t.Fatalf("Failed to write pipeline: %v", err)
-	}
-
-	return pipeline.Path // Return just the filename, not the full path
-}
-
-// Test helper to create a test component
-func createTestComponent(t *testing.T, name, compType string, componentTags []string) componentItem {
-	componentPath := filepath.Join("components", compType, name+".md")
-	fullPath := filepath.Join(files.PluqqyDir, componentPath)
-
-	// Create component with YAML front matter
-	content := "---\n"
-	if len(componentTags) > 0 {
-		content += "tags: ["
-		for i, tag := range componentTags {
-			if i > 0 {
-				content += ", "
-			}
-			content += tag
-		}
-		content += "]\n"
-	}
-	content += "---\nTest content for " + name
-
-	if err := os.WriteFile(fullPath, []byte(content), 0644); err != nil {
-		t.Fatalf("Failed to write component: %v", err)
-	}
-
-	return componentItem{
-		name:     name,
-		path:     componentPath,
-		compType: compType,
-		tags:     componentTags,
-	}
-}
-
-// Test helper to create a test tag registry
-func createTestRegistry(t *testing.T, testTags []string) {
-	registry := &models.TagRegistry{
-		Tags: make([]models.Tag, len(testTags)),
-	}
-
-	for i, tag := range testTags {
-		registry.Tags[i] = models.Tag{
-			Name:  tag,
-			Color: "#3498db",
-		}
-	}
-
-	registryPath := filepath.Join(files.PluqqyDir, tags.TagsRegistryFile)
-	data, err := yaml.Marshal(registry)
-	if err != nil {
-		t.Fatalf("Failed to marshal registry: %v", err)
-	}
-
-	if err := os.WriteFile(registryPath, data, 0644); err != nil {
-		t.Fatalf("Failed to write registry: %v", err)
-	}
-}
 
 func TestPipelineOperator_DeletePipeline(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupFunc      func(t *testing.T) (string, []string)
+		setupFunc      func(t *testing.T, env *testhelpers.TestEnvironment) (string, []string)
 		expectedStatus string
 		expectError    bool
 		verifyFunc     func(t *testing.T)
 	}{
 		{
 			name: "delete pipeline with orphaned tags",
-			setupFunc: func(t *testing.T) (string, []string) {
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) (string, []string) {
 				// Create registry with tags
-				createTestRegistry(t, []string{"tag1", "tag2", "orphaned-tag"})
+				env.CreateTagRegistry([]string{"tag1", "tag2", "orphaned-tag"})
 
 				// Create pipelines
-				createTestPipeline(t, "test-pipeline", []string{"tag1", "orphaned-tag"})
-				createTestPipeline(t, "other-pipeline", []string{"tag1", "tag2"})
+				env.CreatePipelineFile("test-pipeline", nil, []string{"tag1", "orphaned-tag"})
+				env.CreatePipelineFile("other-pipeline", nil, []string{"tag1", "tag2"})
 
 				return "test-pipeline.yaml", []string{"tag1", "orphaned-tag"}
 			},
@@ -181,8 +69,8 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 		},
 		{
 			name: "delete pipeline with no tags",
-			setupFunc: func(t *testing.T) (string, []string) {
-				createTestPipeline(t, "no-tags-pipeline", nil)
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) (string, []string) {
+				env.CreatePipelineFile("no-tags-pipeline", nil, nil)
 				return "no-tags-pipeline.yaml", nil
 			},
 			expectedStatus: "✓ Deleted pipeline: no-tags-pipeline",
@@ -195,12 +83,12 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 		},
 		{
 			name: "delete pipeline with shared tags",
-			setupFunc: func(t *testing.T) (string, []string) {
-				createTestRegistry(t, []string{"shared-tag", "unique-tag"})
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) (string, []string) {
+				env.CreateTagRegistry([]string{"shared-tag", "unique-tag"})
 
 				// Create multiple pipelines sharing tags
-				createTestPipeline(t, "pipeline1", []string{"shared-tag", "unique-tag"})
-				createTestPipeline(t, "pipeline2", []string{"shared-tag"})
+				env.CreatePipelineFile("pipeline1", nil, []string{"shared-tag", "unique-tag"})
+				env.CreatePipelineFile("pipeline2", nil, []string{"shared-tag"})
 
 				return "pipeline1.yaml", []string{"shared-tag", "unique-tag"}
 			},
@@ -233,11 +121,13 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, cleanup := setupTestEnvironment(t)
-			defer cleanup()
+			env := testhelpers.NewTestEnvironment(t)
+			defer env.Cleanup()
+			env.ChangeToTempDir()
+			env.InitProjectStructure()
 
 			// Setup test case
-			pipelinePath, pipelineTags := tt.setupFunc(t)
+			pipelinePath, pipelineTags := tt.setupFunc(t, env)
 
 			// Create pipeline operator
 			po := NewPipelineOperator()
@@ -277,20 +167,25 @@ func TestPipelineOperator_DeletePipeline(t *testing.T) {
 func TestPipelineOperator_DeleteComponent(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupFunc      func(t *testing.T) componentItem
+		setupFunc      func(t *testing.T, env *testhelpers.TestEnvironment) componentItem
 		expectedStatus string
 		verifyFunc     func(t *testing.T)
 	}{
 		{
 			name: "delete component with orphaned tags",
-			setupFunc: func(t *testing.T) componentItem {
-				createTestRegistry(t, []string{"comp-tag1", "comp-tag2", "orphaned-comp-tag"})
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) componentItem {
+				env.CreateTagRegistry([]string{"comp-tag1", "comp-tag2", "orphaned-comp-tag"})
 
 				// Create components
-				comp1 := createTestComponent(t, "test-prompt", "prompts", []string{"comp-tag1", "orphaned-comp-tag"})
-				createTestComponent(t, "other-prompt", "prompts", []string{"comp-tag1", "comp-tag2"})
+				env.CreateComponentFile("prompts", "test-prompt", "Test content", []string{"comp-tag1", "orphaned-comp-tag"})
+				env.CreateComponentFile("prompts", "other-prompt", "Other content", []string{"comp-tag1", "comp-tag2"})
 
-				return comp1
+				return componentItem{
+					name:     "test-prompt",
+					path:     "components/prompts/test-prompt.md",
+					compType: "prompts",
+					tags:     []string{"comp-tag1", "orphaned-comp-tag"},
+				}
 			},
 			expectedStatus: "✓ Deleted prompts: test-prompt",
 			verifyFunc: func(t *testing.T) {
@@ -314,8 +209,15 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 		},
 		{
 			name: "delete component with no tags",
-			setupFunc: func(t *testing.T) componentItem {
-				return createTestComponent(t, "no-tags-context", "contexts", nil)
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) componentItem {
+				env.CreateComponentFile("contexts", "no-tags-context", "Test content", nil)
+				
+				return componentItem{
+					name:     "no-tags-context",
+					path:     "components/contexts/no-tags-context.md",
+					compType: "contexts",
+					tags:     nil,
+				}
 			},
 			expectedStatus: "✓ Deleted contexts: no-tags-context",
 			verifyFunc: func(t *testing.T) {
@@ -327,13 +229,18 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 		},
 		{
 			name: "delete rule component with shared tags",
-			setupFunc: func(t *testing.T) componentItem {
-				createTestRegistry(t, []string{"rule-shared", "rule-unique"})
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) componentItem {
+				env.CreateTagRegistry([]string{"rule-shared", "rule-unique"})
 
-				comp1 := createTestComponent(t, "rule1", "rules", []string{"rule-shared", "rule-unique"})
-				createTestComponent(t, "rule2", "rules", []string{"rule-shared"})
+				env.CreateComponentFile("rules", "rule1", "Rule content", []string{"rule-shared", "rule-unique"})
+				env.CreateComponentFile("rules", "rule2", "Rule content", []string{"rule-shared"})
 
-				return comp1
+				return componentItem{
+					name:     "rule1",
+					path:     "components/rules/rule1.md",
+					compType: "rules",
+					tags:     []string{"rule-shared", "rule-unique"},
+				}
 			},
 			expectedStatus: "✓ Deleted rules: rule1",
 			verifyFunc: func(t *testing.T) {
@@ -364,11 +271,13 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, cleanup := setupTestEnvironment(t)
-			defer cleanup()
+			env := testhelpers.NewTestEnvironment(t)
+			defer env.Cleanup()
+			env.ChangeToTempDir()
+			env.InitProjectStructure()
 
 			// Setup test case
-			comp := tt.setupFunc(t)
+			comp := tt.setupFunc(t, env)
 
 			// Create pipeline operator
 			po := NewPipelineOperator()
@@ -408,14 +317,14 @@ func TestPipelineOperator_DeleteComponent(t *testing.T) {
 func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 	tests := []struct {
 		name           string
-		setupFunc      func(t *testing.T) string
+		setupFunc      func(t *testing.T, env *testhelpers.TestEnvironment) string
 		expectedStatus string
 		verifyFunc     func(t *testing.T)
 	}{
 		{
 			name: "archive pipeline successfully",
-			setupFunc: func(t *testing.T) string {
-				return createTestPipeline(t, "test-pipeline", []string{"tag1"})
+			setupFunc: func(t *testing.T, env *testhelpers.TestEnvironment) string {
+				return env.CreatePipelineFile("test-pipeline", nil, []string{"tag1"})
 			},
 			expectedStatus: "✓ Archived pipeline: test-pipeline",
 			verifyFunc: func(t *testing.T) {
@@ -436,11 +345,13 @@ func TestPipelineOperator_ArchivePipeline(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, cleanup := setupTestEnvironment(t)
-			defer cleanup()
+			env := testhelpers.NewTestEnvironment(t)
+			defer env.Cleanup()
+			env.ChangeToTempDir()
+			env.InitProjectStructure()
 
 			// Setup test case
-			pipelinePath := tt.setupFunc(t)
+			pipelinePath := tt.setupFunc(t, env)
 
 			// Create pipeline operator
 			po := NewPipelineOperator()
