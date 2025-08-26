@@ -1,16 +1,11 @@
 package tui
 
 import (
-	"path/filepath"
-	"strings"
-	"time"
-
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
@@ -178,26 +173,7 @@ func (m *MainListModel) loadPipelines() {
 
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *MainListModel) shouldIncludeArchived() bool {
-	if m.search.Query == "" {
-		return false
-	}
-
-	// Parse the search query to check for status:archived
-	parser := search.NewParser()
-	query, err := parser.Parse(m.search.Query)
-	if err != nil {
-		return false
-	}
-
-	for _, condition := range query.Conditions {
-		if condition.Field == search.FieldStatus {
-			if statusStr, ok := condition.Value.(string); ok && strings.ToLower(statusStr) == "archived" {
-				return true
-			}
-		}
-	}
-
-	return false
+	return shared.ShouldIncludeArchived(m.search.Query)
 }
 
 // loadComponents loads all component files and their metadata
@@ -205,22 +181,19 @@ func (m *MainListModel) loadComponents() {
 	// Check if we should include archived items based on search query
 	includeArchived := m.shouldIncludeArchived()
 
-	// Get usage counts for all components
-	usageMap, _ := files.CountComponentUsage()
+	// Use shared ComponentLoader
+	loader := shared.NewComponentLoader("")
+	prompts, contexts, rules, _ := loader.LoadComponents(includeArchived)
 
 	// Clear existing components
 	m.data.Prompts = nil
 	m.data.Contexts = nil
 	m.data.Rules = nil
 
-	// Load prompts
-	m.data.Prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
-
-	// Load contexts
-	m.data.Contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
-
-	// Load rules
-	m.data.Rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
+	// Convert shared ComponentItems to local componentItems
+	m.data.Prompts = convertToComponentItems(prompts)
+	m.data.Contexts = convertToComponentItems(contexts)
+	m.data.Rules = convertToComponentItems(rules)
 
 	// Update business logic with new components
 	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
@@ -243,99 +216,24 @@ func (m *MainListModel) loadComponents() {
 	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 }
 
-// loadComponentsOfType loads components of a specific type
-func (m *MainListModel) loadComponentsOfType(compType, subDir, modelType string, usageMap map[string]int, includeArchived bool) []componentItem {
-	var items []componentItem
-
-	// Load active components
-	components, _ := files.ListComponents(compType)
-	for _, c := range components {
-		componentPath := filepath.Join(files.ComponentsDir, subDir, c)
-		modTime, _ := files.GetComponentStats(componentPath)
-
-		// Calculate usage count
-		usage := 0
-		relativePath := "../" + componentPath
-		if count, exists := usageMap[relativePath]; exists {
-			usage = count
-		}
-
-		// Read component content for token estimation and display name
-		component, _ := files.ReadComponent(componentPath)
-		tokenCount := 0
-		displayName := c // Default to filename
-		if component != nil {
-			tokenCount = utils.EstimateTokens(component.Content)
-			// Use display name from component (from frontmatter or filename)
-			if component.Name != "" {
-				displayName = component.Name
-			}
-		}
-
-		tags := []string{}
-		if component != nil {
-			tags = component.Tags
-		}
-
-		items = append(items, componentItem{
-			name:         displayName,
-			path:         componentPath,
-			compType:     modelType,
-			lastModified: modTime,
-			usageCount:   usage,
-			tokenCount:   tokenCount,
-			tags:         tags,
-			isArchived:   false,
-		})
-	}
-
-	// Load archived components if needed
-	if includeArchived {
-		archivedComponents, _ := files.ListArchivedComponents(compType)
-		for _, c := range archivedComponents {
-			componentPath := filepath.Join(files.ComponentsDir, subDir, c)
-
-			// Read archived component
-			component, _ := files.ReadArchivedComponent(componentPath)
-			modTime := time.Time{}
-			if component != nil {
-				modTime = component.Modified
-			}
-
-			// Calculate usage count (archived components typically have 0 usage)
-			usage := 0
-
-			// Get token count and display name
-			tokenCount := 0
-			displayName := c // Default to filename
-			if component != nil {
-				tokenCount = utils.EstimateTokens(component.Content)
-				// Use display name from component (from frontmatter or filename)
-				if component.Name != "" {
-					displayName = component.Name
-				}
-			}
-
-			tags := []string{}
-			if component != nil {
-				tags = component.Tags
-			}
-
-			items = append(items, componentItem{
-				name:         displayName,
-				path:         componentPath,
-				compType:     modelType,
-				lastModified: modTime,
-				usageCount:   usage,
-				tokenCount:   tokenCount,
-				tags:         tags,
-				isArchived:   true,
-			})
+// convertToComponentItems converts shared ComponentItems to local componentItems
+func convertToComponentItems(items []shared.ComponentItem) []componentItem {
+	result := make([]componentItem, len(items))
+	for i, item := range items {
+		result[i] = componentItem{
+			name:         item.Name,
+			path:         item.Path,
+			compType:     item.CompType,
+			lastModified: item.LastModified,
+			usageCount:   item.UsageCount,
+			tokenCount:   item.TokenCount,
+			tags:         item.Tags,
+			isArchived:   item.IsArchived,
 		}
 	}
-
-	return items
+	return result
 }
+
 
 // initializeSearchEngine sets up the search engine
 func (m *MainListModel) initializeSearchEngine() {

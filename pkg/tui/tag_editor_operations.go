@@ -44,6 +44,28 @@ func (te *TagEditor) Save() tea.Cmd {
 			registry.Save()
 		}
 		
+		// Check for removed tags and cleanup orphaned ones
+		removedTags := []string{}
+		for _, oldTag := range te.OriginalTags {
+			found := false
+			for _, newTag := range te.CurrentTags {
+				if oldTag == newTag {
+					found = true
+					break
+				}
+			}
+			if !found {
+				removedTags = append(removedTags, oldTag)
+			}
+		}
+		
+		// Cleanup orphaned tags asynchronously
+		if len(removedTags) > 0 {
+			go func() {
+				tags.CleanupOrphanedTags(removedTags)
+			}()
+		}
+		
 		// Update original tags to match current
 		te.OriginalTags = make([]string, len(te.CurrentTags))
 		copy(te.OriginalTags, te.CurrentTags)

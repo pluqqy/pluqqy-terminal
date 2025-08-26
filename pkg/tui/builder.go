@@ -15,8 +15,8 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
@@ -86,22 +86,19 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	// Check if we should include archived items based on search query
 	includeArchived := m.shouldIncludeArchived()
 
-	// Get usage counts for all components
-	usageMap, _ := files.CountComponentUsage()
+	// Use shared ComponentLoader
+	loader := shared.NewComponentLoader("")
+	prompts, contexts, rules, _ := loader.LoadComponents(includeArchived)
 
 	// Clear existing components
 	m.data.Prompts = nil
 	m.data.Contexts = nil
 	m.data.Rules = nil
 
-	// Load prompts
-	m.data.Prompts = m.loadComponentsOfType("prompts", files.PromptsDir, models.ComponentTypePrompt, usageMap, includeArchived)
-
-	// Load contexts
-	m.data.Contexts = m.loadComponentsOfType("contexts", files.ContextsDir, models.ComponentTypeContext, usageMap, includeArchived)
-
-	// Load rules
-	m.data.Rules = m.loadComponentsOfType("rules", files.RulesDir, models.ComponentTypeRules, usageMap, includeArchived)
+	// Convert shared ComponentItems to local componentItems
+	m.data.Prompts = convertBuilderComponentItems(prompts)
+	m.data.Contexts = convertBuilderComponentItems(contexts)
+	m.data.Rules = convertBuilderComponentItems(rules)
 
 	// Initialize filtered lists with all components
 	m.data.FilteredPrompts = m.data.Prompts
@@ -118,123 +115,29 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	}
 }
 
+// convertBuilderComponentItems converts shared ComponentItems to local componentItems
+func convertBuilderComponentItems(items []shared.ComponentItem) []componentItem {
+	result := make([]componentItem, len(items))
+	for i, item := range items {
+		result[i] = componentItem{
+			name:         item.Name,
+			path:         item.Path,
+			compType:     item.CompType,
+			lastModified: item.LastModified,
+			usageCount:   item.UsageCount,
+			tokenCount:   item.TokenCount,
+			tags:         item.Tags,
+			isArchived:   item.IsArchived,
+		}
+	}
+	return result
+}
+
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *PipelineBuilderModel) shouldIncludeArchived() bool {
-	if m.search.Query == "" {
-		return false
-	}
-
-	// Parse the search query to check for status:archived
-	parser := search.NewParser()
-	query, err := parser.Parse(m.search.Query)
-	if err != nil {
-		return false
-	}
-
-	for _, condition := range query.Conditions {
-		if condition.Field == search.FieldStatus {
-			if statusStr, ok := condition.Value.(string); ok && strings.ToLower(statusStr) == "archived" {
-				return true
-			}
-		}
-	}
-
-	return false
+	return shared.ShouldIncludeArchived(m.search.Query)
 }
 
-// loadComponentsOfType loads components of a specific type
-func (m *PipelineBuilderModel) loadComponentsOfType(compType, subDir, modelType string, usageMap map[string]int, includeArchived bool) []componentItem {
-	var items []componentItem
-
-	// Load active components
-	components, _ := files.ListComponents(compType)
-	for _, c := range components {
-		componentPath := filepath.Join(files.ComponentsDir, subDir, c)
-		modTime, _ := files.GetComponentStats(componentPath)
-
-		// Calculate usage count
-		usage := 0
-		relativePath := "../" + componentPath
-		if count, exists := usageMap[relativePath]; exists {
-			usage = count
-		}
-
-		// Read component content for token estimation
-		component, _ := files.ReadComponent(componentPath)
-		tokenCount := 0
-		displayName := c // Default to filename
-		if component != nil {
-			tokenCount = utils.EstimateTokens(component.Content)
-			// Use display name from component (from frontmatter or filename)
-			if component.Name != "" {
-				displayName = component.Name
-			}
-		}
-
-		tags := []string{}
-		if component != nil {
-			tags = component.Tags
-		}
-
-		items = append(items, componentItem{
-			name:         displayName,
-			path:         componentPath,
-			compType:     modelType,
-			lastModified: modTime,
-			usageCount:   usage,
-			tokenCount:   tokenCount,
-			tags:         tags,
-			isArchived:   false,
-		})
-	}
-
-	// Load archived components if needed
-	if includeArchived {
-		archivedComponents, _ := files.ListArchivedComponents(compType)
-		for _, c := range archivedComponents {
-			componentPath := filepath.Join(files.ComponentsDir, subDir, c)
-
-			// Read archived component
-			component, _ := files.ReadArchivedComponent(componentPath)
-			modTime := time.Time{}
-			displayName := c // Default to filename
-			if component != nil {
-				modTime = component.Modified
-				// Use display name from component (from frontmatter or filename)
-				if component.Name != "" {
-					displayName = component.Name
-				}
-			}
-
-			// Calculate usage count (archived components typically have 0 usage)
-			usage := 0
-
-			// Get token count
-			tokenCount := 0
-			if component != nil {
-				tokenCount = utils.EstimateTokens(component.Content)
-			}
-
-			tags := []string{}
-			if component != nil {
-				tags = component.Tags
-			}
-
-			items = append(items, componentItem{
-				name:         displayName,
-				path:         componentPath,
-				compType:     modelType,
-				lastModified: modTime,
-				usageCount:   usage,
-				tokenCount:   tokenCount,
-				tags:         tags,
-				isArchived:   true,
-			})
-		}
-	}
-
-	return items
-}
 
 func (m *PipelineBuilderModel) Init() tea.Cmd {
 	return nil
@@ -389,6 +292,11 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 			// Reload components
 			m.loadAvailableComponents()
+			
+			// Also reload available tags for tag editor
+			if m.editors.TagEditor != nil {
+				m.editors.TagEditor.LoadAvailableTags()
+			}
 
 			// Update preview
 			m.updatePreview()
@@ -487,6 +395,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if handled {
 				// Reload components to reflect new tags
 				m.loadAvailableComponents()
+				// Also reload available tags for tag editor
+				if m.editors.TagEditor != nil {
+					m.editors.TagEditor.LoadAvailableTags()
+				}
 				return m, cmd
 			}
 		}
@@ -503,17 +415,43 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case ReloadMsg:
-		// Legacy path - might still be used by other components
+		// Handle reload message from various sources (tag editor, component editor, etc.)
+		
+		// Set success message if provided
+		if msg.Message != "" {
+			m.ui.StatusMessage = msg.Message
+		}
+		
+		// If coming from component editor
 		if m.editors.EditingComponent {
 			// Exit editing mode
 			m.editors.EditingComponent = false
-			// Set success message
-			m.ui.StatusMessage = msg.Message
-			// Reload components
-			m.loadAvailableComponents()
-			// Update preview
-			m.updatePreview()
 		}
+		
+		// Always reload components to get fresh data (including updated tags)
+		m.loadAvailableComponents()
+		
+		// If we have a pipeline loaded, reload it to get fresh tags
+		if m.data.Pipeline != nil && m.data.Pipeline.Path != "" {
+			pipeline, err := files.ReadPipeline(m.data.Pipeline.Path)
+			if err == nil && pipeline != nil {
+				m.data.Pipeline.Tags = pipeline.Tags
+			}
+		}
+		
+		// Also reload available tags for tag editor
+		if m.editors.TagEditor != nil {
+			m.editors.TagEditor.LoadAvailableTags()
+		}
+		
+		// Update preview to reflect changes
+		m.updatePreview()
+		
+		// Re-run search if active to update filtered results
+		if m.search.Query != "" {
+			m.performSearch()
+		}
+		
 		return m, nil
 
 	case CloneSuccessMsg:
@@ -613,11 +551,10 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 		// Handle tag editing mode
 		if m.editors.TagEditor != nil && m.editors.TagEditor.Active {
-			// Capture tags before handling input (in case of save)
+			// Capture state before handling input
 			wasActive := m.editors.TagEditor.Active
 			itemType := m.editors.TagEditor.ItemType
-			currentTags := make([]string, len(m.editors.TagEditor.CurrentTags))
-			copy(currentTags, m.editors.TagEditor.CurrentTags)
+			itemPath := m.editors.TagEditor.Path
 			
 			handled, cmd := m.editors.TagEditor.HandleInput(msg)
 			if handled {
@@ -625,12 +562,22 @@ func (m *PipelineBuilderModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if wasActive && !m.editors.TagEditor.Active {
 					// Reload components to reflect tag changes
 					m.loadAvailableComponents()
-					
-					// If we were editing pipeline tags, update the pipeline model
-					if itemType == "pipeline" && m.data.Pipeline != nil {
-						// Update the in-memory pipeline with the saved tags
-						m.data.Pipeline.Tags = currentTags
+					// Also reload available tags for tag editor
+					if m.editors.TagEditor != nil {
+						m.editors.TagEditor.LoadAvailableTags()
 					}
+					
+					// If we were editing pipeline tags, reload the pipeline to get the updated tags
+					if itemType == "pipeline" && m.data.Pipeline != nil && itemPath != "" {
+						// Read the pipeline from disk to get the freshly saved tags
+						pipeline, err := files.ReadPipeline(itemPath)
+						if err == nil && pipeline != nil {
+							m.data.Pipeline.Tags = pipeline.Tags
+						}
+					}
+					
+					// Force refresh of the view to show updated tags
+					m.updatePreview()
 				}
 				return m, cmd
 			}
@@ -2853,6 +2800,10 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 				if m.editors.ComponentCreator.WasSaveSuccessful() {
 					// Component was saved successfully
 					m.loadAvailableComponents()
+					// Also reload available tags for tag editor
+					if m.editors.TagEditor != nil {
+						m.editors.TagEditor.LoadAvailableTags()
+					}
 					return m, tea.Batch(
 						cmd,
 						func() tea.Msg {
@@ -2865,6 +2816,10 @@ func (m *PipelineBuilderModel) handleComponentCreation(msg tea.KeyMsg) (tea.Mode
 					// Component creation ended (saved or cancelled)
 					// Always reload to ensure list is current
 					m.loadAvailableComponents()
+					// Also reload available tags for tag editor
+					if m.editors.TagEditor != nil {
+						m.editors.TagEditor.LoadAvailableTags()
+					}
 					return m, cmd
 				}
 				return m, cmd
@@ -3395,6 +3350,21 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 	return func() tea.Msg {
 		var err error
 
+		// Check for removed tags before saving
+		removedTags := []string{}
+		for _, oldTag := range m.ui.OriginalTags {
+			found := false
+			for _, newTag := range m.ui.CurrentTags {
+				if oldTag == newTag {
+					found = true
+					break
+				}
+			}
+			if !found {
+				removedTags = append(removedTags, oldTag)
+			}
+		}
+
 		if m.ui.EditingTagsPath == "" {
 			// Editing pipeline tags
 			if m.data.Pipeline != nil {
@@ -3415,6 +3385,13 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 				return StatusMsg(fmt.Sprintf("Failed to save tags: %v", err))
 			}
 		}
+		
+		// Cleanup orphaned tags asynchronously
+		if len(removedTags) > 0 {
+			go func() {
+				tags.CleanupOrphanedTags(removedTags)
+			}()
+		}
 
 		// Exit tag editing mode
 		m.ui.EditingTags = false
@@ -3427,11 +3404,19 @@ func (m *PipelineBuilderModel) saveTags() tea.Cmd {
 
 		// Reload components to reflect the changes
 		m.loadAvailableComponents()
+		
+		// Also reload available tags for tag editor
+		if m.editors.TagEditor != nil {
+			m.editors.TagEditor.LoadAvailableTags()
+		}
 
 		// Update filtered components if search is active
 		if m.search.Query != "" {
 			m.performSearch()
 		}
+		
+		// Update preview to reflect changes
+		m.updatePreview()
 
 		return StatusMsg("✓ Tags saved")
 	}
