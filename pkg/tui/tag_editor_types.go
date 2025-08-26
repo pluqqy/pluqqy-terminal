@@ -6,7 +6,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/bubbles/spinner"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pluqqy/pluqqy-cli/pkg/tags"
 )
 
 // TagEditorConfig contains configuration for the tag editor
@@ -46,39 +45,11 @@ type TagEditorCallbacks struct {
 
 // TagEditorState represents the complete state of the tag editor
 type TagEditorState struct {
-	// Core state
-	Active       bool
-	Mode         TagEditorMode
-	Path         string
-	ItemType     string // "component" or "pipeline"
-	ItemName     string
-	
-	// Tags
-	CurrentTags   []string
-	OriginalTags  []string
-	AvailableTags []string
-	
-	// Input handling
-	TagInput                string
-	TagCursor               int
-	ShowSuggestions         bool
-	SuggestionCursor        int
-	HasNavigatedSuggestions bool
-	
-	// Tag cloud navigation
-	TagCloudActive bool
-	TagCloudCursor int
-	
-	// Deletion state
-	DeletingTag      string
-	DeletingTagUsage *tags.UsageStats
-	
-	// Dimensions
-	Width  int
-	Height int
-	
-	// Callbacks
-	Callbacks TagEditorCallbacks
+	// Composition structs
+	*TagEditorDataStore
+	*TagEditorStateManager
+	*TagEditorInputComponents
+	*TagEditorUIComponents
 }
 
 // TagDeletionResult holds the results of a comprehensive tag deletion

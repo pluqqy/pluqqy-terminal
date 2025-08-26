@@ -67,8 +67,7 @@ func (te *TagEditor) Save() tea.Cmd {
 		}
 		
 		// Update original tags to match current
-		te.OriginalTags = make([]string, len(te.CurrentTags))
-		copy(te.OriginalTags, te.CurrentTags)
+		te.TagEditorDataStore.UpdateOriginalTags()
 		
 		// Call the save callback if provided
 		if te.Callbacks.OnSave != nil {

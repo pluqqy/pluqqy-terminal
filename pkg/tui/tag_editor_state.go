@@ -26,9 +26,14 @@ type TagEditor struct {
 func NewTagEditor() *TagEditor {
 	return &TagEditor{
 		TagEditorState: &TagEditorState{
-			CurrentTags:   []string{},
-			OriginalTags:  []string{},
-			AvailableTags: []string{},
+			TagEditorDataStore: &TagEditorDataStore{
+				CurrentTags:   []string{},
+				OriginalTags:  []string{},
+				AvailableTags: []string{},
+			},
+			TagEditorStateManager: &TagEditorStateManager{},
+			TagEditorInputComponents: &TagEditorInputComponents{},
+			TagEditorUIComponents: &TagEditorUIComponents{},
 		},
 		TagDeleteConfirm: NewConfirmation(),
 		ExitConfirm:      NewConfirmation(),
@@ -39,26 +44,11 @@ func NewTagEditor() *TagEditor {
 
 // Start initializes the tag editor for a specific item
 func (te *TagEditor) Start(path string, currentTags []string, itemType, itemName string) {
-	te.Active = true
-	te.Path = path
-	te.ItemType = itemType
-	te.ItemName = itemName
-	te.Mode = TagEditorModeNormal
-	
-	// Copy tags
-	te.CurrentTags = make([]string, len(currentTags))
-	copy(te.CurrentTags, currentTags)
-	te.OriginalTags = make([]string, len(currentTags))
-	copy(te.OriginalTags, currentTags)
-	
-	// Reset input state
-	te.TagInput = ""
-	te.TagCursor = 0
-	te.ShowSuggestions = false
-	te.SuggestionCursor = 0
-	te.HasNavigatedSuggestions = false
-	te.TagCloudActive = false
-	te.TagCloudCursor = 0
+	// Initialize state using composition helper methods
+	te.TagEditorStateManager.Start(path, itemType, itemName)
+	te.TagEditorDataStore.CopyTags(currentTags)
+	te.TagEditorInputComponents.Reset()
+	te.TagEditorUIComponents.Reset()
 	
 	// Load available tags from registry
 	te.LoadAvailableTags()
@@ -66,22 +56,11 @@ func (te *TagEditor) Start(path string, currentTags []string, itemType, itemName
 
 // Reset clears the tag editor state
 func (te *TagEditor) Reset() {
-	te.Active = false
-	te.Path = ""
-	te.ItemType = ""
-	te.ItemName = ""
-	te.CurrentTags = []string{}
-	te.OriginalTags = []string{}
-	te.TagInput = ""
-	te.TagCursor = 0
-	te.ShowSuggestions = false
-	te.SuggestionCursor = 0
-	te.HasNavigatedSuggestions = false
-	te.TagCloudActive = false
-	te.TagCloudCursor = 0
-	te.DeletingTag = ""
-	te.DeletingTagUsage = nil
-	te.Mode = TagEditorModeNormal
+	// Reset using composition helper methods
+	te.TagEditorStateManager.Reset()
+	te.TagEditorDataStore.ResetTags()
+	te.TagEditorInputComponents.Reset()
+	te.TagEditorUIComponents.Reset()
 	
 	// Reset tag reloader if it exists
 	if te.TagReloader != nil {
@@ -111,24 +90,7 @@ func (te *TagEditor) LoadAvailableTags() {
 
 // HasChanges returns true if tags have been modified
 func (te *TagEditor) HasChanges() bool {
-	if len(te.CurrentTags) != len(te.OriginalTags) {
-		return true
-	}
-	
-	// Create a map of original tags for quick lookup
-	originalMap := make(map[string]bool)
-	for _, tag := range te.OriginalTags {
-		originalMap[tag] = true
-	}
-	
-	// Check if all current tags exist in original
-	for _, tag := range te.CurrentTags {
-		if !originalMap[tag] {
-			return true
-		}
-	}
-	
-	return false
+	return te.TagEditorDataStore.HasChanges()
 }
 
 // HandleInput processes keyboard input for tag editing
@@ -344,15 +306,7 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 
 // UpdateSuggestions updates the suggestion list based on current input
 func (te *TagEditor) UpdateSuggestions() {
-	if te.TagInput == "" {
-		te.ShowSuggestions = false
-		te.SuggestionCursor = 0
-		te.HasNavigatedSuggestions = false
-	} else {
-		te.ShowSuggestions = true
-		te.SuggestionCursor = 0
-		te.HasNavigatedSuggestions = false
-	}
+	te.TagEditorInputComponents.UpdateSuggestions()
 }
 
 // GetSuggestions returns tag suggestions based on input
@@ -366,7 +320,7 @@ func (te *TagEditor) GetSuggestions() []string {
 	
 	// First, exact prefix matches
 	for _, tag := range te.AvailableTags {
-		if strings.HasPrefix(strings.ToLower(tag), input) && !te.HasTag(tag) {
+		if strings.HasPrefix(strings.ToLower(tag), input) && !te.TagEditorDataStore.HasTag(tag) {
 			suggestions = append(suggestions, tag)
 		}
 	}
@@ -374,7 +328,7 @@ func (te *TagEditor) GetSuggestions() []string {
 	// Then, contains matches
 	for _, tag := range te.AvailableTags {
 		lowerTag := strings.ToLower(tag)
-		if !strings.HasPrefix(lowerTag, input) && strings.Contains(lowerTag, input) && !te.HasTag(tag) {
+		if !strings.HasPrefix(lowerTag, input) && strings.Contains(lowerTag, input) && !te.TagEditorDataStore.HasTag(tag) {
 			suggestions = append(suggestions, tag)
 		}
 	}
@@ -384,12 +338,7 @@ func (te *TagEditor) GetSuggestions() []string {
 
 // HasTag checks if a tag is already in the current tags
 func (te *TagEditor) HasTag(tag string) bool {
-	for _, existingTag := range te.CurrentTags {
-		if strings.EqualFold(existingTag, tag) {
-			return true
-		}
-	}
-	return false
+	return te.TagEditorDataStore.HasTag(tag)
 }
 
 // AddTagFromInput adds a tag from the current input
@@ -403,8 +352,7 @@ func (te *TagEditor) AddTagFromInput() {
 	
 	// Check if tag already exists
 	if te.HasTag(tagName) {
-		te.TagInput = ""
-		te.ShowSuggestions = false
+		te.TagEditorInputComponents.ClearInput()
 		return
 	}
 	
@@ -413,10 +361,7 @@ func (te *TagEditor) AddTagFromInput() {
 	te.TagCursor = len(te.CurrentTags) - 1
 	
 	// Clear input
-	te.TagInput = ""
-	te.ShowSuggestions = false
-	te.SuggestionCursor = 0
-	te.HasNavigatedSuggestions = false
+	te.TagEditorInputComponents.ClearInput()
 }
 
 // AddSelectedSuggestion adds the currently selected suggestion
@@ -429,10 +374,7 @@ func (te *TagEditor) AddSelectedSuggestion() {
 			te.TagCursor = len(te.CurrentTags) - 1
 		}
 		// Clear input
-		te.TagInput = ""
-		te.ShowSuggestions = false
-		te.SuggestionCursor = 0
-		te.HasNavigatedSuggestions = false
+		te.TagEditorInputComponents.ClearInput()
 	}
 }
 
@@ -462,13 +404,7 @@ func (te *TagEditor) RemoveTagAtCursor() {
 
 // GetAvailableTagsForCloud returns tags available for selection in the cloud
 func (te *TagEditor) GetAvailableTagsForCloud() []string {
-	var available []string
-	for _, tag := range te.AvailableTags {
-		if !te.HasTag(tag) {
-			available = append(available, tag)
-		}
-	}
-	return available
+	return te.TagEditorDataStore.GetAvailableTagsForCloud()
 }
 
 // StartTagDeletion starts the process of deleting a tag from the registry
@@ -608,6 +544,5 @@ func (te *TagEditor) HandleMessage(msg tea.Msg) (handled bool, cmd tea.Cmd) {
 
 // SetSize updates the dimensions of the tag editor
 func (te *TagEditor) SetSize(width, height int) {
-	te.Width = width
-	te.Height = height
+	te.TagEditorUIComponents.SetSize(width, height)
 }
