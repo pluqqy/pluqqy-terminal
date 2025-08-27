@@ -5,7 +5,6 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
@@ -78,10 +77,7 @@ type BuilderCloneComponents struct {
 
 // BuilderSearchComponents groups search-related functionality
 type BuilderSearchComponents struct {
-	// Legacy search engine (for backward compatibility)
-	Engine *search.Engine
-	
-	// New unified search manager
+	// Unified search manager
 	UnifiedManager *unified.UnifiedSearchManager
 	
 	// UI components

@@ -4,7 +4,6 @@ import (
 	"strings"
 
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
 
 // ShouldIncludeArchived checks if the search query includes archived items
@@ -19,18 +18,11 @@ func ShouldIncludeArchived(searchQuery string) bool {
 		return true
 	}
 
-	// Parse the search query to check for status:archived
-	parser := search.NewParser()
-	query, err := parser.Parse(searchQuery)
-	if err != nil {
-		return false
-	}
-
-	for _, condition := range query.Conditions {
-		if condition.Field == search.FieldStatus {
-			if statusStr, ok := condition.Value.(string); ok && strings.ToLower(statusStr) == "archived" {
-				return true
-			}
+	// Parse the search query to check for status:archived using unified parser
+	parsedQuery := ParseQuery(searchQuery)
+	for _, filter := range parsedQuery.Filters {
+		if filter.Type == "status" && strings.ToLower(filter.Value) == "archived" {
+			return true
 		}
 	}
 

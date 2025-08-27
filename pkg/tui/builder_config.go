@@ -3,7 +3,6 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 )
@@ -71,7 +70,6 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 
 	// Initialize search components
 	searchComponents := &BuilderSearchComponents{
-		Engine:         search.NewEngine(),
 		UnifiedManager: unified.NewUnifiedSearchManager(),
 		Bar:            NewSearchBar(),
 		FilterHelper:   NewSearchFilterHelper(),

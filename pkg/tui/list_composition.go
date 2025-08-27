@@ -2,7 +2,6 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
@@ -53,10 +52,7 @@ type ListCloneComponents struct {
 
 // ListSearchComponents groups search-related functionality
 type ListSearchComponents struct {
-	// Legacy search engine (for backward compatibility)
-	Engine *search.Engine
-	
-	// New unified search manager
+	// Unified search manager
 	UnifiedManager *unified.UnifiedSearchManager
 	
 	// UI components

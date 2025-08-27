@@ -102,32 +102,15 @@ func (m *MainListModel) performSearch() {
 		return
 	}
 
-	// Fallback to legacy search engine
-	if m.search.Engine != nil {
-		results, err := m.search.Engine.Search(m.search.Query)
-		if err != nil {
-			// On error, show all items
-			m.data.FilteredPipelines = m.data.Pipelines
-			m.data.FilteredComponents = m.operations.BusinessLogic.GetAllComponents()
+	// If unified search is not available, show all items
+	m.data.FilteredPipelines = m.data.Pipelines
+	m.data.FilteredComponents = m.operations.BusinessLogic.GetAllComponents()
 
-			// Update state manager with current counts for proper cursor navigation
-			m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
-			return
-		}
+	// Update state manager with current counts for proper cursor navigation
+	m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
 
-		// Use the helper function to filter results
-		m.data.FilteredPipelines, m.data.FilteredComponents = FilterSearchResults(
-			results,
-			m.data.Pipelines,
-			m.operations.BusinessLogic.GetAllComponents(),
-		)
-
-		// Update state manager with filtered counts for proper cursor navigation
-		m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
-
-		// Reset cursors if they're out of bounds
-		m.stateManager.ResetCursorsAfterSearch(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
-	}
+	// Reset cursors if they're out of bounds
+	m.stateManager.ResetCursorsAfterSearch(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
 }
 
 func (m *MainListModel) getAllComponents() []componentItem {

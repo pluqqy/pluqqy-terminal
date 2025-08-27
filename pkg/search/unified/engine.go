@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
 
 // SearchMode defines the type of search being performed
@@ -59,12 +58,6 @@ type SearchOptions struct {
 
 // SearchEngine provides a unified search interface for both components and pipelines
 type SearchEngine[T Searchable] struct {
-	// Internal search engine from pkg/search
-	engine *search.Engine
-	
-	// Search query parsing
-	parser *search.Parser
-	
 	// Current items being searched
 	items []T
 	
@@ -75,8 +68,6 @@ type SearchEngine[T Searchable] struct {
 // NewSearchEngine creates a new search engine for a specific type
 func NewSearchEngine[T Searchable]() *SearchEngine[T] {
 	return &SearchEngine[T]{
-		engine: search.NewEngine(),
-		parser: search.NewParser(),
 		options: SearchOptions{
 			Mode:           SearchModeAll,
 			MaxResults:     100,
@@ -426,68 +417,10 @@ func (se *SearchEngine[T]) searchWithEngine(query string) ([]SearchResult[T], er
 		return results, nil
 	}
 	
-	// For other structured queries, try to use the search engine if available
-	if se.engine != nil {
-		// Build the search index from current items
-		if err := se.buildSearchIndex(); err != nil {
-			// Fallback to simple search
-			return se.simpleTextSearch(query), nil
-		}
-		
-		// Perform the search
-		engineResults, err := se.engine.Search(query)
-		if err != nil {
-			// Fallback to simple search
-			return se.simpleTextSearch(query), nil
-		}
-		
-		// Convert search results to our format
-		return se.convertSearchResults(engineResults), nil
-	}
-	
 	// Fallback to simple search for unrecognized structured queries
 	return se.simpleTextSearch(query), nil
 }
 
-// buildSearchIndex builds the search index from current items
-func (se *SearchEngine[T]) buildSearchIndex() error {
-	// Clear the existing index
-	se.engine = search.NewEngine()
-	
-	// This would require integration with the search engine's BuildIndex method
-	// For now, we'll implement this as a simple placeholder
-	// In a real implementation, we'd need to adapt the search.Engine to work with generic types
-	return nil
-}
-
-// convertSearchResults converts search.SearchResult to our SearchResult format
-func (se *SearchEngine[T]) convertSearchResults(results []search.SearchResult) []SearchResult[T] {
-	var converted []SearchResult[T]
-	
-	// Create a path-to-item map for quick lookup
-	pathMap := make(map[string]T)
-	for _, item := range se.items {
-		pathMap[item.GetPath()] = item
-	}
-	
-	for _, result := range results {
-		if item, exists := pathMap[result.Item.Path]; exists {
-			converted = append(converted, SearchResult[T]{
-				Item:  item,
-				Score: result.Score,
-				Relevance: SearchRelevance{
-					NameMatch:    se.hasNameMatch(result.Highlights),
-					ContentMatch: se.hasContentMatch(result.Highlights),
-					TagMatch:     se.hasTagMatch(result.Highlights),
-					ExactMatch:   result.Score > 2.0, // High score indicates exact match
-					Highlights:   result.Highlights,
-				},
-			})
-		}
-	}
-	
-	return converted
-}
 
 // simpleTextSearch performs a simple text-based search
 func (se *SearchEngine[T]) simpleTextSearch(query string) []SearchResult[T] {

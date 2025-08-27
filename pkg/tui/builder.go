@@ -106,14 +106,8 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	m.data.FilteredContexts = m.data.Contexts
 	m.data.FilteredRules = m.data.Rules
 
-	// Rebuild search engine index
-	if m.search.Engine != nil {
-		if includeArchived {
-			m.search.Engine.BuildIndexWithOptions(true)
-		} else {
-			m.search.Engine.BuildIndex()
-		}
-	}
+	// Note: Search index rebuilding is now handled by the unified search manager
+	// No explicit index rebuilding needed
 }
 
 // convertBuilderComponentItems converts unified ComponentItems to local componentItems
@@ -276,45 +270,11 @@ func (m *PipelineBuilderModel) performSearch() {
 	m.data.FilteredContexts = nil
 	m.data.FilteredRules = nil
 
-	// Use search engine to find matching items
-	if m.search.Engine != nil {
-		results, err := m.search.Engine.Search(m.search.Query)
-		if err != nil {
-			// On error, show all items
-			m.data.FilteredPrompts = m.data.Prompts
-			m.data.FilteredContexts = m.data.Contexts
-			m.data.FilteredRules = m.data.Rules
-			return
-		}
-
-		// Create maps for quick lookup
-		resultMap := make(map[string]bool)
-		for _, result := range results {
-			resultMap[result.Item.Path] = true
-		}
-
-		// Filter each component list
-		for _, comp := range m.data.Prompts {
-			if resultMap[comp.path] {
-				m.data.FilteredPrompts = append(m.data.FilteredPrompts, comp)
-			}
-		}
-		for _, comp := range m.data.Contexts {
-			if resultMap[comp.path] {
-				m.data.FilteredContexts = append(m.data.FilteredContexts, comp)
-			}
-		}
-		for _, comp := range m.data.Rules {
-			if resultMap[comp.path] {
-				m.data.FilteredRules = append(m.data.FilteredRules, comp)
-			}
-		}
-	} else {
-		// No search engine, show all items
-		m.data.FilteredPrompts = m.data.Prompts
-		m.data.FilteredContexts = m.data.Contexts
-		m.data.FilteredRules = m.data.Rules
-	}
+	// Legacy search engine is no longer used - show all items
+	// The unified search system is used in the TUI search flow instead
+	m.data.FilteredPrompts = m.data.Prompts
+	m.data.FilteredContexts = m.data.Contexts
+	m.data.FilteredRules = m.data.Rules
 
 	// Reset cursor if it's out of bounds
 	if m.ui.ActiveColumn == leftColumn {

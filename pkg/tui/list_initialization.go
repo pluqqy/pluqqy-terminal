@@ -157,14 +157,8 @@ func (m *MainListModel) loadPipelines() {
 		}
 	}
 
-	// Rebuild search index when pipelines are reloaded
-	if m.search.Engine != nil {
-		if includeArchived {
-			m.search.Engine.BuildIndexWithOptions(true)
-		} else {
-			m.search.Engine.BuildIndex()
-		}
-	}
+	// Note: Search index rebuilding is now handled by the unified search manager
+	// No explicit index rebuilding needed
 
 	// Update filtered list if no active search
 	if m.search.Query == "" {
@@ -204,14 +198,8 @@ func (m *MainListModel) loadComponents() {
 	// Update business logic with new components
 	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 
-	// Rebuild search index when components are reloaded
-	if m.search.Engine != nil {
-		if includeArchived {
-			m.search.Engine.BuildIndexWithOptions(true)
-		} else {
-			m.search.Engine.BuildIndex()
-		}
-	}
+	// Note: Search index rebuilding is now handled by the unified search manager
+	// No explicit index rebuilding needed
 
 	// Update filtered list if no active search
 	if m.search.Query == "" {
@@ -241,15 +229,10 @@ func convertToComponentItems(items []unified.ComponentItem) []componentItem {
 }
 
 
-// initializeSearchEngine sets up the search engine
+// initializeSearchEngine sets up the search engine (legacy compatibility)
 func (m *MainListModel) initializeSearchEngine() {
-	// Use SearchManager for initialization
-	searchManager := NewSearchManager()
-	if err := searchManager.InitializeEngine(); err != nil {
-		// Log error but don't fail - search will be unavailable
-		return
-	}
-	m.search.Engine = searchManager.GetEngine()
+	// Search engine is now initialized via the unified search manager
+	// This method is kept for backward compatibility but does nothing
 }
 
 // updateViewportSizes updates all viewport dimensions based on window size

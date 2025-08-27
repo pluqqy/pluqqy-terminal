@@ -1,12 +1,5 @@
 package unified
 
-import (
-	"sort"
-
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
-)
-
 // SearchHelper provides compatibility functions for the existing TUI search interface
 type SearchHelper struct {
 	unifiedManager *UnifiedSearchManager
@@ -19,77 +12,11 @@ func NewSearchHelper() *SearchHelper {
 	}
 }
 
-// FilterSearchResults filters pipelines and components based on search results
-// This maintains the same signature as the existing function for backward compatibility
-func (sh *SearchHelper) FilterSearchResults(results []search.SearchResult, pipelines []PipelineItem, components []ComponentItem) ([]PipelineItem, []ComponentItem) {
-	if results == nil || len(results) == 0 {
-		// No search results, return empty lists
-		return []PipelineItem{}, []ComponentItem{}
-	}
-
-	// Build filtered lists from search results
-	filteredPipelines := []PipelineItem{}
-	filteredComponents := []ComponentItem{}
-
-	// Use maps to track what's already added
-	addedPipelines := make(map[string]bool)
-	addedComponents := make(map[string]bool)
-
-	for _, result := range results {
-		if result.Item.Type == search.ItemTypePipeline {
-			// Match by path for accuracy (handles archived items correctly)
-			if !addedPipelines[result.Item.Path] {
-				for _, p := range pipelines {
-					if p.Path == result.Item.Path {
-						filteredPipelines = append(filteredPipelines, p)
-						addedPipelines[result.Item.Path] = true
-						break
-					}
-				}
-			}
-		} else {
-			// Match components by path
-			if !addedComponents[result.Item.Path] {
-				for _, c := range components {
-					if c.Path == result.Item.Path {
-						filteredComponents = append(filteredComponents, c)
-						addedComponents[result.Item.Path] = true
-						break
-					}
-				}
-			}
-		}
-	}
-
-	// Sort filtered components by type to ensure proper grouping
-	sort.Slice(filteredComponents, func(i, j int) bool {
-		// Define type order
-		typeOrder := map[string]int{
-			models.ComponentTypeContext: 1,
-			models.ComponentTypePrompt:  2,
-			models.ComponentTypeRules:   3,
-		}
-
-		// Get order values, defaulting to 4 for unknown types
-		orderI, okI := typeOrder[filteredComponents[i].CompType]
-		if !okI {
-			orderI = 4
-		}
-		orderJ, okJ := typeOrder[filteredComponents[j].CompType]
-		if !okJ {
-			orderJ = 4
-		}
-
-		// Sort by type order first
-		if orderI != orderJ {
-			return orderI < orderJ
-		}
-
-		// Within same type, sort by name
-		return filteredComponents[i].Name < filteredComponents[j].Name
-	})
-
-	return filteredPipelines, filteredComponents
+// FilterSearchResults is deprecated - legacy search results are no longer supported
+// Use UnifiedFilterAll or other unified search methods instead
+func (sh *SearchHelper) FilterSearchResults(results interface{}, pipelines []PipelineItem, components []ComponentItem) ([]PipelineItem, []ComponentItem) {
+	// Return empty results as this method is deprecated
+	return []PipelineItem{}, []ComponentItem{}
 }
 
 // UnifiedFilterComponents uses the new unified search to filter components
@@ -195,7 +122,7 @@ func (sh *SearchHelper) IsStructuredQuery(query string) bool {
 }
 
 // ParseSearchQuery parses a search query to understand its structure
-func (sh *SearchHelper) ParseSearchQuery(query string) (*search.Query, error) {
+func (sh *SearchHelper) ParseSearchQuery(query string) (*ParsedQuery, error) {
 	return sh.unifiedManager.ParseSearchQuery(query)
 }
 

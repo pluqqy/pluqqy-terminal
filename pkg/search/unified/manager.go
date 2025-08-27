@@ -5,7 +5,6 @@ import (
 
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 )
 
 // UnifiedSearchManager manages search operations across different TUI views
@@ -360,9 +359,9 @@ func (usm *UnifiedSearchManager) IsStructuredQuery(query string) bool {
 	return usm.componentEngine.isStructuredQuery(query)
 }
 
-// ParseSearchQuery parses a search query using the search engine parser
-func (usm *UnifiedSearchManager) ParseSearchQuery(query string) (*search.Query, error) {
-	return usm.componentEngine.parser.Parse(query)
+// ParseSearchQuery parses a search query using the unified parser
+func (usm *UnifiedSearchManager) ParseSearchQuery(query string) (*ParsedQuery, error) {
+	return ParseQuery(query), nil
 }
 
 // GetSearchSuggestions returns search suggestions based on current items

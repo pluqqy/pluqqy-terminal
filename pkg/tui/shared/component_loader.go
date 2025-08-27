@@ -2,12 +2,10 @@ package shared
 
 import (
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
 
@@ -142,26 +140,3 @@ func (cl *ComponentLoader) loadComponentsOfType(compType, subDir, modelType stri
 	return items
 }
 
-// ShouldIncludeArchived checks if the current search query requires archived items
-func ShouldIncludeArchived(searchQuery string) bool {
-	if searchQuery == "" {
-		return false
-	}
-
-	// Parse the search query to check for status:archived
-	parser := search.NewParser()
-	query, err := parser.Parse(searchQuery)
-	if err != nil {
-		return false
-	}
-
-	for _, condition := range query.Conditions {
-		if condition.Field == search.FieldStatus {
-			if statusStr, ok := condition.Value.(string); ok && strings.ToLower(statusStr) == "archived" {
-				return true
-			}
-		}
-	}
-
-	return false
-}
