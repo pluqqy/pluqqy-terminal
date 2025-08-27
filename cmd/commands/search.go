@@ -10,6 +10,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/internal/cli"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
 // SearchResultOutput represents the formatted search results
@@ -75,8 +76,9 @@ Examples:
 func runSearch(cmd *cobra.Command, args []string) error {
 	query := strings.Join(args, " ")
 	
-	// Initialize search engine
-	engine := search.NewEngine()
+	// Use unified search engine through legacy adapter
+	// This provides consistent behavior with TUI and fixes duplicate bug
+	engine := unified.NewLegacyAdapter()
 	
 	// Build index including archived items if query contains "status:archived"
 	includeArchived := strings.Contains(query, "status:archived")
@@ -84,7 +86,7 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to build search index: %w", err)
 	}
 	
-	// Perform search
+	// Perform search using unified engine
 	results, err := engine.Search(query)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
