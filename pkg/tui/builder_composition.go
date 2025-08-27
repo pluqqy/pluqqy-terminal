@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
 // BuilderDataStore manages all component and pipeline data
@@ -82,7 +82,7 @@ type BuilderSearchComponents struct {
 	Engine *search.Engine
 	
 	// New unified search manager
-	UnifiedManager *shared.UnifiedSearchManager
+	UnifiedManager *unified.UnifiedSearchManager
 	
 	// UI components
 	Bar          *SearchBar
@@ -274,7 +274,7 @@ func (s *BuilderSearchComponents) ClearSearch() {
 // InitializeUnifiedManager initializes the unified search manager if not already done
 func (s *BuilderSearchComponents) InitializeUnifiedManager() {
 	if s.UnifiedManager == nil {
-		s.UnifiedManager = shared.NewUnifiedSearchManager()
+		s.UnifiedManager = unified.NewUnifiedSearchManager()
 	}
 }
 
@@ -282,10 +282,10 @@ func (s *BuilderSearchComponents) InitializeUnifiedManager() {
 func (s *BuilderSearchComponents) ShouldIncludeArchived() bool {
 	if s.UnifiedManager != nil {
 		return s.UnifiedManager.IsStructuredQuery(s.Query) && 
-			shared.ShouldIncludeArchived(s.Query)
+			unified.ShouldIncludeArchived(s.Query)
 	}
 	// Fallback to existing logic
-	return shared.ShouldIncludeArchived(s.Query)
+	return unified.ShouldIncludeArchived(s.Query)
 }
 
 // Helper methods for BuilderUIComponents

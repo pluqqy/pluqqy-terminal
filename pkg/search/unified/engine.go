@@ -573,17 +573,20 @@ func (se *SearchEngine[T]) calculateSimpleScore(item T, queryTerms []string) (fl
 		}
 	}
 	
-	// Boost for recent items
-	age := time.Since(item.GetModified())
-	if age < 24*time.Hour {
-		score += 1.0
-	} else if age < 7*24*time.Hour {
-		score += 0.5
-	}
-	
-	// Boost for frequently used components
-	if usage := item.GetUsageCount(); usage > 0 {
-		score += float64(usage) * 0.1
+	// Only apply boosts if there was an actual match
+	if score > 0 {
+		// Boost for recent items
+		age := time.Since(item.GetModified())
+		if age < 24*time.Hour {
+			score += 1.0
+		} else if age < 7*24*time.Hour {
+			score += 0.5
+		}
+		
+		// Boost for frequently used components
+		if usage := item.GetUsageCount(); usage > 0 {
+			score += float64(usage) * 0.1
+		}
 	}
 	
 	return score, relevance

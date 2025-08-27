@@ -3,7 +3,7 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
 // ListDataStore manages all component and pipeline data
@@ -57,7 +57,7 @@ type ListSearchComponents struct {
 	Engine *search.Engine
 	
 	// New unified search manager
-	UnifiedManager *shared.UnifiedSearchManager
+	UnifiedManager *unified.UnifiedSearchManager
 	
 	// UI components
 	Bar          *SearchBar
@@ -181,7 +181,7 @@ func (s *ListSearchComponents) ClearSearch() {
 // InitializeUnifiedManager initializes the unified search manager if not already done
 func (s *ListSearchComponents) InitializeUnifiedManager() {
 	if s.UnifiedManager == nil {
-		s.UnifiedManager = shared.NewUnifiedSearchManager()
+		s.UnifiedManager = unified.NewUnifiedSearchManager()
 	}
 }
 
@@ -189,8 +189,8 @@ func (s *ListSearchComponents) InitializeUnifiedManager() {
 func (s *ListSearchComponents) ShouldIncludeArchived() bool {
 	if s.UnifiedManager != nil {
 		return s.UnifiedManager.IsStructuredQuery(s.Query) && 
-			shared.ShouldIncludeArchived(s.Query)
+			unified.ShouldIncludeArchived(s.Query)
 	}
 	// Fallback to existing logic
-	return shared.ShouldIncludeArchived(s.Query)
+	return unified.ShouldIncludeArchived(s.Query)
 }

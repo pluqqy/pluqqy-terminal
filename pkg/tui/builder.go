@@ -16,6 +16,7 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
@@ -96,9 +97,9 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	m.data.Rules = nil
 
 	// Convert shared ComponentItems to local componentItems
-	m.data.Prompts = convertBuilderComponentItems(prompts)
-	m.data.Contexts = convertBuilderComponentItems(contexts)
-	m.data.Rules = convertBuilderComponentItems(rules)
+	m.data.Prompts = convertBuilderComponentItems(unified.ConvertSharedComponentItemsToUnified(prompts))
+	m.data.Contexts = convertBuilderComponentItems(unified.ConvertSharedComponentItemsToUnified(contexts))
+	m.data.Rules = convertBuilderComponentItems(unified.ConvertSharedComponentItemsToUnified(rules))
 
 	// Initialize filtered lists with all components
 	m.data.FilteredPrompts = m.data.Prompts
@@ -115,8 +116,8 @@ func (m *PipelineBuilderModel) loadAvailableComponents() {
 	}
 }
 
-// convertBuilderComponentItems converts shared ComponentItems to local componentItems
-func convertBuilderComponentItems(items []shared.ComponentItem) []componentItem {
+// convertBuilderComponentItems converts unified ComponentItems to local componentItems
+func convertBuilderComponentItems(items []unified.ComponentItem) []componentItem {
 	result := make([]componentItem, len(items))
 	for i, item := range items {
 		result[i] = componentItem{
@@ -133,11 +134,11 @@ func convertBuilderComponentItems(items []shared.ComponentItem) []componentItem 
 	return result
 }
 
-// convertComponentsToShared converts local componentItems to shared ComponentItems
-func convertComponentsToShared(items []componentItem) []shared.ComponentItem {
-	result := make([]shared.ComponentItem, len(items))
+// convertComponentsToShared converts local componentItems to unified ComponentItems
+func convertComponentsToShared(items []componentItem) []unified.ComponentItem {
+	result := make([]unified.ComponentItem, len(items))
 	for i, item := range items {
-		result[i] = shared.ComponentItem{
+		result[i] = unified.ComponentItem{
 			Name:         item.name,
 			Path:         item.path,
 			CompType:     item.compType,
@@ -151,8 +152,8 @@ func convertComponentsToShared(items []componentItem) []shared.ComponentItem {
 	return result
 }
 
-// convertSharedComponentsToTUI converts shared ComponentItems back to TUI componentItems
-func convertSharedComponentsToTUI(items []shared.ComponentItem) []componentItem {
+// convertSharedComponentsToTUI converts unified ComponentItems back to TUI componentItems
+func convertSharedComponentsToTUI(items []unified.ComponentItem) []componentItem {
 	result := make([]componentItem, len(items))
 	for i, item := range items {
 		result[i] = componentItem{
@@ -171,7 +172,7 @@ func convertSharedComponentsToTUI(items []shared.ComponentItem) []componentItem 
 
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *PipelineBuilderModel) shouldIncludeArchived() bool {
-	return shared.ShouldIncludeArchived(m.search.Query)
+	return unified.ShouldIncludeArchived(m.search.Query)
 }
 
 

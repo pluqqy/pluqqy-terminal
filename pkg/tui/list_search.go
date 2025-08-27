@@ -5,7 +5,7 @@ import (
 
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
 // SearchManager handles search initialization and operations
@@ -14,7 +14,7 @@ type SearchManager struct {
 	engine *search.Engine
 	
 	// New unified search helper
-	helper *shared.SearchHelper
+	helper *unified.SearchHelper
 	
 	query  string
 }
@@ -22,7 +22,7 @@ type SearchManager struct {
 // NewSearchManager creates a new search manager
 func NewSearchManager() *SearchManager {
 	return &SearchManager{
-		helper: shared.NewSearchHelper(),
+		helper: unified.NewSearchHelper(),
 	}
 }
 
@@ -60,22 +60,22 @@ func (s *SearchManager) Search() ([]search.SearchResult, error) {
 }
 
 // UnifiedSearchComponents performs a unified search on components
-func (s *SearchManager) UnifiedSearchComponents(prompts, contexts, rules []shared.ComponentItem) ([]shared.ComponentItem, []shared.ComponentItem, []shared.ComponentItem, error) {
+func (s *SearchManager) UnifiedSearchComponents(prompts, contexts, rules []unified.ComponentItem) ([]unified.ComponentItem, []unified.ComponentItem, []unified.ComponentItem, error) {
 	return s.helper.UnifiedFilterComponents(s.query, prompts, contexts, rules)
 }
 
 // UnifiedSearchPipelines performs a unified search on pipelines  
-func (s *SearchManager) UnifiedSearchPipelines(pipelines []shared.PipelineItem) ([]shared.PipelineItem, error) {
+func (s *SearchManager) UnifiedSearchPipelines(pipelines []unified.PipelineItem) ([]unified.PipelineItem, error) {
 	return s.helper.UnifiedFilterPipelines(s.query, pipelines)
 }
 
 // UnifiedSearchAll performs a unified search across all items
-func (s *SearchManager) UnifiedSearchAll(prompts, contexts, rules []shared.ComponentItem, pipelines []shared.PipelineItem) ([]shared.ComponentItem, []shared.ComponentItem, []shared.ComponentItem, []shared.PipelineItem, error) {
+func (s *SearchManager) UnifiedSearchAll(prompts, contexts, rules []unified.ComponentItem, pipelines []unified.PipelineItem) ([]unified.ComponentItem, []unified.ComponentItem, []unified.ComponentItem, []unified.PipelineItem, error) {
 	return s.helper.UnifiedFilterAll(s.query, prompts, contexts, rules, pipelines)
 }
 
 // GetSearchHelper returns the unified search helper for advanced operations
-func (s *SearchManager) GetSearchHelper() *shared.SearchHelper {
+func (s *SearchManager) GetSearchHelper() *unified.SearchHelper {
 	return s.helper
 }
 
@@ -86,11 +86,11 @@ func FilterSearchResultsUnified(query string, pipelines []pipelineItem, componen
 	sharedComponents := convertTUIComponentsToShared(components)
 	
 	// Use unified search helper
-	helper := shared.NewSearchHelper()
-	helper.SetSearchOptions(shared.ShouldIncludeArchived(query), 1000, "relevance")
+	helper := unified.NewSearchHelper()
+	helper.SetSearchOptions(unified.ShouldIncludeArchived(query), 1000, "relevance")
 	
 	// Separate components by type for the search
-	var prompts, contexts, rules []shared.ComponentItem
+	var prompts, contexts, rules []unified.ComponentItem
 	for _, comp := range sharedComponents {
 		switch comp.CompType {
 		case models.ComponentTypePrompt:
@@ -110,7 +110,7 @@ func FilterSearchResultsUnified(query string, pipelines []pipelineItem, componen
 	}
 	
 	// Convert back to TUI types
-	resultComponents := shared.CombineComponentsByType(filteredPrompts, filteredContexts, filteredRules)
+	resultComponents := unified.CombineComponentsByType(filteredPrompts, filteredContexts, filteredRules)
 	tuiComponents := convertSharedComponentsToTUIList(resultComponents)
 	tuiPipelines := convertSharedPipelinesToTUI(filteredPipelines)
 	
@@ -191,26 +191,26 @@ func FilterSearchResults(results []search.SearchResult, pipelines []pipelineItem
 
 // Helper functions for type conversion
 
-// convertTUIPipelinesToShared converts TUI pipelineItem slice to shared PipelineItem slice
-func convertTUIPipelinesToShared(pipelines []pipelineItem) []shared.PipelineItem {
-	shared_pipelines := make([]shared.PipelineItem, len(pipelines))
+// convertTUIPipelinesToShared converts TUI pipelineItem slice to unified PipelineItem slice
+func convertTUIPipelinesToShared(pipelines []pipelineItem) []unified.PipelineItem {
+	shared_pipelines := make([]unified.PipelineItem, len(pipelines))
 	for i, p := range pipelines {
-		shared_pipelines[i] = shared.ConvertTUIPipelineItemToShared(p.name, p.path, p.tags, p.tokenCount, p.isArchived)
+		shared_pipelines[i] = unified.ConvertTUIPipelineItemToShared(p.name, p.path, p.tags, p.tokenCount, p.isArchived)
 	}
 	return shared_pipelines
 }
 
-// convertTUIComponentsToShared converts TUI componentItem slice to shared ComponentItem slice  
-func convertTUIComponentsToShared(components []componentItem) []shared.ComponentItem {
-	shared_components := make([]shared.ComponentItem, len(components))
+// convertTUIComponentsToShared converts TUI componentItem slice to unified ComponentItem slice  
+func convertTUIComponentsToShared(components []componentItem) []unified.ComponentItem {
+	shared_components := make([]unified.ComponentItem, len(components))
 	for i, c := range components {
-		shared_components[i] = shared.ConvertTUIComponentItemToShared(c.name, c.path, c.compType, c.lastModified, c.usageCount, c.tokenCount, c.tags, c.isArchived)
+		shared_components[i] = unified.ConvertTUIComponentItemToShared(c.name, c.path, c.compType, c.lastModified, c.usageCount, c.tokenCount, c.tags, c.isArchived)
 	}
 	return shared_components
 }
 
-// convertSharedPipelinesToTUI converts shared PipelineItem slice back to TUI pipelineItem slice
-func convertSharedPipelinesToTUI(pipelines []shared.PipelineItem) []pipelineItem {
+// convertSharedPipelinesToTUI converts unified PipelineItem slice back to TUI pipelineItem slice
+func convertSharedPipelinesToTUI(pipelines []unified.PipelineItem) []pipelineItem {
 	tui_pipelines := make([]pipelineItem, len(pipelines))
 	for i, p := range pipelines {
 		tui_pipelines[i] = pipelineItem{
@@ -224,8 +224,8 @@ func convertSharedPipelinesToTUI(pipelines []shared.PipelineItem) []pipelineItem
 	return tui_pipelines
 }
 
-// convertSharedComponentsToTUIList converts shared ComponentItem slice back to TUI componentItem slice (list version)
-func convertSharedComponentsToTUIList(components []shared.ComponentItem) []componentItem {
+// convertSharedComponentsToTUIList converts unified ComponentItem slice back to TUI componentItem slice (list version)
+func convertSharedComponentsToTUIList(components []unified.ComponentItem) []componentItem {
 	tui_components := make([]componentItem, len(components))
 	for i, c := range components {
 		tui_components[i] = componentItem{

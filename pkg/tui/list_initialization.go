@@ -5,6 +5,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 	"github.com/pluqqy/pluqqy-cli/pkg/utils"
 )
@@ -43,7 +44,7 @@ func NewMainListModel() *MainListModel {
 		},
 		
 		search: &ListSearchComponents{
-			UnifiedManager: shared.NewUnifiedSearchManager(),
+			UnifiedManager: unified.NewUnifiedSearchManager(),
 			Bar:            NewSearchBar(),
 			FilterHelper:   NewSearchFilterHelper(),
 		},
@@ -178,7 +179,7 @@ func (m *MainListModel) loadPipelines() {
 
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *MainListModel) shouldIncludeArchived() bool {
-	return shared.ShouldIncludeArchived(m.search.Query)
+	return unified.ShouldIncludeArchived(m.search.Query)
 }
 
 // loadComponents loads all component files and their metadata
@@ -196,9 +197,9 @@ func (m *MainListModel) loadComponents() {
 	m.data.Rules = nil
 
 	// Convert shared ComponentItems to local componentItems
-	m.data.Prompts = convertToComponentItems(prompts)
-	m.data.Contexts = convertToComponentItems(contexts)
-	m.data.Rules = convertToComponentItems(rules)
+	m.data.Prompts = convertToComponentItems(unified.ConvertSharedComponentItemsToUnified(prompts))
+	m.data.Contexts = convertToComponentItems(unified.ConvertSharedComponentItemsToUnified(contexts))
+	m.data.Rules = convertToComponentItems(unified.ConvertSharedComponentItemsToUnified(rules))
 
 	// Update business logic with new components
 	m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
@@ -221,8 +222,8 @@ func (m *MainListModel) loadComponents() {
 	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
 }
 
-// convertToComponentItems converts shared ComponentItems to local componentItems
-func convertToComponentItems(items []shared.ComponentItem) []componentItem {
+// convertToComponentItems converts unified ComponentItems to local componentItems
+func convertToComponentItems(items []unified.ComponentItem) []componentItem {
 	result := make([]componentItem, len(items))
 	for i, item := range items {
 		result[i] = componentItem{
