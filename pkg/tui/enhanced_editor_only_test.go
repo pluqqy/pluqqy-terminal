@@ -105,14 +105,19 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 			setup: func() *MainListModel {
 				m := NewMainListModel()
 				m.operations.ComponentCreator.Start()
-				m.operations.ComponentCreator.componentCreationType = models.ComponentTypeContext
-				m.operations.ComponentCreator.componentName = "New Component"
-				m.operations.ComponentCreator.creationStep = 2 // Content step
+				// Use public methods to set up the component creation state
+				// Simulate type selection
+				m.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
+				// Simulate name input
+				nameInput := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("New Component")}
+				for _, r := range nameInput.Runes {
+					m.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				}
+				m.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 				return m
 			},
 			triggerEdit: func(m *MainListModel) (tea.Model, tea.Cmd) {
-				// Initialize enhanced editor for creation
-				m.operations.ComponentCreator.initializeEnhancedEditor()
+				// Enhanced editor should already be initialized from the setup
 				return m, nil
 			},
 			expectActive: true,
@@ -129,7 +134,7 @@ func TestEditingAlwaysUsesEnhancedEditor(t *testing.T) {
 
 			// Check enhanced editor state
 			if tt.expectActive {
-				if m.operations.ComponentCreator.IsActive() && m.operations.ComponentCreator.creationStep == 2 {
+				if m.operations.ComponentCreator.IsActive() && m.operations.ComponentCreator.GetCurrentStep() == 2 {
 					// Check component creator's enhanced editor
 					if !m.operations.ComponentCreator.IsEnhancedEditorActive() {
 						t.Error("Expected enhanced editor to be active in component creator")
@@ -212,11 +217,16 @@ func TestBuilderEditingUsesEnhancedEditor(t *testing.T) {
 				return m
 			},
 			triggerEdit: func(m *PipelineBuilderModel) (tea.Model, tea.Cmd) {
-				// Move through creation steps
-				m.editors.ComponentCreator.componentCreationType = models.ComponentTypePrompt
-				m.editors.ComponentCreator.componentName = "Test Prompt"
-				m.editors.ComponentCreator.creationStep = 2
-				m.editors.ComponentCreator.initializeEnhancedEditor()
+				// Move through creation steps using public interface
+				// First select prompt type (second option, index 1)
+				m.editors.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyDown})
+				m.editors.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
+				// Enter name
+				nameInput := tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("Test Prompt")}
+				for _, r := range nameInput.Runes {
+					m.editors.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{r}})
+				}
+				m.editors.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 				return m, nil
 			},
 			validate: func(t *testing.T, m *PipelineBuilderModel) {

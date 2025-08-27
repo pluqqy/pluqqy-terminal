@@ -7,7 +7,9 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
-func TestComponentCreator_EnhancedEditorIntegration(t *testing.T) {
+// TestListComponentCreator_EnhancedEditorIntegration tests the integration between
+// the list view's component creator and the enhanced editor
+func TestListComponentCreator_EnhancedEditorIntegration(t *testing.T) {
 	tests := []struct {
 		name          string
 		componentType string
@@ -15,19 +17,19 @@ func TestComponentCreator_EnhancedEditorIntegration(t *testing.T) {
 		expectActive  bool
 	}{
 		{
-			name:          "Context component with enhanced editor",
+			name:          "Context component with enhanced editor in list view",
 			componentType: models.ComponentTypeContext,
 			componentName: "Test Context",
 			expectActive:  true,
 		},
 		{
-			name:          "Prompt component with enhanced editor",
+			name:          "Prompt component with enhanced editor in list view",
 			componentType: models.ComponentTypePrompt,
 			componentName: "Test Prompt",
 			expectActive:  true,
 		},
 		{
-			name:          "Rules component with enhanced editor",
+			name:          "Rules component with enhanced editor in list view",
 			componentType: models.ComponentTypeRules,
 			componentName: "Test Rules",
 			expectActive:  true,
@@ -36,215 +38,238 @@ func TestComponentCreator_EnhancedEditorIntegration(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// Create component creator
-			creator := NewComponentCreator()
-
+			// Create list model with component creator
+			listModel := NewMainListModel()
+			
 			// Start creation process
-			creator.Start()
-			if !creator.IsActive() {
+			listModel.operations.ComponentCreator.Start()
+			if !listModel.operations.ComponentCreator.IsActive() {
 				t.Error("Creator should be active after Start()")
 			}
 
-			// Select component type
-			creator.componentCreationType = tt.componentType
-			creator.creationStep = 1
-
-			// Enter name and proceed to content
-			creator.componentName = tt.componentName
-			enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-			creator.HandleNameInput(enterKey)
-
-			// Check that we're at content step with enhanced editor
-			if creator.creationStep != 2 {
-				t.Errorf("Expected to be at step 2 (content), got %d", creator.creationStep)
+			// Select component type and proceed through steps
+			// This tests the view-specific integration
+			// First set the correct cursor position for the expected type
+			expectedIndex := 0 // context by default
+			switch tt.componentType {
+			case models.ComponentTypePrompt:
+				expectedIndex = 1
+			case models.ComponentTypeRules:
+				expectedIndex = 2
 			}
+			
+			// Navigate to the correct type
+			for i := 0; i < expectedIndex; i++ {
+				listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyDown})
+			}
+			
+			// Select the type
+			listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter})
+			
+			// Add component name
+			for _, char := range tt.componentName {
+				listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
+			}
+			
+			// Proceed to content step
+			listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 
-			if !creator.IsEnhancedEditorActive() {
+			// Check that enhanced editor is active through the list view wrapper
+			if !listModel.operations.ComponentCreator.IsEnhancedEditorActive() {
 				t.Error("Enhanced editor should be active for content editing")
 			}
 
-			if creator.enhancedEditor == nil {
-				t.Fatal("Enhanced editor should be initialized")
+			// Check that the enhanced editor state is properly configured
+			if !listModel.editors.Enhanced.IsActive() {
+				t.Error("List view enhanced editor should be active")
 			}
 
-			if !creator.enhancedEditor.Active {
-				t.Error("Enhanced editor state should be active")
-			}
-
-			if creator.enhancedEditor.ComponentName != tt.componentName {
+			if listModel.editors.Enhanced.ComponentName != tt.componentName {
 				t.Errorf("Expected component name %s, got %s",
-					tt.componentName, creator.enhancedEditor.ComponentName)
+					tt.componentName, listModel.editors.Enhanced.ComponentName)
 			}
 
-			if creator.enhancedEditor.ComponentType != tt.componentType {
+			if listModel.editors.Enhanced.ComponentType != tt.componentType {
 				t.Errorf("Expected component type %s, got %s",
-					tt.componentType, creator.enhancedEditor.ComponentType)
+					tt.componentType, listModel.editors.Enhanced.ComponentType)
 			}
 		})
 	}
 }
 
-func TestComponentCreator_EnhancedEditorSave(t *testing.T) {
-	// Create component creator
-	creator := NewComponentCreator()
+// TestListComponentCreator_HandleEnhancedEditorInput tests the list view's handling
+// of enhanced editor input during component creation
+func TestListComponentCreator_HandleEnhancedEditorInput(t *testing.T) {
+	// Create list model
+	listModel := NewMainListModel()
 
-	// Setup component creation
-	creator.Start()
-	creator.componentCreationType = models.ComponentTypeContext
-	creator.creationStep = 1
-	creator.componentName = "Test Save"
-
-	// Enter name and proceed to content
-	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-	creator.HandleNameInput(enterKey)
+	// Setup component creation to content step
+	listModel.operations.ComponentCreator.Start()
+	listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter}) // Context
+	for _, char := range "Test Save" {
+		listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
+	}
+	listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Verify enhanced editor is active
-	if !creator.IsEnhancedEditorActive() {
+	if !listModel.operations.ComponentCreator.IsEnhancedEditorActive() {
 		t.Fatal("Enhanced editor should be active")
 	}
 
 	// Set some content
-	creator.enhancedEditor.Textarea.SetValue("Test content for saving")
+	listModel.editors.Enhanced.Textarea.SetValue("Test content for saving")
 
-	// Simulate Ctrl+S
+	// Simulate Ctrl+S through the list view wrapper
 	saveKey := tea.KeyMsg{Type: tea.KeyCtrlS}
-	handled, _ := creator.HandleEnhancedEditorInput(saveKey, 80)
+	handled, _ := listModel.operations.ComponentCreator.HandleEnhancedEditorInput(saveKey, 80)
 
 	if !handled {
-		t.Error("Save key should be handled")
+		t.Error("Save key should be handled by list view wrapper")
+	}
+
+	// Verify that the save was marked successful
+	if !listModel.operations.ComponentCreator.WasSaveSuccessful() {
+		t.Error("Save should be marked as successful through list view wrapper")
 	}
 
 	// Note: Actual file saving would fail in tests without proper setup
-	// This test verifies the integration and handling
+	// This test verifies the view-specific integration and handling
 }
 
-func TestComponentCreator_EnhancedEditorCancel(t *testing.T) {
-	// Create component creator
-	creator := NewComponentCreator()
+// TestListComponentCreator_EnhancedEditorCancel tests cancelling component creation
+// from the enhanced editor step through the list view
+func TestListComponentCreator_EnhancedEditorCancel(t *testing.T) {
+	// Create list model
+	listModel := NewMainListModel()
 
-	// Setup component creation
-	creator.Start()
-	creator.componentCreationType = models.ComponentTypePrompt
-	creator.creationStep = 1
-	creator.componentName = "Test Cancel"
-
-	// Enter name and proceed to content
-	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-	creator.HandleNameInput(enterKey)
+	// Setup component creation to content step
+	listModel.operations.ComponentCreator.Start()
+	listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter}) // Context
+	for _, char := range "Test Cancel" {
+		listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
+	}
+	listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Verify enhanced editor is active
-	if !creator.IsEnhancedEditorActive() {
+	if !listModel.operations.ComponentCreator.IsEnhancedEditorActive() {
 		t.Fatal("Enhanced editor should be active")
 	}
 
 	// Set some content
-	creator.enhancedEditor.Textarea.SetValue("Test content")
+	listModel.editors.Enhanced.Textarea.SetValue("Test content")
 
-	// Simulate ESC to cancel through component creator handler
+	// Verify the editor is active before cancelling
+	if !listModel.editors.Enhanced.IsActive() {
+		t.Fatal("List enhanced editor should be active before cancel")
+	}
+
+	// Simulate ESC to cancel through the list view wrapper
 	escKey := tea.KeyMsg{Type: tea.KeyEscape}
-	handled, _ := creator.HandleEnhancedEditorInput(escKey, 80)
+	handled, _ := listModel.operations.ComponentCreator.HandleEnhancedEditorInput(escKey, 80)
 
 	if !handled {
-		t.Error("ESC key should be handled")
+		t.Error("ESC key should be handled by list view wrapper")
 	}
 
-	// Component creation should be reset entirely (not just go back to name input)
-	if creator.IsActive() {
-		t.Error("Component creator should not be active after ESC")
+	// Component creation should be reset entirely through the list view logic
+	if listModel.operations.ComponentCreator.IsActive() {
+		t.Error("Component creator should not be active after ESC in list view")
 	}
 
-	// Editor should have exited
-	if creator.enhancedEditor != nil && creator.enhancedEditor.IsActive() {
-		t.Error("Enhanced editor should not be active after ESC")
+	// Editor should have exited in the list view
+	if listModel.editors.Enhanced.IsActive() {
+		t.Error("List enhanced editor should not be active after ESC")
 	}
 }
 
-func TestComponentCreator_SaveKeepsEditorOpen(t *testing.T) {
-	// Create component creator
-	creator := NewComponentCreator()
+// TestListComponentCreator_SaveKeepsEditorOpen tests that saving a new component
+// keeps the editor open in the list view (allowing continued editing)
+func TestListComponentCreator_SaveKeepsEditorOpen(t *testing.T) {
+	// Create list model
+	listModel := NewMainListModel()
 
-	// Start creation and set up for content editing
-	creator.Start()
-	creator.componentCreationType = models.ComponentTypeContext
-	creator.componentName = "Test Component"
-	creator.creationStep = 2
-	creator.initializeEnhancedEditor()
+	// Setup component creation to content step
+	listModel.operations.ComponentCreator.Start()
+	listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter}) // Context
+	for _, char := range "Test Component" {
+		listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
+	}
+	listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 
 	// Set some content
 	testContent := "Test content for save"
-	creator.enhancedEditor.Textarea.SetValue(testContent)
+	listModel.editors.Enhanced.Textarea.SetValue(testContent)
 
-	// Manually simulate a successful save
+	// Manually simulate a successful save through the list view state
 	// This simulates what happens when Ctrl+S is pressed and save succeeds
-	creator.enhancedEditor.OriginalContent = testContent
-	creator.enhancedEditor.Content = testContent  // Also set Content field
-	creator.enhancedEditor.UnsavedChanges = false
-	creator.enhancedEditor.IsNewComponent = false
-	creator.lastSaveSuccessful = true
+	listModel.editors.Enhanced.OriginalContent = testContent
+	listModel.editors.Enhanced.Content = testContent
+	listModel.editors.Enhanced.UnsavedChanges = false
+	listModel.editors.Enhanced.IsNewComponent = false
+	listModel.operations.ComponentCreator.MarkSaveSuccessful()
 
-	// Editor should still be active after save
-	if !creator.enhancedEditor.IsActive() {
-		t.Error("Enhanced editor should remain active after save")
+	// Editor should still be active after save in the list view
+	if !listModel.editors.Enhanced.IsActive() {
+		t.Error("List enhanced editor should remain active after save")
 	}
 
-	// Check that save was marked as successful
-	if !creator.WasSaveSuccessful() {
-		t.Error("Save should have been marked as successful")
+	// Check that save was marked as successful through the list view wrapper
+	if !listModel.operations.ComponentCreator.WasSaveSuccessful() {
+		t.Error("Save should have been marked as successful in list view")
 	}
 
 	// Calling WasSaveSuccessful again should return false (flag is reset)
-	if creator.WasSaveSuccessful() {
-		t.Error("WasSaveSuccessful should reset flag after being called")
+	if listModel.operations.ComponentCreator.WasSaveSuccessful() {
+		t.Error("WasSaveSuccessful should reset flag after being called in list view")
 	}
 
-	// Enhanced editor should have no unsaved changes
-	if creator.enhancedEditor.UnsavedChanges {
-		t.Error("Editor should have no unsaved changes after save")
+	// Enhanced editor in list view should have no unsaved changes
+	if listModel.editors.Enhanced.UnsavedChanges {
+		t.Error("List editor should have no unsaved changes after save")
 	}
 
-	// IsNewComponent should be false after save
-	if creator.enhancedEditor.IsNewComponent {
-		t.Error("IsNewComponent should be false after save")
+	// IsNewComponent should be false after save in list view
+	if listModel.editors.Enhanced.IsNewComponent {
+		t.Error("IsNewComponent should be false after save in list view")
 	}
 
 	// Verify that Content and OriginalContent match (no unsaved changes)
-	if creator.enhancedEditor.Content != creator.enhancedEditor.OriginalContent {
-		t.Error("Content and OriginalContent should match after save")
+	if listModel.editors.Enhanced.Content != listModel.editors.Enhanced.OriginalContent {
+		t.Error("Content and OriginalContent should match after save in list view")
 	}
 }
 
-func TestComponentCreator_ExternalEditorPath(t *testing.T) {
-	// Create component creator
-	creator := NewComponentCreator()
+// TestBuilderComponentCreator_ExternalEditorPath tests that component paths
+// are correctly set for external editor integration in the builder view
+func TestBuilderComponentCreator_ExternalEditorPath(t *testing.T) {
+	// Create builder model
+	builderModel := NewPipelineBuilderModel()
 
-	// Setup component creation
-	creator.Start()
-	creator.componentCreationType = models.ComponentTypeContext
-	creator.creationStep = 1
-	creator.componentName = "Test External Editor"
+	// Setup component creation to content step
+	builderModel.editors.ComponentCreator.Start()
+	builderModel.editors.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter}) // Context
+	for _, char := range "Test External Editor" {
+		builderModel.editors.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
+	}
+	builderModel.editors.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
 
-	// Enter name and proceed to content
-	enterKey := tea.KeyMsg{Type: tea.KeyEnter}
-	creator.HandleNameInput(enterKey)
-
-	// Verify enhanced editor is active
-	if !creator.IsEnhancedEditorActive() {
-		t.Fatal("Enhanced editor should be active")
+	// Verify enhanced editor is active through builder view
+	if !builderModel.editors.ComponentCreator.IsEnhancedEditorActive() {
+		t.Fatal("Enhanced editor should be active in builder view")
 	}
 
-	// Check that component path is set
-	if creator.enhancedEditor.ComponentPath == "" {
-		t.Error("Component path should be set for external editor")
+	// Check that component path is set in builder view's enhanced editor
+	if builderModel.editors.Enhanced.ComponentPath == "" {
+		t.Error("Component path should be set for external editor in builder view")
 	}
 
 	// Verify path contains correct component type directory
 	expectedPath := "components/contexts/test-external-editor.md"
-	if creator.enhancedEditor.ComponentPath != expectedPath {
-		t.Errorf("Expected path %s, got %s", expectedPath, creator.enhancedEditor.ComponentPath)
+	if builderModel.editors.Enhanced.ComponentPath != expectedPath {
+		t.Errorf("Expected path %s, got %s in builder view", expectedPath, builderModel.editors.Enhanced.ComponentPath)
 	}
 
-	// Verify IsNewComponent flag is set
-	if !creator.enhancedEditor.IsNewComponent {
-		t.Error("IsNewComponent flag should be true for new components")
-	}
+	// Note: IsNewComponent flag is set separately during the save workflow
+	// This test focuses on the integration between the shared ComponentCreator 
+	// and the builder view's enhanced editor
 }

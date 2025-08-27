@@ -50,7 +50,7 @@ func NewMainListModel() *MainListModel {
 		operations: &ListOperationComponents{
 			BusinessLogic:    NewBusinessLogic(),
 			PipelineOperator: NewPipelineOperator(),
-			ComponentCreator: NewComponentCreator(),
+			ComponentCreator: nil, // Will be set after model is created
 			MermaidOperator:  NewMermaidOperator(mermaidState),
 			TagReloader:      NewTagReloader(),
 		},
@@ -74,6 +74,10 @@ func NewMainListModel() *MainListModel {
 
 	// Update state manager with counts after both are loaded
 	m.stateManager.UpdateCounts(len(m.getAllComponents()), len(m.data.Pipelines))
+
+	// Create and setup the component creator after the model is initialized
+	m.operations.ComponentCreator = createListComponentCreator(m)
+	m.setupComponentCreatorEditor()
 
 	return m
 }
@@ -287,5 +291,35 @@ func (m *MainListModel) updateViewportSizes() {
 	// Update component table renderer dimensions
 	if m.ui.ComponentTableRenderer != nil {
 		m.ui.ComponentTableRenderer.SetSize(columnWidth, contentHeight)
+	}
+}
+
+// createListComponentCreator creates a ListComponentCreator for the list view
+func createListComponentCreator(model *MainListModel) *ListComponentCreator {
+	// Create the reload callback that's specific to the list view
+	reloadCallback := func() {
+		if model != nil {
+			model.reloadComponents()
+			model.performSearch() // Re-run search if active
+		}
+	}
+
+	// Create the list-specific component creator with enhanced editor
+	// Note: Enhanced editor will be nil initially, will be set up later
+	creator := NewListComponentCreator(reloadCallback, nil)
+	
+	return creator
+}
+
+// setupComponentCreatorEditor sets up the enhanced editor for component creation
+// This must be called after the MainListModel is fully initialized
+func (m *MainListModel) setupComponentCreatorEditor() {
+	if m.operations.ComponentCreator != nil && m.editors.Enhanced != nil {
+		// Update the enhanced editor reference in the list component creator
+		m.operations.ComponentCreator.enhancedEditor = m.editors.Enhanced
+		
+		// Set up the enhanced editor adapter
+		adapter := shared.NewEnhancedEditorAdapter(m.editors.Enhanced)
+		m.operations.ComponentCreator.SetEnhancedEditor(adapter)
 	}
 }

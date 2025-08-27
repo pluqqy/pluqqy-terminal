@@ -10,6 +10,7 @@ import (
 	"github.com/muesli/reflow/wordwrap"
 	"github.com/pluqqy/pluqqy-cli/pkg/composer"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 )
 
 type MainListModel struct {
@@ -166,7 +167,9 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if editor.IsFilePicking() {
 					cmd := editor.UpdateFilePicker(msg)
 					if cmd != nil {
-						return m, cmd
+						if teaCmd, ok := cmd.(tea.Cmd); ok {
+							return m, teaCmd
+						}
 					}
 				}
 			}
@@ -1114,11 +1117,15 @@ func (m *MainListModel) componentCreationView() string {
 	case 2:
 		// Use enhanced editor if available
 		if m.operations.ComponentCreator.IsEnhancedEditorActive() {
-			return renderer.RenderWithEnhancedEditor(
-				m.operations.ComponentCreator.GetEnhancedEditor(),
-				m.operations.ComponentCreator.GetComponentType(),
-				m.operations.ComponentCreator.GetComponentName(),
-			)
+			if adapter, ok := m.operations.ComponentCreator.GetEnhancedEditor().(*shared.EnhancedEditorAdapter); ok {
+				if underlyingEditor, ok := adapter.GetUnderlyingEditor().(*EnhancedEditorState); ok {
+					return renderer.RenderWithEnhancedEditor(
+						underlyingEditor,
+						m.operations.ComponentCreator.GetComponentType(),
+						m.operations.ComponentCreator.GetComponentName(),
+					)
+				}
+			}
 		}
 		// Fallback to simple editor
 		return renderer.RenderContentEdit(m.operations.ComponentCreator.GetComponentType(), m.operations.ComponentCreator.GetComponentName(), m.operations.ComponentCreator.GetComponentContent())

@@ -4,6 +4,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search"
+	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
 )
 
 // PipelineBuilderConfig holds configuration options for the Pipeline Builder
@@ -52,7 +53,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 	editorComponents := &BuilderEditorComponents{
 		Enhanced:         NewEnhancedEditorState(),
 		TagEditor:        NewTagEditor(),
-		ComponentCreator: NewComponentCreator(),
+		ComponentCreator: nil, // Will be set after model is created
 		EditingName:      true,
 		NameInput:        "",
 		Rename: &BuilderRenameComponents{
@@ -100,6 +101,11 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 	}
 
 	m.loadAvailableComponents()
+
+	// Create and setup the component creator after the model is initialized
+	m.editors.ComponentCreator = createBuilderComponentCreator(m)
+	m.setupBuilderComponentCreatorEditor()
+
 	return m
 }
 
@@ -131,4 +137,37 @@ func LoadPipelineWithConfig(pipeline *models.Pipeline, config *PipelineBuilderCo
 	m.updatePreview()
 
 	return m
+}
+
+// createBuilderComponentCreator creates a BuilderComponentCreator for the builder view
+func createBuilderComponentCreator(model *PipelineBuilderModel) *BuilderComponentCreator {
+	// Create the reload callback that's specific to the builder view
+	reloadCallback := func() {
+		if model != nil {
+			model.loadAvailableComponents()
+			// Also reload available tags for tag editor
+			if model.editors.TagEditor != nil {
+				model.editors.TagEditor.LoadAvailableTags()
+			}
+		}
+	}
+
+	// Create the builder-specific component creator
+	// Note: Enhanced editor will be nil initially, will be set up later
+	creator := NewBuilderComponentCreator(reloadCallback, nil)
+	
+	return creator
+}
+
+// setupBuilderComponentCreatorEditor sets up the enhanced editor for component creation
+// This must be called after the PipelineBuilderModel is fully initialized
+func (m *PipelineBuilderModel) setupBuilderComponentCreatorEditor() {
+	if m.editors.ComponentCreator != nil && m.editors.Enhanced != nil {
+		// Update the enhanced editor reference in the builder component creator
+		m.editors.ComponentCreator.enhancedEditor = m.editors.Enhanced
+		
+		// Set up the enhanced editor adapter
+		adapter := shared.NewEnhancedEditorAdapter(m.editors.Enhanced)
+		m.editors.ComponentCreator.SetEnhancedEditor(adapter)
+	}
 }

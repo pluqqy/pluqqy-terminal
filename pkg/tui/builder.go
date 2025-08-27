@@ -2844,11 +2844,15 @@ func (m *PipelineBuilderModel) componentCreationView() string {
 	case 2:
 		// Use enhanced editor if available
 		if m.editors.ComponentCreator.IsEnhancedEditorActive() {
-			return renderer.RenderWithEnhancedEditor(
-				m.editors.ComponentCreator.GetEnhancedEditor(),
-				m.editors.ComponentCreator.GetComponentType(),
-				m.editors.ComponentCreator.GetComponentName(),
-			)
+			if adapter, ok := m.editors.ComponentCreator.GetEnhancedEditor().(*shared.EnhancedEditorAdapter); ok {
+				if underlyingEditor, ok := adapter.GetUnderlyingEditor().(*EnhancedEditorState); ok {
+					return renderer.RenderWithEnhancedEditor(
+						underlyingEditor,
+						m.editors.ComponentCreator.GetComponentType(),
+						m.editors.ComponentCreator.GetComponentName(),
+					)
+				}
+			}
 		}
 		// Fallback to simple editor
 		return renderer.RenderContentEdit(m.editors.ComponentCreator.GetComponentType(), m.editors.ComponentCreator.GetComponentName(), m.editors.ComponentCreator.GetComponentContent())

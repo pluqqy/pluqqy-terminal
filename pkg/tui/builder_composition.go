@@ -45,7 +45,7 @@ type BuilderEditorComponents struct {
 	TagEditor        *TagEditor
 	Rename           *BuilderRenameComponents
 	Clone            *BuilderCloneComponents
-	ComponentCreator *ComponentCreator
+	ComponentCreator *BuilderComponentCreator
 
 	// Component editing state
 	EditingComponent     bool

@@ -62,7 +62,7 @@ type ListSearchComponents struct {
 type ListOperationComponents struct {
 	BusinessLogic    *BusinessLogic
 	PipelineOperator *PipelineOperator
-	ComponentCreator *ComponentCreator
+	ComponentCreator *ListComponentCreator
 	MermaidOperator  *MermaidOperator
 	TagReloader      *TagReloader
 }
