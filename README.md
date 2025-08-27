@@ -16,15 +16,15 @@ This approach keeps your context minimal and focused - only including what's rel
 
 ## Features
 
-| Feature                 | Description                                                                  |
-| ----------------------- | ---------------------------------------------------------------------------- |
-| **TUI**                 | Clean, intuitive terminal interface                                          |
-| **CLI Commands**        | Full-featured command-line interface for automation and scripting            |
-| **Tagging**             | Organize and categorize components and pipelines with colored tags           |
-| **Search**              | Search engine with field-based queries (tag:api, type:prompt)                |
-| **Built-in Editor**     | Minimal editor for quick edits with undo, paste cleaning, and token counting |
-| **Live Preview**        | See your composed pipeline as you build                                      |
-| **Pipeline Visualizer** | Generate HTML-based interactive Mermaid diagrams of your pipelines           |
+| Feature                 | Description                                                                                   |
+| ----------------------- | --------------------------------------------------------------------------------------------- |
+| **TUI**                 | Clean, intuitive terminal interface                                                           |
+| **CLI Commands**        | Full-featured command-line interface for automation and scripting                             |
+| **Tagging**             | Organize and categorize components and pipelines with colored tags                            |
+| **Search**              | Search engine with field-based queries (tag:api, type:prompt)                                 |
+| **Built-in Editor**     | Minimal editor for quick edits with undo, paste cleaning, and token counting                  |
+| **Live Preview**        | See your composed pipeline as you build                                                       |
+| **Pipeline Visualizer** | Generate HTML-based interactive Mermaid diagrams of your pipelines                            |
 | **Clipboard Copy**      | Copy composed pipeline content directly to clipboard (TUI: `y` key, CLI: `clipboard` command) |
 
 <br>
@@ -522,7 +522,7 @@ The built-in search engine supports powerful queries with keyboard shortcuts:
 | `type:rule`                | Find all rule components      |
 | `type:pipeline`            | Find all pipelines            |
 | `status:archived`          | Show all archived items       |
-| `tag:api AND type:context` | Combine filters               |
+| `tag:api type:context`     | Combine filters               |
 | `content:"error handling"` | Full-text search in content   |
 
 **Search Shortcuts:**

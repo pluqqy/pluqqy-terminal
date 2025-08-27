@@ -191,7 +191,26 @@ func (se *SearchEngine[T]) isStructuredQuery(query string) bool {
 
 // searchWithEngine uses the search engine for structured queries
 func (se *SearchEngine[T]) searchWithEngine(query string) ([]SearchResult[T], error) {
-	// Parse structured query to handle tag:, type:, status: etc.
+	// Parse the query to extract all filters
+	parsedQuery := ParseQuery(query)
+	
+	// If no filters and no free text, return all items
+	if len(parsedQuery.Filters) == 0 && parsedQuery.FreeText == "" {
+		return se.getAllItems(), nil
+	}
+	
+	// If only free text (no filters), do simple text search
+	if len(parsedQuery.Filters) == 0 && parsedQuery.FreeText != "" {
+		return se.simpleTextSearch(parsedQuery.FreeText), nil
+	}
+	
+	// Use the new multi-filter search for queries with filters
+	if len(parsedQuery.Filters) > 0 {
+		return se.searchWithMultipleFilters(parsedQuery), nil
+	}
+	
+	// Fallback to handle legacy single-filter queries
+	// This section can be removed once we're confident the new parser handles everything
 	lowerQuery := strings.ToLower(query)
 	var results []SearchResult[T]
 	
@@ -526,6 +545,7 @@ func (se *SearchEngine[T]) calculateSimpleScore(item T, queryTerms []string) (fl
 		if term == "" {
 			continue
 		}
+		term = strings.ToLower(term) // Ensure term is lowercase for comparison
 		
 		// Check name matches
 		if se.shouldSearchField("name") {
