@@ -70,9 +70,10 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 
 	// Initialize search components
 	searchComponents := &BuilderSearchComponents{
-		Engine:       search.NewEngine(),
-		Bar:          NewSearchBar(),
-		FilterHelper: NewSearchFilterHelper(),
+		Engine:         search.NewEngine(),
+		UnifiedManager: shared.NewUnifiedSearchManager(),
+		Bar:            NewSearchBar(),
+		FilterHelper:   NewSearchFilterHelper(),
 	}
 
 	// Initialize mermaid state and operator

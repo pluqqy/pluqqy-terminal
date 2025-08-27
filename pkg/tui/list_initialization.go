@@ -43,8 +43,9 @@ func NewMainListModel() *MainListModel {
 		},
 		
 		search: &ListSearchComponents{
-			Bar:          NewSearchBar(),
-			FilterHelper: NewSearchFilterHelper(),
+			UnifiedManager: shared.NewUnifiedSearchManager(),
+			Bar:            NewSearchBar(),
+			FilterHelper:   NewSearchFilterHelper(),
 		},
 		
 		operations: &ListOperationComponents{

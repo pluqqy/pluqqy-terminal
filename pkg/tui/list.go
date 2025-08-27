@@ -30,6 +30,9 @@ type MainListModel struct {
 }
 
 func (m *MainListModel) performSearch() {
+	// Initialize unified manager if needed
+	m.search.InitializeUnifiedManager()
+	
 	if m.search.Query == "" {
 		// No search query, check if we need to reload without archived items
 		currentHasArchived := false
@@ -79,7 +82,27 @@ func (m *MainListModel) performSearch() {
 		m.operations.BusinessLogic.SetComponents(m.data.Prompts, m.data.Contexts, m.data.Rules)
 	}
 
-	// Use search engine to find matching items
+	// Try the new unified search first
+	if m.search.UnifiedManager != nil {
+		// Configure unified manager
+		m.search.UnifiedManager.SetIncludeArchived(needsArchived)
+		
+		// Use the new unified filter function
+		m.data.FilteredPipelines, m.data.FilteredComponents = FilterSearchResultsUnified(
+			m.search.Query,
+			m.data.Pipelines,
+			m.operations.BusinessLogic.GetAllComponents(),
+		)
+
+		// Update state manager with filtered counts for proper cursor navigation
+		m.stateManager.UpdateCounts(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
+
+		// Reset cursors if they're out of bounds
+		m.stateManager.ResetCursorsAfterSearch(len(m.data.FilteredComponents), len(m.data.FilteredPipelines))
+		return
+	}
+
+	// Fallback to legacy search engine
 	if m.search.Engine != nil {
 		results, err := m.search.Engine.Search(m.search.Query)
 		if err != nil {

@@ -133,6 +133,42 @@ func convertBuilderComponentItems(items []shared.ComponentItem) []componentItem 
 	return result
 }
 
+// convertComponentsToShared converts local componentItems to shared ComponentItems
+func convertComponentsToShared(items []componentItem) []shared.ComponentItem {
+	result := make([]shared.ComponentItem, len(items))
+	for i, item := range items {
+		result[i] = shared.ComponentItem{
+			Name:         item.name,
+			Path:         item.path,
+			CompType:     item.compType,
+			LastModified: item.lastModified,
+			UsageCount:   item.usageCount,
+			TokenCount:   item.tokenCount,
+			Tags:         item.tags,
+			IsArchived:   item.isArchived,
+		}
+	}
+	return result
+}
+
+// convertSharedComponentsToTUI converts shared ComponentItems back to TUI componentItems
+func convertSharedComponentsToTUI(items []shared.ComponentItem) []componentItem {
+	result := make([]componentItem, len(items))
+	for i, item := range items {
+		result[i] = componentItem{
+			name:         item.Name,
+			path:         item.Path,
+			compType:     item.CompType,
+			lastModified: item.LastModified,
+			usageCount:   item.UsageCount,
+			tokenCount:   item.TokenCount,
+			tags:         item.Tags,
+			isArchived:   item.IsArchived,
+		}
+	}
+	return result
+}
+
 // shouldIncludeArchived checks if the current search query requires archived items
 func (m *PipelineBuilderModel) shouldIncludeArchived() bool {
 	return shared.ShouldIncludeArchived(m.search.Query)
@@ -144,6 +180,9 @@ func (m *PipelineBuilderModel) Init() tea.Cmd {
 }
 
 func (m *PipelineBuilderModel) performSearch() {
+	// Initialize unified manager if needed
+	m.search.InitializeUnifiedManager()
+	
 	if m.search.Query == "" {
 		// No search query, check if we need to reload without archived items
 		hasArchived := false
@@ -201,6 +240,36 @@ func (m *PipelineBuilderModel) performSearch() {
 		m.loadAvailableComponents()
 	}
 
+	// Try the new unified search first
+	if m.search.UnifiedManager != nil {
+		// Convert components to shared format for unified search
+		sharedPrompts := convertComponentsToShared(m.data.Prompts)
+		sharedContexts := convertComponentsToShared(m.data.Contexts)
+		sharedRules := convertComponentsToShared(m.data.Rules)
+		
+		// Configure unified manager
+		m.search.UnifiedManager.SetIncludeArchived(needsArchived)
+		
+		// Perform unified search
+		filteredPrompts, filteredContexts, filteredRules, err := m.search.UnifiedManager.FilterComponentsByQuery(m.search.Query, sharedPrompts, sharedContexts, sharedRules)
+		if err == nil {
+			// Convert results back to TUI format
+			m.data.FilteredPrompts = convertSharedComponentsToTUI(filteredPrompts)
+			m.data.FilteredContexts = convertSharedComponentsToTUI(filteredContexts)
+			m.data.FilteredRules = convertSharedComponentsToTUI(filteredRules)
+			
+			// Reset cursor if it's out of bounds
+			if m.ui.ActiveColumn == leftColumn {
+				totalItems := len(m.data.FilteredPrompts) + len(m.data.FilteredContexts) + len(m.data.FilteredRules)
+				if m.ui.LeftCursor >= totalItems {
+					m.ui.LeftCursor = 0
+				}
+			}
+			return
+		}
+	}
+
+	// Fallback to legacy search engine
 	// Clear filtered lists
 	m.data.FilteredPrompts = nil
 	m.data.FilteredContexts = nil
