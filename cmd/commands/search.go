@@ -2,14 +2,15 @@ package commands
 
 import (
 	"fmt"
-	"os"
+	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/pluqqy/pluqqy-cli/internal/cli"
 	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/search"
+	"github.com/pluqqy/pluqqy-cli/pkg/models"
 	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
 )
 
@@ -24,51 +25,40 @@ type SearchResultOutput struct {
 type SearchItemOutput struct {
 	Name     string   `json:"name" yaml:"name"`
 	Type     string   `json:"type" yaml:"type"`
-	Tags     []string `json:"tags" yaml:"tags"`
-	Path     string   `json:"path" yaml:"path"`
-	Archived bool     `json:"archived" yaml:"archived"`
+	Tags     []string `json:"tags,omitempty" yaml:"tags,omitempty"`
+	Path     string   `json:"path,omitempty" yaml:"path,omitempty"`
+	Archived bool     `json:"archived,omitempty" yaml:"archived,omitempty"`
 	Excerpt  string   `json:"excerpt,omitempty" yaml:"excerpt,omitempty"`
 }
 
-// NewSearchCommand creates the search command
 func NewSearchCommand() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "search <query>",
-		Short: "Search for components and pipelines",
-		Long: `Search for components and pipelines using a powerful query syntax.
-
-Query Syntax:
-  tag:api              - Find items with the "api" tag
-  type:prompt          - Find all prompt components
-  type:pipeline        - Find all pipelines
-  status:archived      - Show archived items
-  content:"error"      - Search in content
-  
-  Combine filters with AND:
-  tag:api AND type:context
+		Short: "Search for pipelines and components",
+		Long: `Search for pipelines and components using advanced query syntax.
 
 Examples:
-  # Search for items with a specific tag
+  # Search by tag
   pluqqy search "tag:api"
   
-  # Find all prompt components
+  # Search by type
   pluqqy search "type:prompt"
+  pluqqy search "type:pipelines"
   
   # Search in content
   pluqqy search "content:authentication"
   
-  # Complex search
+  # Search archived items
+  pluqqy search "status:archived"
+  
+  # Complex searches
   pluqqy search "tag:api AND type:context"`,
 		Args: cobra.MinimumNArgs(1),
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			// Check if .pluqqy directory exists
-			if _, err := os.Stat(files.PluqqyDir); os.IsNotExist(err) {
-				return fmt.Errorf("no .pluqqy directory found. Run 'pluqqy init' first")
-			}
-			return nil
-		},
 		RunE: runSearch,
 	}
+
+	// Add output format flag
+	cmd.Flags().StringP("output", "o", "text", "Output format (text, json, yaml)")
 
 	return cmd
 }
@@ -76,18 +66,26 @@ Examples:
 func runSearch(cmd *cobra.Command, args []string) error {
 	query := strings.Join(args, " ")
 	
-	// Use unified search engine through legacy adapter
-	// This provides consistent behavior with TUI and fixes duplicate bug
-	engine := unified.NewLegacyAdapter()
+	// Use unified search engine directly
+	searchHelper := unified.NewSearchHelper()
+	includeArchived := unified.ShouldIncludeArchived(query)
+	searchHelper.SetSearchOptions(includeArchived, 1000, "relevance")
 	
-	// Build index including archived items if query contains "status:archived"
-	includeArchived := strings.Contains(query, "status:archived")
-	if err := engine.BuildIndexWithOptions(includeArchived); err != nil {
-		return fmt.Errorf("failed to build search index: %w", err)
+	// Load all items
+	prompts, contexts, rules, err := loadComponents(includeArchived)
+	if err != nil {
+		return fmt.Errorf("failed to load components: %w", err)
 	}
 	
-	// Perform search using unified engine
-	results, err := engine.Search(query)
+	pipelines, err := loadPipelines(includeArchived)
+	if err != nil {
+		return fmt.Errorf("failed to load pipelines: %w", err)
+	}
+	
+	// Perform unified search
+	filteredPrompts, filteredContexts, filteredRules, filteredPipelines, err := searchHelper.UnifiedFilterAll(
+		query, prompts, contexts, rules, pipelines,
+	)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}
@@ -98,36 +96,26 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	// Format results for output
 	searchResult := SearchResultOutput{
 		Query:   query,
-		Count:   len(results),
+		Count:   len(filteredPrompts) + len(filteredContexts) + len(filteredRules) + len(filteredPipelines),
 		Results: []SearchItemOutput{},
 	}
 	
-	for _, r := range results {
-		// Determine type string
-		typeStr := string(r.Item.Type)
-		if r.Item.Type == search.ItemTypeComponent {
-			typeStr = strings.TrimSuffix(r.Item.SubType, "s")
-		}
-		
+	// Add pipeline results
+	for _, p := range filteredPipelines {
 		item := SearchItemOutput{
-			Name:     r.Item.Name,
-			Type:     typeStr,
-			Tags:     r.Item.Tags,
-			Path:     r.Item.Path,
-			Archived: r.Item.IsArchived,
+			Name:     p.Name,
+			Type:     "pipeline",
+			Tags:     p.Tags,
+			Path:     p.Path,
+			Archived: p.IsArchived,
 		}
-		
-		// Add content excerpt if searching in content
-		if strings.Contains(query, "content:") {
-			excerpt := r.Item.Content
-			if len(excerpt) > 200 {
-				excerpt = excerpt[:200] + "..."
-			}
-			item.Excerpt = excerpt
-		}
-		
 		searchResult.Results = append(searchResult.Results, item)
 	}
+	
+	// Add component results
+	addComponentResults(&searchResult, filteredPrompts, "prompt")
+	addComponentResults(&searchResult, filteredContexts, "context")
+	addComponentResults(&searchResult, filteredRules, "rule")
 	
 	// Output results
 	switch outputFormat {
@@ -138,61 +126,215 @@ func runSearch(cmd *cobra.Command, args []string) error {
 	}
 }
 
+func loadComponents(includeArchived bool) ([]unified.ComponentItem, []unified.ComponentItem, []unified.ComponentItem, error) {
+	var prompts, contexts, rules []unified.ComponentItem
+	
+	// Load each component type
+	for _, compType := range []string{models.ComponentTypePrompt, models.ComponentTypeContext, models.ComponentTypeRules} {
+		// Load active components
+		componentFiles, err := files.ListComponents(compType)
+		if err != nil {
+			return nil, nil, nil, err
+		}
+		
+		for _, compFile := range componentFiles {
+			compPath := filepath.Join(files.ComponentsDir, compType, compFile)
+			comp, err := files.ReadComponent(compPath)
+			if err != nil {
+				continue
+			}
+			
+			item := unified.ComponentItem{
+				Name:         strings.TrimSuffix(compFile, ".md"),
+				Path:         compPath,
+				CompType:     compType,
+				LastModified: comp.Modified,
+				Tags:         comp.Tags,
+				TokenCount:   len(comp.Content) / 4, // Rough estimate
+				IsArchived:   false,
+			}
+			
+			switch compType {
+			case models.ComponentTypePrompt:
+				prompts = append(prompts, item)
+			case models.ComponentTypeContext:
+				contexts = append(contexts, item)
+			case models.ComponentTypeRules:
+				rules = append(rules, item)
+			}
+		}
+		
+		// Load archived components if requested
+		if includeArchived {
+			archivedFiles, err := files.ListArchivedComponents(compType)
+			if err == nil {
+				for _, compFile := range archivedFiles {
+					compPath := filepath.Join(files.ComponentsDir, compType, compFile)
+					comp, err := files.ReadArchivedComponent(compPath)
+					if err != nil {
+						continue
+					}
+					
+					item := unified.ComponentItem{
+						Name:         strings.TrimSuffix(compFile, ".md"),
+						Path:         compPath,
+						CompType:     compType,
+						LastModified: comp.Modified,
+						Tags:         comp.Tags,
+						TokenCount:   len(comp.Content) / 4,
+						IsArchived:   true,
+					}
+					
+					switch compType {
+					case models.ComponentTypePrompt:
+						prompts = append(prompts, item)
+					case models.ComponentTypeContext:
+						contexts = append(contexts, item)
+					case models.ComponentTypeRules:
+						rules = append(rules, item)
+					}
+				}
+			}
+		}
+	}
+	
+	return prompts, contexts, rules, nil
+}
+
+func loadPipelines(includeArchived bool) ([]unified.PipelineItem, error) {
+	var pipelines []unified.PipelineItem
+	
+	// Load active pipelines
+	pipelineFiles, err := files.ListPipelines()
+	if err != nil {
+		return nil, err
+	}
+	
+	for _, pipelineFile := range pipelineFiles {
+		pipeline, err := files.ReadPipeline(pipelineFile)
+		if err != nil {
+			continue
+		}
+		
+		pipelines = append(pipelines, unified.PipelineItem{
+			Name:       pipeline.Name,
+			Path:       pipelineFile,
+			Tags:       pipeline.Tags,
+			IsArchived: false,
+			Modified:   time.Now(), // Would need actual file mod time
+		})
+	}
+	
+	// Load archived pipelines if requested
+	if includeArchived {
+		archivedFiles, err := files.ListArchivedPipelines()
+		if err == nil {
+			for _, pipelineFile := range archivedFiles {
+				pipeline, err := files.ReadArchivedPipeline(pipelineFile)
+				if err != nil {
+					continue
+				}
+				
+				pipelines = append(pipelines, unified.PipelineItem{
+					Name:       pipeline.Name,
+					Path:       pipelineFile,
+					Tags:       pipeline.Tags,
+					IsArchived: true,
+					Modified:   time.Now(), // Would need actual file mod time
+				})
+			}
+		}
+	}
+	
+	return pipelines, nil
+}
+
+func addComponentResults(searchResult *SearchResultOutput, components []unified.ComponentItem, typeName string) {
+	for _, c := range components {
+		item := SearchItemOutput{
+			Name:     c.Name,
+			Type:     typeName,
+			Tags:     c.Tags,
+			Path:     c.Path,
+			Archived: c.IsArchived,
+		}
+		searchResult.Results = append(searchResult.Results, item)
+	}
+}
+
 func outputSearchText(cmd *cobra.Command, result SearchResultOutput) error {
 	if result.Count == 0 {
 		cli.PrintInfo("No results found for query: %s", result.Query)
 		return nil
 	}
 	
-	fmt.Fprintf(cmd.OutOrStdout(), "\nSearch Results for: %s\n", result.Query)
-	fmt.Fprintln(cmd.OutOrStdout(), strings.Repeat("-", 80))
+	fmt.Printf("Search Results for: %s\n", result.Query)
+	fmt.Println("--------------------------------------------------------------------------------")
+	fmt.Println()
 	
-	// Group by type
-	byType := make(map[string][]SearchItemOutput)
+	// Group results by type
+	pipelines := []SearchItemOutput{}
+	prompts := []SearchItemOutput{}
+	contexts := []SearchItemOutput{}
+	rules := []SearchItemOutput{}
+	
 	for _, item := range result.Results {
-		byType[item.Type] = append(byType[item.Type], item)
+		switch item.Type {
+		case "pipeline":
+			pipelines = append(pipelines, item)
+		case "prompt":
+			prompts = append(prompts, item)
+		case "context":
+			contexts = append(contexts, item)
+		case "rule":
+			rules = append(rules, item)
+		}
 	}
 	
-	// Display grouped results
-	for _, itemType := range []string{"pipeline", "context", "prompt", "rule"} {
-		items, ok := byType[itemType]
-		if !ok || len(items) == 0 {
-			continue
-		}
-		
-		fmt.Fprintf(cmd.OutOrStdout(), "\n%sS (%d)\n", strings.ToUpper(itemType), len(items))
-		
-		table := cli.NewTableFormatter(cmd.OutOrStdout())
-		if itemType == "pipeline" {
-			table.Header("Name", "Tags")
-		} else {
-			table.Header("Name", "Tags")
-		}
-		
-		for _, item := range items {
-			tags := strings.Join(item.Tags, ", ")
-			if tags == "" {
-				tags = "-"
-			}
-			
-			// Show archived indicator in name if archived
-			name := item.Name
-			if item.Archived {
-				name = name + " [archived]"
-			}
-			
-			table.Row(name, tags)
-			
-			// Show excerpt if available
-			if item.Excerpt != "" {
-				fmt.Fprintf(cmd.OutOrStdout(), "  └─ %s\n", cli.TruncateString(item.Excerpt, 70))
-			}
-		}
-		
-		table.Flush()
+	// Output each type
+	if len(pipelines) > 0 {
+		outputTypeSection("PIPELINES", pipelines)
 	}
 	
-	fmt.Fprintf(cmd.OutOrStdout(), "\nTotal: %d results\n", result.Count)
+	if len(contexts) > 0 {
+		outputTypeSection("CONTEXTS", contexts)
+	}
+	
+	if len(prompts) > 0 {
+		outputTypeSection("PROMPTS", prompts)
+	}
+	
+	if len(rules) > 0 {
+		outputTypeSection("RULES", rules)
+	}
+	
+	fmt.Printf("\nTotal: %d results\n", result.Count)
 	
 	return nil
+}
+
+func outputTypeSection(title string, items []SearchItemOutput) {
+	fmt.Printf("%s (%d)\n", title, len(items))
+	fmt.Println("Name  Tags")
+	fmt.Println("--------------------------------------------------------------------------------")
+	
+	for _, item := range items {
+		name := item.Name
+		if len(name) > 20 {
+			name = name[:20]
+		}
+		
+		tagStr := ""
+		if len(item.Tags) > 0 {
+			tagStr = strings.Join(item.Tags, ", ")
+		}
+		
+		fmt.Printf("%-20s  %s\n", name, tagStr)
+		
+		if item.Excerpt != "" {
+			fmt.Printf("  └─ %s\n", item.Excerpt)
+		}
+	}
+	
+	fmt.Println()
 }
