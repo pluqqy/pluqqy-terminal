@@ -7,7 +7,11 @@ import (
 	"github.com/pluqqy/pluqqy-cli/pkg/models"
 )
 
+// TODO: Remove this test after full migration to TagEditor
+// This tests the deprecated handleTagEditing method which is no longer in use.
+// Modern tag editing is handled by TagEditor component.
 func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
+	t.Skip("Skipping deprecated tag editing test - handleTagEditing method has been removed in favor of TagEditor")
 	tests := []struct {
 		name      string
 		setup     func() *PipelineBuilderModel
@@ -149,9 +153,10 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 			m := tt.setup()
 
 			// Process all inputs through handleTagEditing
-			for _, input := range tt.inputs {
-				_, _ = m.handleTagEditing(input)
-			}
+			// NOTE: handleTagEditing has been removed - modern tag editing uses TagEditor
+			// for _, input := range tt.inputs {
+			// 	_, _ = m.handleTagEditing(input)
+			// }
 
 			// Check the result
 			if m.ui.TagInput != tt.wantInput {
@@ -162,6 +167,7 @@ func TestPipelineBuilder_HandleTagEditing_VimKeysAsText(t *testing.T) {
 }
 
 func TestPipelineBuilder_HandleTagEditing_ArrowNavigation(t *testing.T) {
+	t.Skip("Skipping deprecated tag editing test - handleTagEditing method has been removed in favor of TagEditor")
 	tests := []struct {
 		name            string
 		setup           func() *PipelineBuilderModel
@@ -212,16 +218,17 @@ func TestPipelineBuilder_HandleTagEditing_ArrowNavigation(t *testing.T) {
 			m := tt.setup()
 
 			// Create the appropriate key message
-			var msg tea.KeyMsg
-			switch tt.input {
-			case "up":
-				msg = tea.KeyMsg{Type: tea.KeyUp}
-			case "down":
-				msg = tea.KeyMsg{Type: tea.KeyDown}
-			}
+			// var msg tea.KeyMsg
+			// switch tt.input {
+			// case "up":
+			// 	msg = tea.KeyMsg{Type: tea.KeyUp}
+			// case "down":
+			// 	msg = tea.KeyMsg{Type: tea.KeyDown}
+			// }
 
 			// Process the input
-			_, _ = m.handleTagEditing(msg)
+			// NOTE: handleTagEditing has been removed - modern tag editing uses TagEditor
+			// _, _ = m.handleTagEditing(msg)
 
 			// Check the result
 			if m.ui.TagCloudCursor != tt.wantCloudCursor {
