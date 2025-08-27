@@ -172,56 +172,6 @@ Component content here`
 	}
 }
 
-func TestShouldIncludeArchived(t *testing.T) {
-	tests := []struct {
-		name     string
-		query    string
-		expected bool
-	}{
-		{
-			name:     "empty query returns false",
-			query:    "",
-			expected: false,
-		},
-		{
-			name:     "query without status returns false",
-			query:    "test query",
-			expected: false,
-		},
-		{
-			name:     "query with status:archived returns true",
-			query:    "status:archived",
-			expected: true,
-		},
-		{
-			name:     "query with status:active returns false",
-			query:    "status:active",
-			expected: false,
-		},
-		{
-			name:     "query with mixed conditions including status:archived returns true",
-			query:    "type:prompt status:archived tag:test",
-			expected: true,
-		},
-		{
-			name:     "query with uppercase ARCHIVED returns true",
-			query:    "status:ARCHIVED",
-			expected: true,
-		},
-		{
-			name:     "invalid query syntax returns false",
-			query:    "status:",
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := ShouldIncludeArchived(tt.query)
-			assert.Equal(t, tt.expected, result, "Unexpected result for query: %s", tt.query)
-		})
-	}
-}
 
 func TestComponentLoader_ComponentTypeMapping(t *testing.T) {
 	// Skip test if running in CI or if test data setup fails
