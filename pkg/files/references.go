@@ -38,11 +38,12 @@ func UpdateComponentReferences(oldPath, newPath, newDisplayName string) error {
 		// Check if this pipeline references the component
 		modified := false
 		for i, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
-			// Check if this component matches (handle relative paths)
-			if matchesPath(compPath, oldPath) {
+			// Check if this component matches exactly
+			if compPath == oldPath {
 				// Update to new path with ../ prefix for relative path
 				pipeline.Components[i].Path = "../" + newPath
 				modified = true
@@ -86,11 +87,12 @@ func UpdateComponentReferences(oldPath, newPath, newDisplayName string) error {
 		// Check if this pipeline references the component
 		modified := false
 		for i, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
-			// Check if this component matches
-			if matchesPath(compPath, oldPath) {
+			// Check if this component matches exactly
+			if compPath == oldPath {
 				// Update to new path with ../ prefix for relative path
 				pipeline.Components[i].Path = "../" + newPath
 				modified = true
@@ -146,11 +148,12 @@ func FindAffectedPipelines(componentPath string) (activeNames []string, archived
 		
 		// Check if this pipeline references the component
 		for _, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
-			// Check if this component matches
-			if matchesPath(compPath, componentPath) {
+			// Check if this component matches exactly
+			if compPath == componentPath {
 				// Use pipeline's display name
 				activeNames = append(activeNames, pipeline.Name)
 				break
@@ -174,11 +177,12 @@ func FindAffectedPipelines(componentPath string) (activeNames []string, archived
 		
 		// Check if this pipeline references the component
 		for _, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
-			// Check if this component matches
-			if matchesPath(compPath, componentPath) {
+			// Check if this component matches exactly
+			if compPath == componentPath {
 				// Use pipeline's display name
 				archivedNames = append(archivedNames, pipeline.Name)
 				break
@@ -282,11 +286,12 @@ func RemoveComponentReferences(componentPath string) error {
 		newComponents := []models.ComponentRef{}
 		
 		for _, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
 			// Keep components that don't match the deleted one
-			if !matchesPath(compPath, componentPath) {
+			if compPath != componentPath {
 				newComponents = append(newComponents, comp)
 			} else {
 				modified = true
@@ -350,11 +355,12 @@ func RemoveComponentReferences(componentPath string) error {
 		newComponents := []models.ComponentRef{}
 		
 		for _, comp := range pipeline.Components {
-			// Normalize component path for comparison
-			compPath := filepath.Clean(comp.Path)
+			// Remove "../" prefix for comparison
+			compPath := strings.TrimPrefix(comp.Path, "../")
+			compPath = filepath.Clean(compPath)
 			
 			// Keep components that don't match the deleted one
-			if !matchesPath(compPath, componentPath) {
+			if compPath != componentPath {
 				newComponents = append(newComponents, comp)
 			} else {
 				modified = true
