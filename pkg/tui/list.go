@@ -413,7 +413,13 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							return StatusMsg("You must unarchive this component before editing")
 						}
 					}
-					return m, m.operations.PipelineOperator.OpenInEditor(comp.path, m.reloadComponents)
+					// Return batch: status message first, then editor command
+					return m, tea.Batch(
+						func() tea.Msg {
+							return PersistentStatusMsg("Editing in external editor - save your changes and close the editor window/tab to return here and continue")
+						},
+						m.operations.PipelineOperator.OpenInEditor(comp.path, m.reloadComponents),
+					)
 				}
 			}
 			// Explicitly do nothing for pipelines pane - editing YAML directly is not encouraged

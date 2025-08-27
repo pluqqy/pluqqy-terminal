@@ -999,11 +999,23 @@ func (m *PipelineBuilderModel) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, 
 		if m.ui.ActiveColumn == leftColumn {
 			components := m.getAllAvailableComponents()
 			if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
-				return m, m.editComponentFromLeft()
+				// Return batch: status message first, then editor command
+				return m, tea.Batch(
+					func() tea.Msg {
+						return PersistentStatusMsg("Editing in external editor - save your changes and close the editor window/tab to return here and continue")
+					},
+					m.editComponentFromLeft(),
+				)
 			}
 		} else if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
 			// Edit selected component in external editor from right column
-			return m, m.editComponent()
+			// Return batch: status message first, then editor command
+			return m, tea.Batch(
+				func() tea.Msg {
+					return PersistentStatusMsg("Editing in external editor - save your changes and close the editor window/tab to return here and continue")
+				},
+				m.editComponent(),
+			)
 		}
 
 	case "e":
@@ -1219,6 +1231,7 @@ func (m *PipelineBuilderModel) openInEditor(path string) tea.Cmd {
 		}
 
 		fullPath := filepath.Join(files.PluqqyDir, path)
+		
 		// Create command with proper argument parsing for editors with flags
 		cmd := createEditorCommand(editor, fullPath)
 		cmd.Stdin = os.Stdin

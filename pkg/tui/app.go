@@ -109,6 +109,15 @@ func (a *App) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return clearStatusMsg{}
 		}
 
+	case PersistentStatusMsg:
+		a.statusMsg = string(msg)
+		// Cancel any existing timer - this status persists
+		if a.statusTimer != nil {
+			a.statusTimer.Stop()
+			a.statusTimer = nil
+		}
+		return a, nil
+
 	case clearStatusMsg:
 		a.statusMsg = ""
 		// Force a redraw to ensure layout is recalculated
@@ -403,6 +412,9 @@ func formatConfirmOptions(destructive bool) string {
 
 // Messages for communication between views
 type StatusMsg string
+
+// PersistentStatusMsg is a status that doesn't auto-clear
+type PersistentStatusMsg string
 
 type clearStatusMsg struct{}
 
