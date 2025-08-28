@@ -40,6 +40,7 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	isArchived := state.IsArchived
 	originalName := state.OriginalName
 	newName := state.NewName
+	cursorPos := state.CursorPos
 	cloneToArchive := state.CloneToArchive
 	validationError := state.ValidationError
 	isValid := state.NewName != "" && state.ValidationError == ""
@@ -72,13 +73,29 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	b.WriteString(" ")
 
 	if newName == "" {
-		// Show placeholder
+		// Show placeholder with cursor
 		placeholder := DescriptionStyle.Render("Enter name for clone...")
 		b.WriteString(placeholder)
-	} else {
-		// Show input with cursor
-		b.WriteString(newName)
 		b.WriteString(CursorStyle.Render("█"))
+	} else {
+		// Show input with cursor at correct position
+		runes := []rune(newName)
+		if cursorPos >= 0 && cursorPos <= len(runes) {
+			// Show text before cursor
+			if cursorPos > 0 {
+				b.WriteString(string(runes[:cursorPos]))
+			}
+			// Show cursor
+			b.WriteString(CursorStyle.Render("█"))
+			// Show text after cursor
+			if cursorPos < len(runes) {
+				b.WriteString(string(runes[cursorPos:]))
+			}
+		} else {
+			// Fallback to showing cursor at end
+			b.WriteString(newName)
+			b.WriteString(CursorStyle.Render("█"))
+		}
 	}
 	b.WriteString("\n")
 

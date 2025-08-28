@@ -44,6 +44,7 @@ func TestCloneState_HandleInput(t *testing.T) {
 				cs := NewCloneState()
 				cs.Start("Test Component", "component", "components/prompts/test.md", false)
 				cs.NewName = "Valid Name"
+				cs.CursorPos = len([]rune("Valid Name"))
 				cs.ValidationError = ""
 				return cs
 			},
@@ -63,6 +64,7 @@ func TestCloneState_HandleInput(t *testing.T) {
 				cs := NewCloneState()
 				cs.Start("Test Component", "component", "components/prompts/test.md", false)
 				cs.NewName = ""
+				cs.CursorPos = 0
 				cs.ValidationError = "Name cannot be empty"
 				return cs
 			},
@@ -81,6 +83,7 @@ func TestCloneState_HandleInput(t *testing.T) {
 				cs := NewCloneState()
 				cs.Start("Test Component", "component", "components/prompts/test.md", false)
 				cs.NewName = "Test Name"
+				cs.CursorPos = len([]rune("Test Name")) // Set cursor at end
 				return cs
 			},
 			input:       tea.KeyMsg{Type: tea.KeyBackspace},
@@ -89,6 +92,9 @@ func TestCloneState_HandleInput(t *testing.T) {
 			checkState: func(t *testing.T, cs *CloneState) {
 				if cs.NewName != "Test Nam" {
 					t.Errorf("Expected 'Test Nam', got '%s'", cs.NewName)
+				}
+				if cs.CursorPos != len([]rune("Test Nam")) {
+					t.Errorf("Expected cursor at %d, got %d", len([]rune("Test Nam")), cs.CursorPos)
 				}
 			},
 		},
@@ -115,6 +121,7 @@ func TestCloneState_HandleInput(t *testing.T) {
 				cs := NewCloneState()
 				cs.Start("Test Component", "component", "components/prompts/test.md", false)
 				cs.NewName = "Test"
+				cs.CursorPos = len([]rune("Test"))
 				return cs
 			},
 			input:       tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}},
@@ -124,6 +131,9 @@ func TestCloneState_HandleInput(t *testing.T) {
 				if cs.NewName != "Tests" {
 					t.Errorf("Expected 'Tests', got '%s'", cs.NewName)
 				}
+				if cs.CursorPos != len([]rune("Tests")) {
+					t.Errorf("Expected cursor at %d, got %d", len([]rune("Tests")), cs.CursorPos)
+				}
 			},
 		},
 		{
@@ -132,6 +142,7 @@ func TestCloneState_HandleInput(t *testing.T) {
 				cs := NewCloneState()
 				cs.Start("Test Component", "component", "components/prompts/test.md", false)
 				cs.NewName = "Test"
+				cs.CursorPos = len([]rune("Test"))
 				return cs
 			},
 			input:       tea.KeyMsg{Type: tea.KeySpace},
@@ -156,6 +167,99 @@ func TestCloneState_HandleInput(t *testing.T) {
 			checkState: func(t *testing.T, cs *CloneState) {
 				if cs.Active {
 					t.Error("Clone state should remain inactive")
+				}
+			},
+		},
+		{
+			name: "left arrow moves cursor left",
+			setup: func() *CloneState {
+				cs := NewCloneState()
+				cs.Start("Test", "component", "components/prompts/test.md", false)
+				cs.NewName = "Hello"
+				cs.CursorPos = 3 // Cursor after "Hel"
+				return cs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyLeft},
+			wantActive:  true,
+			wantHandled: true,
+			checkState: func(t *testing.T, cs *CloneState) {
+				if cs.CursorPos != 2 {
+					t.Errorf("Expected cursor at 2, got %d", cs.CursorPos)
+				}
+			},
+		},
+		{
+			name: "right arrow moves cursor right",
+			setup: func() *CloneState {
+				cs := NewCloneState()
+				cs.Start("Test", "component", "components/prompts/test.md", false)
+				cs.NewName = "Hello"
+				cs.CursorPos = 2 // Cursor after "He"
+				return cs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyRight},
+			wantActive:  true,
+			wantHandled: true,
+			checkState: func(t *testing.T, cs *CloneState) {
+				if cs.CursorPos != 3 {
+					t.Errorf("Expected cursor at 3, got %d", cs.CursorPos)
+				}
+			},
+		},
+		{
+			name: "home key moves cursor to start",
+			setup: func() *CloneState {
+				cs := NewCloneState()
+				cs.Start("Test", "component", "components/prompts/test.md", false)
+				cs.NewName = "Hello"
+				cs.CursorPos = 3
+				return cs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyHome},
+			wantActive:  true,
+			wantHandled: true,
+			checkState: func(t *testing.T, cs *CloneState) {
+				if cs.CursorPos != 0 {
+					t.Errorf("Expected cursor at 0, got %d", cs.CursorPos)
+				}
+			},
+		},
+		{
+			name: "end key moves cursor to end",
+			setup: func() *CloneState {
+				cs := NewCloneState()
+				cs.Start("Test", "component", "components/prompts/test.md", false)
+				cs.NewName = "Hello"
+				cs.CursorPos = 2
+				return cs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyEnd},
+			wantActive:  true,
+			wantHandled: true,
+			checkState: func(t *testing.T, cs *CloneState) {
+				if cs.CursorPos != 5 {
+					t.Errorf("Expected cursor at 5, got %d", cs.CursorPos)
+				}
+			},
+		},
+		{
+			name: "delete key removes character at cursor",
+			setup: func() *CloneState {
+				cs := NewCloneState()
+				cs.Start("Test", "component", "components/prompts/test.md", false)
+				cs.NewName = "Hello"
+				cs.CursorPos = 2 // Cursor after "He"
+				return cs
+			},
+			input:       tea.KeyMsg{Type: tea.KeyDelete},
+			wantActive:  true,
+			wantHandled: true,
+			checkState: func(t *testing.T, cs *CloneState) {
+				if cs.NewName != "Helo" {
+					t.Errorf("Expected 'Helo', got '%s'", cs.NewName)
+				}
+				if cs.CursorPos != 2 {
+					t.Errorf("Cursor should remain at position 2, got %d", cs.CursorPos)
 				}
 			},
 		},

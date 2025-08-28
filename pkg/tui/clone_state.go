@@ -20,6 +20,7 @@ type CloneState struct {
 	OriginalName    string       // Display name of item to clone
 	OriginalPath    string       // File path of item to clone
 	NewName         string       // User input for new display name
+	CursorPos       int          // Current cursor position in the input
 	ValidationError string       // Real-time validation error
 	IsArchived      bool         // Whether the item being cloned is archived
 	CloneToArchive  bool         // Whether to clone to archive folder
@@ -55,16 +56,52 @@ func (cs *CloneState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		return true, nil
 
 	case "backspace":
-		if len(cs.NewName) > 0 {
+		if len(cs.NewName) > 0 && cs.CursorPos > 0 {
 			// Handle UTF-8 properly
 			runes := []rune(cs.NewName)
-			cs.NewName = string(runes[:len(runes)-1])
+			// Remove character before cursor
+			cs.NewName = string(runes[:cs.CursorPos-1]) + string(runes[cs.CursorPos:])
+			cs.CursorPos--
 			cs.validate()
 		}
 		return true, nil
 
+	case "delete":
+		runes := []rune(cs.NewName)
+		if cs.CursorPos < len(runes) {
+			// Remove character at cursor
+			cs.NewName = string(runes[:cs.CursorPos]) + string(runes[cs.CursorPos+1:])
+			cs.validate()
+		}
+		return true, nil
+
+	case "left", "ctrl+b":
+		if cs.CursorPos > 0 {
+			cs.CursorPos--
+		}
+		return true, nil
+
+	case "right", "ctrl+f":
+		runes := []rune(cs.NewName)
+		if cs.CursorPos < len(runes) {
+			cs.CursorPos++
+		}
+		return true, nil
+
+	case "home", "ctrl+a":
+		cs.CursorPos = 0
+		return true, nil
+
+	case "end", "ctrl+e":
+		runes := []rune(cs.NewName)
+		cs.CursorPos = len(runes)
+		return true, nil
+
 	case " ":
-		cs.NewName += " "
+		// Insert space at cursor position
+		runes := []rune(cs.NewName)
+		cs.NewName = string(runes[:cs.CursorPos]) + " " + string(runes[cs.CursorPos:])
+		cs.CursorPos++
 		cs.validate()
 		return true, nil
 
@@ -77,7 +114,11 @@ func (cs *CloneState) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 
 	default:
 		if msg.Type == tea.KeyRunes {
-			cs.NewName += string(msg.Runes)
+			// Insert characters at cursor position
+			runes := []rune(cs.NewName)
+			newRunes := string(msg.Runes)
+			cs.NewName = string(runes[:cs.CursorPos]) + newRunes + string(runes[cs.CursorPos:])
+			cs.CursorPos += len([]rune(newRunes))
 			cs.validate()
 			return true, nil
 		}
@@ -103,6 +144,7 @@ func (cs *CloneState) Start(displayName, itemType, path string, isArchived bool)
 
 	// Generate a collision-free name automatically
 	cs.NewName = cs.generateUniqueNameInternal(displayName)
+	cs.CursorPos = len([]rune(cs.NewName)) // Set cursor at end
 }
 
 // generateUniqueNameInternal generates a collision-free name for cloning
@@ -284,6 +326,7 @@ func (cs *CloneState) resetInternal() {
 	cs.OriginalName = ""
 	cs.OriginalPath = ""
 	cs.NewName = ""
+	cs.CursorPos = 0
 	cs.ValidationError = ""
 	cs.IsArchived = false
 	cs.CloneToArchive = false
@@ -483,6 +526,14 @@ func (cs *CloneState) GetNewName() string {
 	defer cs.mu.RUnlock()
 
 	return cs.NewName
+}
+
+// GetCursorPos returns the current cursor position
+func (cs *CloneState) GetCursorPos() int {
+	cs.mu.RLock()
+	defer cs.mu.RUnlock()
+
+	return cs.CursorPos
 }
 
 // CloneSuccessMsg is sent when a clone operation succeeds
