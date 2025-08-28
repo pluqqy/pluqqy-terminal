@@ -68,35 +68,34 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 	b.WriteString(originalName)
 	b.WriteString("\n\n")
 
-	// Input field
-	b.WriteString(HeaderStyle.Render("New name:"))
-	b.WriteString(" ")
-
-	if newName == "" {
-		// Show placeholder with cursor
-		placeholder := DescriptionStyle.Render("Enter name for clone...")
-		b.WriteString(placeholder)
-		b.WriteString(CursorStyle.Render("█"))
-	} else {
-		// Show input with cursor at correct position
-		runes := []rune(newName)
-		if cursorPos >= 0 && cursorPos <= len(runes) {
-			// Show text before cursor
-			if cursorPos > 0 {
-				b.WriteString(string(runes[:cursorPos]))
-			}
-			// Show cursor
-			b.WriteString(CursorStyle.Render("█"))
-			// Show text after cursor
-			if cursorPos < len(runes) {
-				b.WriteString(string(runes[cursorPos:]))
-			}
-		} else {
-			// Fallback to showing cursor at end
-			b.WriteString(newName)
-			b.WriteString(CursorStyle.Render("█"))
-		}
+	// Calculate dialog dimensions early so we can use them
+	dialogWidth := cr.Width / 2
+	if dialogWidth < 50 {
+		dialogWidth = 50
 	}
+	if dialogWidth > 80 {
+		dialogWidth = 80
+	}
+
+	// Calculate input field width (dialog width minus some padding)
+	inputFieldWidth := dialogWidth - 8
+	if inputFieldWidth < 40 {
+		inputFieldWidth = 40
+	}
+
+	// Create input renderer
+	inputRenderer := NewInputRenderer(inputFieldWidth)
+
+	// Render the input field with label
+	inputField := inputRenderer.RenderInputFieldWithLabel(
+		"New name:",
+		newName,
+		cursorPos,
+		"Enter name for clone...",
+		true, // show cursor
+		true, // cursor always visible (no blinking)
+	)
+	b.WriteString(inputField)
 	b.WriteString("\n")
 
 	// Show what filename this will become
@@ -166,14 +165,7 @@ func (cr *CloneRenderer) Render(state *CloneState) string {
 
 	b.WriteString(strings.Join(helpParts, "  "))
 
-	// Calculate dialog dimensions
-	dialogWidth := cr.Width / 2
-	if dialogWidth < 50 {
-		dialogWidth = 50
-	}
-	if dialogWidth > 80 {
-		dialogWidth = 80
-	}
+	// Dialog dimensions already calculated above
 
 	// Apply border and center the dialog
 	dialogStyle := ActiveBorderStyle.

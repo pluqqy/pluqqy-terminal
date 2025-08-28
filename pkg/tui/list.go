@@ -832,6 +832,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+
 	// Update preview if needed
 	if m.stateManager.ShowPreview && m.ui.PreviewContent != "" {
 		// Preprocess content to handle carriage returns and ensure proper line breaks

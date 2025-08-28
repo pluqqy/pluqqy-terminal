@@ -57,75 +57,25 @@ func (rr *RenameRenderer) Render(state *RenameState) string {
 	b.WriteString(state.OriginalName)
 	b.WriteString("\n\n")
 
-	// Input field
-	b.WriteString(HeaderStyle.Render("New name:"))
-	b.WriteString("\n")
-
 	// Calculate input field width (dialog width minus some padding)
 	inputFieldWidth := dialogWidth - 8
 	if inputFieldWidth < 40 {
 		inputFieldWidth = 40
 	}
 
-	// Create highlighted input style (similar to selected items)
-	inputFieldStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color(ColorSelected)).
-		Foreground(lipgloss.Color(ColorNormal)).
-		Width(inputFieldWidth).
-		Padding(0, 1)
+	// Create input renderer
+	inputRenderer := NewInputRenderer(inputFieldWidth)
 
-	// Create cursor style with inverted colors for visibility
-	cursorOnHighlightStyle := lipgloss.NewStyle().
-		Background(lipgloss.Color(ColorActive)).
-		Foreground(lipgloss.Color(ColorWhite)).
-		Bold(true)
-
-	if state.NewName == "" {
-		// Show placeholder with cursor at beginning
-		var inputContent strings.Builder
-		inputContent.WriteString(cursorOnHighlightStyle.Render(" "))
-		placeholder := "Enter new display name..."
-		inputContent.WriteString(DescriptionStyle.Render(placeholder))
-
-		// Pad to fill the width
-		currentLen := 1 + len(placeholder)
-		if currentLen < inputFieldWidth-2 {
-			inputContent.WriteString(strings.Repeat(" ", inputFieldWidth-2-currentLen))
-		}
-
-		b.WriteString(inputFieldStyle.Render(inputContent.String()))
-	} else {
-		// Show input with cursor at correct position
-		runes := []rune(state.NewName)
-		var inputContent strings.Builder
-
-		// Text before cursor
-		if state.CursorPos > 0 {
-			inputContent.WriteString(string(runes[:state.CursorPos]))
-		}
-
-		// Cursor
-		if state.CursorPos < len(runes) {
-			// Cursor on a character - highlight the character
-			inputContent.WriteString(cursorOnHighlightStyle.Render(string(runes[state.CursorPos])))
-			// Text after cursor
-			if state.CursorPos+1 < len(runes) {
-				inputContent.WriteString(string(runes[state.CursorPos+1:]))
-			}
-		} else {
-			// Cursor at end - show a space with cursor styling
-			inputContent.WriteString(cursorOnHighlightStyle.Render(" "))
-		}
-
-		// Pad to fill the width if needed
-		textLen := len(runes) + 1
-		if textLen < inputFieldWidth-2 {
-			inputContent.WriteString(strings.Repeat(" ", inputFieldWidth-2-textLen))
-		}
-
-		// Apply the background highlight to the entire input
-		b.WriteString(inputFieldStyle.Render(inputContent.String()))
-	}
+	// Render the input field with label
+	inputField := inputRenderer.RenderInputFieldWithLabel(
+		"New name:",
+		state.NewName,
+		state.CursorPos,
+		"Enter new display name...",
+		true, // show cursor
+		true, // cursor always visible (no blinking)
+	)
+	b.WriteString(inputField)
 	b.WriteString("\n")
 
 	// Show what filename this will become
