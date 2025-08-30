@@ -27,6 +27,19 @@ func NewListComponentCreator(reloadCallback func(), enhancedEditor *EnhancedEdit
 	return creator
 }
 
+// HandleNameInput overrides the shared method to ensure IsNewComponent is set
+func (c *ListComponentCreator) HandleNameInput(msg tea.KeyMsg) bool {
+	// Call the parent implementation
+	handled := c.ComponentCreator.HandleNameInput(msg)
+	
+	// If we're moving to the content step (step 2), ensure IsNewComponent is set
+	if handled && c.GetCurrentStep() == 2 && c.enhancedEditor != nil {
+		c.enhancedEditor.IsNewComponent = true
+	}
+	
+	return handled
+}
+
 // HandleEnhancedEditorInput handles input when enhanced editor is active
 // This method provides the TUI-specific functionality that was in the original ComponentCreator
 func (c *ListComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width int) (bool, tea.Cmd) {
@@ -46,7 +59,15 @@ func (c *ListComponentCreator) HandleEnhancedEditorInput(msg tea.KeyMsg, width i
 
 	// Check if editor was closed (ESC or similar)
 	if !c.enhancedEditor.IsActive() {
-		// Exit component creation entirely instead of going back to name input
+		// For new components, go back to naming step
+		if c.enhancedEditor.IsNewComponent {
+			// Go back to naming step (step 1)
+			c.SetCreationStep(1)
+			// Keep the component name and type so user doesn't have to re-enter
+			// The enhanced editor state is preserved so content isn't lost
+			return true, cmd
+		}
+		// For existing components being edited (shouldn't happen in creation flow)
 		c.Reset()
 		return true, cmd
 	}

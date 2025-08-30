@@ -76,7 +76,18 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		return true, handlePageDown(state, true)
 
 	case "esc":
-		// Handle exit with unsaved changes check
+		// For new components, ESC should go back to naming step, not exit completely
+		if state.IsNewComponent {
+			// Even with unsaved changes, allow going back for new components
+			// The user can navigate back to continue editing
+			// Save the current content from textarea before deactivating
+			state.Content = state.Textarea.Value()
+			state.Active = false  // Just deactivate, don't reset
+			// Don't clear IsNewComponent flag - it should remain true
+			return true, nil
+		}
+		
+		// For existing components, handle exit with unsaved changes check
 		if state.HasUnsavedChanges() {
 			state.ShowExitConfirmation(width,
 				func() tea.Cmd {
@@ -115,6 +126,12 @@ func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width i
 		// Return both commands
 		return true, tea.Batch(cmd, initCmd)
 
+	case "enter":
+		// Explicitly handle Enter key - pass it directly to the textarea
+		// The textarea expects the message as-is, not reconstructed
+		cmd := state.UpdateTextarea(msg)
+		return true, cmd
+		
 	default:
 		// Delegate to textarea for normal text editing
 		cmd := state.UpdateTextarea(msg)

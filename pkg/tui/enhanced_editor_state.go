@@ -84,66 +84,72 @@ func (e *EnhancedEditorState) UpdateCursor(pos int) {
 
 // SetContent updates the content (state update only)
 func (e *EnhancedEditorState) SetContent(content string) {
-	e.EditorCore.Content = content
-	e.EditorCore.Textarea.SetValue(content)
-	e.EditorOperations.UnsavedChanges = (content != e.EditorCore.OriginalContent)
+	e.Content = content
+	e.Textarea.SetValue(content)
+	e.UnsavedChanges = (content != e.OriginalContent)
 }
 
 // IsActive checks if the editor is active
 func (e *EnhancedEditorState) IsActive() bool {
-	return e.EditorCore.Active
+	return e.Active
 }
 
 // GetContent returns the current content from the textarea
 func (e *EnhancedEditorState) GetContent() string {
-	if e.EditorCore.Textarea.Value() != "" {
-		return e.EditorCore.Textarea.Value()
+	if e.Textarea.Value() != "" {
+		return e.Textarea.Value()
 	}
-	return e.EditorCore.Content
+	return e.Content
 }
 
 // HasUnsavedChanges checks for unsaved changes
 func (e *EnhancedEditorState) HasUnsavedChanges() bool {
-	return e.EditorOperations.UnsavedChanges
+	return e.UnsavedChanges
 }
 
 // StartEditing initializes the editor with a component
 func (e *EnhancedEditorState) StartEditing(path, name, compType, content string, tags []string) {
-	e.EditorCore.Active = true
-	e.EditorCore.Mode = EditorModeNormal
-	e.EditorCore.ComponentPath = path
-	e.EditorCore.ComponentName = name
-	e.EditorCore.ComponentType = compType
-	e.EditorCore.ComponentTags = tags // Store tags to preserve them on save
-	e.EditorCore.Content = content
-	e.EditorCore.OriginalContent = content
+	e.Active = true
+	e.Mode = EditorModeNormal
+	e.ComponentPath = path
+	e.ComponentName = name
+	e.ComponentType = compType
+	e.ComponentTags = tags // Store tags to preserve them on save
+	e.Content = content
+	e.OriginalContent = content
 	
-	// Set the content and focus the textarea
-	e.EditorCore.Textarea.SetValue(content)
-	e.EditorCore.Textarea.Focus()
+	// Reset the textarea to ensure clean state
+	e.Textarea.Reset()
+	e.Textarea.Focus()
 	
-	e.EditorOperations.UnsavedChanges = false
-	e.EditorUIState.ExitConfirmActive = false
-	e.EditorUIState.CursorPosition = 0
-	e.EditorUIState.InsertionPoint = 0
+	// Set the content - using consistent reference to embedded field
+	e.Textarea.SetValue(content)
+	
+	// Ensure cursor is at the start
+	e.Textarea.CursorStart()
+	
+	e.UnsavedChanges = false
+	e.ExitConfirmActive = false
+	e.CursorPosition = 0
+	e.InsertionPoint = 0
 }
 
 // Reset clears the editor state
 func (e *EnhancedEditorState) Reset() {
-	e.EditorCore.Active = false
-	e.EditorCore.Mode = EditorModeNormal
-	e.EditorCore.ComponentPath = ""
-	e.EditorCore.ComponentName = ""
-	e.EditorCore.ComponentType = ""
-	e.EditorCore.ComponentTags = nil
-	e.EditorCore.Content = ""
-	e.EditorCore.OriginalContent = ""
-	e.EditorUIState.CursorPosition = 0
-	e.EditorUIState.InsertionPoint = 0
-	e.EditorOperations.UnsavedChanges = false
-	e.EditorUIState.ExitConfirmActive = false
-	e.EditorCore.Textarea.Reset()
-	e.EditorCore.Textarea.Blur()
+	e.Active = false
+	e.Mode = EditorModeNormal
+	e.ComponentPath = ""
+	e.ComponentName = ""
+	e.ComponentType = ""
+	e.ComponentTags = nil
+	e.Content = ""
+	e.OriginalContent = ""
+	e.CursorPosition = 0
+	e.InsertionPoint = 0
+	e.UnsavedChanges = false
+	e.ExitConfirmActive = false
+	e.Textarea.Reset()
+	e.Textarea.Blur()
 }
 
 // UpdateTextarea updates the textarea model (for bubbletea updates)
@@ -156,12 +162,13 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 	shouldSaveUndo := false
 
 	var cmd tea.Cmd
-	// Explicitly update the textarea in the embedded EditorCore struct
-	e.EditorCore.Textarea, cmd = e.EditorCore.Textarea.Update(msg)
+	// CRITICAL: Use consistent reference - don't mix e.Textarea and e.EditorCore.Textarea
+	// This ensures the update properly affects the embedded field
+	e.Textarea, cmd = e.Textarea.Update(msg)
 
 	// Track content changes
-	newContent := e.EditorCore.Textarea.Value()
-	if newContent != e.EditorCore.Content {
+	newContent := e.Textarea.Value()
+	if newContent != e.Content {
 		// Check if this looks like a paste (significant content increase or has TUI borders)
 		newLen := len(newContent)
 		isPaste := false
@@ -214,18 +221,18 @@ func (e *EnhancedEditorState) UpdateTextarea(msg tea.Msg) tea.Cmd {
 					// Appended paste
 					cleanedContent = oldContent + cleanedPaste
 				}
-				e.EditorCore.Textarea.SetValue(cleanedContent)
-				e.EditorCore.Content = cleanedContent
+				e.Textarea.SetValue(cleanedContent)
+				e.Content = cleanedContent
 				e.ActionFeedback.RecordAction(fmt.Sprintf("✓ Pasted %d lines (cleaned)", CountLines(cleanedPaste)))
 			} else {
-				e.EditorCore.Content = newContent
+				e.Content = newContent
 				e.ActionFeedback.RecordAction(fmt.Sprintf("✓ Pasted %d lines", CountLines(pastedContent)))
 			}
 		} else {
-			e.EditorCore.Content = newContent
+			e.Content = newContent
 		}
 
-		e.UnsavedChanges = (e.EditorCore.Content != e.EditorCore.OriginalContent)
+		e.UnsavedChanges = (e.Content != e.OriginalContent)
 		e.UpdateStats()
 	}
 

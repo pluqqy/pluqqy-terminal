@@ -89,6 +89,11 @@ func (c *ComponentCreator) GetCurrentStep() int {
 	return c.creationStep
 }
 
+// SetCreationStep sets the creation step (for navigation)
+func (c *ComponentCreator) SetCreationStep(step int) {
+	c.creationStep = step
+}
+
 // GetTypeCursor returns the current type cursor position
 func (c *ComponentCreator) GetTypeCursor() int {
 	return c.typeCursor

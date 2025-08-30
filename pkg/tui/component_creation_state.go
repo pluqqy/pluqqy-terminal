@@ -171,7 +171,19 @@ func (c *ComponentCreator) initializeEnhancedEditor() {
 	filename := sanitizeFileName(c.componentName) + ".md"
 	relativePath := filepath.Join(files.ComponentsDir, subDir, filename)
 
-	// Configure enhanced editor for creation mode
+	// Check if we're returning to the editor (it was already active before)
+	// If so, just reactivate it without clearing content
+	if c.enhancedEditor.ComponentPath == relativePath {
+		// Returning to editor - just reactivate without losing content
+		c.enhancedEditor.Active = true
+		c.enhancedEditor.IsNewComponent = true  // Ensure this stays true for new components
+		// Restore the textarea with the preserved content
+		c.enhancedEditor.Textarea.SetValue(c.enhancedEditor.Content)
+		c.enhancedEditor.Textarea.Focus()
+		return
+	}
+
+	// First time entering editor for this component - initialize everything
 	c.enhancedEditor.Active = true
 	c.enhancedEditor.Mode = EditorModeNormal
 	c.enhancedEditor.ComponentPath = relativePath // Set the path for external editor
