@@ -145,7 +145,8 @@ func TestListComponentCreator_EnhancedEditorCancel(t *testing.T) {
 	// Setup component creation to content step
 	listModel.operations.ComponentCreator.Start()
 	listModel.operations.ComponentCreator.HandleTypeSelection(tea.KeyMsg{Type: tea.KeyEnter}) // Context
-	for _, char := range "Test Cancel" {
+	componentName := "Test Cancel"
+	for _, char := range componentName {
 		listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{char}})
 	}
 	listModel.operations.ComponentCreator.HandleNameInput(tea.KeyMsg{Type: tea.KeyEnter})
@@ -156,14 +157,15 @@ func TestListComponentCreator_EnhancedEditorCancel(t *testing.T) {
 	}
 
 	// Set some content
-	listModel.editors.Enhanced.Textarea.SetValue("Test content")
+	testContent := "Test content"
+	listModel.editors.Enhanced.Textarea.SetValue(testContent)
 
 	// Verify the editor is active before cancelling
 	if !listModel.editors.Enhanced.IsActive() {
 		t.Fatal("List enhanced editor should be active before cancel")
 	}
 
-	// Simulate ESC to cancel through the list view wrapper
+	// Simulate ESC to go back to naming step (new behavior)
 	escKey := tea.KeyMsg{Type: tea.KeyEscape}
 	handled, _ := listModel.operations.ComponentCreator.HandleEnhancedEditorInput(escKey, 80)
 
@@ -171,14 +173,50 @@ func TestListComponentCreator_EnhancedEditorCancel(t *testing.T) {
 		t.Error("ESC key should be handled by list view wrapper")
 	}
 
-	// Component creation should be reset entirely through the list view logic
-	if listModel.operations.ComponentCreator.IsActive() {
-		t.Error("Component creator should not be active after ESC in list view")
+	// With the new behavior, ESC from editor goes back to naming step
+	// Component creator should still be active but on step 1 (naming)
+	if !listModel.operations.ComponentCreator.IsActive() {
+		t.Error("Component creator should still be active after ESC from editor")
 	}
 
-	// Editor should have exited in the list view
+	// Check we're back at naming step (step 1)
+	if listModel.operations.ComponentCreator.GetCurrentStep() != 1 {
+		t.Errorf("Should be at naming step (1) after ESC from editor, got step %d", 
+			listModel.operations.ComponentCreator.GetCurrentStep())
+	}
+
+	// Editor should not be active anymore
 	if listModel.editors.Enhanced.IsActive() {
 		t.Error("List enhanced editor should not be active after ESC")
+	}
+
+	// Component name should be preserved
+	if listModel.operations.ComponentCreator.GetComponentName() != componentName {
+		t.Errorf("Component name should be preserved, expected %q, got %q",
+			componentName, listModel.operations.ComponentCreator.GetComponentName())
+	}
+
+	// Now test full cancellation by pressing ESC from naming step
+	handled = listModel.operations.ComponentCreator.HandleNameInput(escKey)
+	if !handled {
+		t.Error("ESC from naming step should be handled")
+	}
+
+	// Should now be at type selection step (step 0)
+	if listModel.operations.ComponentCreator.GetCurrentStep() != 0 {
+		t.Errorf("Should be at type selection step (0) after ESC from naming, got step %d",
+			listModel.operations.ComponentCreator.GetCurrentStep())
+	}
+
+	// Press ESC again to fully exit
+	handled = listModel.operations.ComponentCreator.HandleTypeSelection(escKey)
+	if !handled {
+		t.Error("ESC from type selection should be handled")
+	}
+
+	// Now component creator should be fully inactive
+	if listModel.operations.ComponentCreator.IsActive() {
+		t.Error("Component creator should not be active after full cancellation")
 	}
 }
 
