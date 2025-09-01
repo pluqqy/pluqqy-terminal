@@ -107,22 +107,6 @@ type BuilderUIComponents struct {
 	MermaidState    *MermaidState
 	MermaidOperator *MermaidOperator
 
-	// Legacy tag UI state (TO BE REMOVED after full migration)
-	EditingTags             bool
-	EditingTagsPath         string
-	CurrentTags             []string
-	OriginalTags            []string
-	TagInput                string
-	TagCursor               int
-	AvailableTags           []string
-	ShowTagSuggestions      bool
-	TagSuggestionCursor     int
-	HasNavigatedSuggestions bool
-	TagCloudActive          bool
-	TagCloudCursor          int
-	TagDeleteConfirm        *ConfirmationModel
-	DeletingTag             string
-	DeletingTagUsage        []string
 }
 
 // Helper methods for BuilderDataStore
@@ -285,35 +269,9 @@ func (s *BuilderSearchComponents) ShouldIncludeArchived() bool {
 }
 
 // Helper methods for BuilderUIComponents
-func (u *BuilderUIComponents) HasTagChanges() bool {
-	if !u.EditingTags {
-		return false
-	}
-
-	if len(u.CurrentTags) != len(u.OriginalTags) {
-		return true
-	}
-
-	// Create maps for efficient comparison
-	currentMap := make(map[string]bool)
-	for _, tag := range u.CurrentTags {
-		currentMap[tag] = true
-	}
-
-	for _, tag := range u.OriginalTags {
-		if !currentMap[tag] {
-			return true
-		}
-	}
-
-	return false
-}
-
 func (u *BuilderUIComponents) IsInEditMode() bool {
 	return u.ExitConfirm != nil ||
 		u.DeleteConfirm != nil ||
 		u.ArchiveConfirm != nil ||
-		u.EditingTags ||
-		u.TagDeleteConfirm != nil ||
 		(u.MermaidState != nil && u.MermaidState.Active)
 }

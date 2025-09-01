@@ -86,7 +86,6 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 		ExitConfirm:          NewConfirmation(),
 		DeleteConfirm:        NewConfirmation(),
 		ArchiveConfirm:       NewConfirmation(),
-		TagDeleteConfirm:     NewConfirmation(), // Initialize for compatibility
 		MermaidState:         mermaidState,
 		MermaidOperator:      mermaidOperator,
 		SharedLayout:         NewSharedLayout(80, 24, config.ShowPreviewByDefault),

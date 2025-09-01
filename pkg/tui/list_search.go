@@ -88,8 +88,8 @@ func FilterSearchResultsUnified(query string, pipelines []pipelineItem, componen
 	// Perform unified search
 	filteredPrompts, filteredContexts, filteredRules, filteredPipelines, err := helper.UnifiedFilterAll(query, prompts, contexts, rules, sharedPipelines)
 	if err != nil {
-		// Fallback to original function
-		return FilterSearchResults(nil, pipelines, components)
+		// Fallback to return all items on error
+		return pipelines, components
 	}
 	
 	// Convert back to TUI types
@@ -100,12 +100,6 @@ func FilterSearchResultsUnified(query string, pipelines []pipelineItem, componen
 	return tuiPipelines, tuiComponents
 }
 
-// FilterSearchResults filters pipelines and components based on search results (legacy compatibility)
-// This function is deprecated - use FilterSearchResultsUnified instead
-func FilterSearchResults(results interface{}, pipelines []pipelineItem, components []componentItem) ([]pipelineItem, []componentItem) {
-	// Return empty results as this is now deprecated
-	return []pipelineItem{}, []componentItem{}
-}
 
 // Helper functions for type conversion
 

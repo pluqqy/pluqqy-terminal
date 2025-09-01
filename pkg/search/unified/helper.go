@@ -12,12 +12,6 @@ func NewSearchHelper() *SearchHelper {
 	}
 }
 
-// FilterSearchResults is deprecated - legacy search results are no longer supported
-// Use UnifiedFilterAll or other unified search methods instead
-func (sh *SearchHelper) FilterSearchResults(results interface{}, pipelines []PipelineItem, components []ComponentItem) ([]PipelineItem, []ComponentItem) {
-	// Return empty results as this method is deprecated
-	return []PipelineItem{}, []ComponentItem{}
-}
 
 // UnifiedFilterComponents uses the new unified search to filter components
 func (sh *SearchHelper) UnifiedFilterComponents(query string, prompts, contexts, rules []ComponentItem) ([]ComponentItem, []ComponentItem, []ComponentItem, error) {
