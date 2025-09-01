@@ -152,7 +152,7 @@ func TestEnhancedEditorRenderer_Render_NormalMode(t *testing.T) {
 				if !strings.Contains(output, "○ Saved") {
 					t.Error("Expected status bar to show saved status")
 				}
-				if !strings.Contains(output, "^s save") {
+				if !strings.Contains(output, "^s") || !strings.Contains(output, "save") {
 					t.Error("Expected help text to contain save shortcut")
 				}
 				if !strings.Contains(output, "@ insert file ref") {
@@ -436,28 +436,28 @@ func TestEnhancedEditorRenderer_renderHelpPane(t *testing.T) {
 			name:           "renders normal mode help",
 			width:          80,
 			mode:           EditorModeNormal,
-			expectedHelp:   []string{"@ insert file ref", "\\@ literal @", "^s save", "^x external", "esc cancel"},
-			unexpectedHelp: []string{"enter select", "↑↓ navigate"},
+			expectedHelp:   []string{"↑↓", "navigate", "^z", "undo", "^l", "clean", "@ insert", "\\@ literal", "^s", "save", "^x", "external", "esc", "cancel"},
+			unexpectedHelp: []string{"enter select"},
 		},
 		{
 			name:           "renders file picker mode help",
 			width:          80,
 			mode:           EditorModeFilePicking,
-			expectedHelp:   []string{"↑↓ navigate", "enter select", "esc cancel", "tab toggle hidden"},
-			unexpectedHelp: []string{"^s save", "@ insert file ref"},
+			expectedHelp:   []string{"↑↓", "navigate", "^z", "undo", "^l", "clean", "enter", "select", "esc", "cancel", "tab", "toggle"},
+			unexpectedHelp: []string{"^s", "@ insert"},
 		},
 		{
 			name:           "renders help with small width",
 			width:          40,
 			mode:           EditorModeNormal,
-			expectedHelp:   []string{"@ insert", "^s save", "^x external", "esc", "cancel"},
+			expectedHelp:   []string{"↑↓", "navigate", "^z", "undo", "^l", "clean", "@ insert", "^s save", "^x external", "esc", "cancel"},
 			unexpectedHelp: []string{},
 		},
 		{
 			name:           "renders help with large width",
 			width:          120,
 			mode:           EditorModeFilePicking,
-			expectedHelp:   []string{"↑↓ navigate", "enter select", "esc cancel"},
+			expectedHelp:   []string{"↑↓ navigate", "^z undo", "^l clean", "enter select", "esc cancel"},
 			unexpectedHelp: []string{},
 		},
 	}

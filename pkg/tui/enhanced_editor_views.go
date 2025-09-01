@@ -284,6 +284,9 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	switch mode {
 	case EditorModeNormal:
 		help = []string{
+			"↑↓ navigate",
+			"^z undo",
+			"^l clean",
 			"@ insert file ref",
 			"\\@ literal @",
 			"^s save",
@@ -293,12 +296,17 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	case EditorModeFilePicking:
 		help = []string{
 			"↑↓ navigate",
+			"^z undo",
+			"^l clean",
 			"enter select",
 			"esc cancel",
 			"tab toggle hidden",
 		}
 	default:
 		help = []string{
+			"↑↓ navigate",
+			"^z undo",
+			"^l clean",
 			"^s save",
 			"esc exit",
 		}

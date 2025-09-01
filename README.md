@@ -415,7 +415,6 @@ The enhanced editor provides a full-featured editing experience for both creatin
 | Type directly | Enter content in the editor                     |
 | `↑↓`          | Navigate through content                        |
 | `^z`          | Undo last change                                |
-| `^d`          | Clear all content                               |
 | `^l`          | Clean pasted content (removes TUI artifacts)    |
 | `^s`          | Save component                                  |
 | `^x`          | Open in external editor (for extensive editing) |
