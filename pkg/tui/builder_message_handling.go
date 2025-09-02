@@ -458,6 +458,14 @@ func (m *PipelineBuilderModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		}
 	}
 
+	// Handle component usage mode
+	if m.editors.ComponentUsage != nil && m.editors.ComponentUsage.Active {
+		handled, cmd := m.editors.ComponentUsage.HandleInput(msg)
+		if handled {
+			return m, cmd
+		}
+	}
+
 	// Handle component creation mode
 	if m.editors.ComponentCreator != nil && m.editors.ComponentCreator.IsActive() {
 		return m.handleComponentCreation(msg)
@@ -1016,6 +1024,28 @@ func (m *PipelineBuilderModel) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, 
 				},
 				m.editComponent(),
 			)
+		}
+
+	case "u":
+		// Show component usage
+		if m.ui.ActiveColumn == leftColumn {
+			components := m.getAllAvailableComponents()
+			if m.ui.LeftCursor >= 0 && m.ui.LeftCursor < len(components) {
+				comp := components[m.ui.LeftCursor]
+				m.editors.ComponentUsage.Start(comp)
+				m.editors.ComponentUsage.SetSize(m.viewports.Width, m.viewports.Height)
+			}
+		} else if m.ui.ActiveColumn == rightColumn && len(m.data.SelectedComponents) > 0 {
+			// Show usage for selected component in the pipeline
+			selected := m.data.SelectedComponents[m.ui.RightCursor]
+			// Convert ComponentRef to componentItem for usage display
+			comp := componentItem{
+				name:     filepath.Base(selected.Path),
+				path:     selected.Path,
+				compType: selected.Type,
+			}
+			m.editors.ComponentUsage.Start(comp)
+			m.editors.ComponentUsage.SetSize(m.viewports.Width, m.viewports.Height)
 		}
 
 	case "e":

@@ -251,6 +251,24 @@ pluqqy delete old-component -y
 pluqqy delete contexts/old-component
 ```
 
+#### Show Component Usage
+
+```bash
+# Show which pipelines use a component
+pluqqy usage coding-standards
+
+# Specify component type for disambiguation
+pluqqy usage prompts/greeting
+pluqqy usage contexts/api-docs
+
+# Include archived pipelines in the search
+pluqqy usage coding-standards --all
+
+# Output as JSON or YAML
+pluqqy usage api-docs -o json
+pluqqy usage prompts/greeting -o yaml
+```
+
 ### Search Commands
 
 ```bash
@@ -345,6 +363,7 @@ pluqqy delete contexts/deprecated --force     # Force delete
 | `e`           | Edit component in built-in editor / Edit pipeline in builder       |
 | `^x`          | Edit component with external editor (components pane only)         |
 | `t`           | Edit tags for selected component or pipeline                       |
+| `u`           | Show which pipelines use the selected component (components pane)  |
 | `n`           | Create new pipeline/component (uses enhanced editor for content)   |
 | `a`           | Archive pipeline/component (with confirmation)                     |
 | `^d`          | Delete pipeline/component (with confirmation)                      |
@@ -368,6 +387,7 @@ pluqqy delete contexts/deprecated --force     # Force delete
 | `n`            | Create new component                                                      |
 | `e`            | Edit component in built-in editor                                         |
 | `^x`           | Edit component with external editor                                       |
+| `u`            | Show which pipelines use the selected component                           |
 | `K/J` or `^↑↓` | Reorder pipeline components (move up/down)                                |
 | `p`            | Toggle preview pane                                                       |
 | `^s`           | Save pipeline                                                             |

@@ -523,7 +523,7 @@ func (m *PipelineBuilderModel) View() string {
 				// Row 1: System & navigation
 				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 				// Row 2: Component operations (no K/J reorder)
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "enter +/-"},
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive", "enter +/-"},
 			}
 		} else {
 			// Pipeline Components pane - includes K/J reorder
@@ -531,7 +531,7 @@ func (m *PipelineBuilderModel) View() string {
 				// Row 1: System & navigation
 				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
 				// Row 2: Component operations with K/J reorder
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive", "K/J reorder", "enter +/-"},
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive", "K/J reorder", "enter +/-"},
 			}
 		}
 	}
@@ -575,6 +575,15 @@ func (m *PipelineBuilderModel) View() string {
 		finalView = m.editors.Rename.Renderer.RenderOverlay(finalView, m.editors.Rename.State)
 	}
 
+	// Overlay component usage modal if active
+	if m.editors.ComponentUsage != nil && m.editors.ComponentUsage.Active {
+		renderer := NewComponentUsageRenderer(m.viewports.Width, m.viewports.Height)
+		overlay := renderer.Render(m.editors.ComponentUsage)
+		if overlay != "" {
+			finalView = overlayViews(finalView, overlay)
+		}
+	}
+
 	return finalView
 }
 
@@ -590,6 +599,10 @@ func (m *PipelineBuilderModel) SetSize(width, height int) {
 	// Update rename renderer size
 	if m.editors.Rename.Renderer != nil {
 		m.editors.Rename.Renderer.SetSize(width, height)
+	}
+	// Update component usage size
+	if m.editors.ComponentUsage != nil {
+		m.editors.ComponentUsage.SetSize(width, height)
 	}
 	m.updateViewportSizes()
 }

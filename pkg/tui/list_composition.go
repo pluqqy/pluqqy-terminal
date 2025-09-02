@@ -29,11 +29,12 @@ type ListViewportManager struct {
 
 // ListEditorComponents groups all editor-related functionality
 type ListEditorComponents struct {
-	Enhanced      *EnhancedEditorState
-	FileReference *FileReferenceState
-	TagEditor     *TagEditor
-	Rename        *ListRenameComponents
-	Clone         *ListCloneComponents
+	Enhanced       *EnhancedEditorState
+	FileReference  *FileReferenceState
+	TagEditor      *TagEditor
+	Rename         *ListRenameComponents
+	Clone          *ListCloneComponents
+	ComponentUsage *ComponentUsageState
 }
 
 // ListRenameComponents groups rename-related components
@@ -150,7 +151,8 @@ func (e *ListEditorComponents) IsAnyEditorActive() bool {
 		e.FileReference.Active ||
 		e.TagEditor.Active ||
 		e.Rename.State.Active ||
-		e.Clone.State.Active
+		e.Clone.State.Active ||
+		(e.ComponentUsage != nil && e.ComponentUsage.Active)
 }
 
 func (e *ListEditorComponents) DeactivateAll() {
@@ -159,6 +161,9 @@ func (e *ListEditorComponents) DeactivateAll() {
 	e.TagEditor.Active = false
 	e.Rename.State.Active = false
 	e.Clone.State.Active = false
+	if e.ComponentUsage != nil {
+		e.ComponentUsage.Active = false
+	}
 }
 
 // Helper methods for ListSearchComponents

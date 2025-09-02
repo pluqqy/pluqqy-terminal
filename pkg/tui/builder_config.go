@@ -53,6 +53,7 @@ func NewPipelineBuilderModelWithConfig(config *PipelineBuilderConfig) *PipelineB
 	editorComponents := &BuilderEditorComponents{
 		Enhanced:         NewEnhancedEditorState(),
 		TagEditor:        NewTagEditor(),
+		ComponentUsage:   NewComponentUsageState(),
 		ComponentCreator: nil, // Will be set after model is created
 		EditingName:      true,
 		NameInput:        "",

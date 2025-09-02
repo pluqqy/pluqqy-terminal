@@ -46,6 +46,7 @@ type BuilderEditorComponents struct {
 	Rename           *BuilderRenameComponents
 	Clone            *BuilderCloneComponents
 	ComponentCreator *BuilderComponentCreator
+	ComponentUsage   *ComponentUsageState
 
 	// Component editing state
 	EditingComponent     bool
@@ -205,7 +206,8 @@ func (e *BuilderEditorComponents) IsAnyEditorActive() bool {
 		e.TagEditor.Active ||
 		e.Rename.State.Active ||
 		e.Clone.State.Active ||
-		(e.ComponentCreator != nil && e.ComponentCreator.IsActive())
+		(e.ComponentCreator != nil && e.ComponentCreator.IsActive()) ||
+		(e.ComponentUsage != nil && e.ComponentUsage.Active)
 }
 
 func (e *BuilderEditorComponents) DeactivateAll() {
@@ -217,6 +219,9 @@ func (e *BuilderEditorComponents) DeactivateAll() {
 	e.Clone.State.Active = false
 	if e.ComponentCreator != nil {
 		e.ComponentCreator.Reset()
+	}
+	if e.ComponentUsage != nil {
+		e.ComponentUsage.Active = false
 	}
 }
 

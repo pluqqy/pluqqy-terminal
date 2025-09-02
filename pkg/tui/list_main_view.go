@@ -69,7 +69,7 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 				// Row 1: Navigation & system
 				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "^c quit"},
 				// Row 2: Component operations
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive"},
+				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive"},
 			}
 		}
 	}

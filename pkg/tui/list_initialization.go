@@ -28,9 +28,10 @@ func NewMainListModel() *MainListModel {
 		},
 		
 		editors: &ListEditorComponents{
-			Enhanced:      NewEnhancedEditorState(),
-			FileReference: NewFileReferenceState(),
-			TagEditor:     NewTagEditor(),
+			Enhanced:       NewEnhancedEditorState(),
+			FileReference:  NewFileReferenceState(),
+			TagEditor:      NewTagEditor(),
+			ComponentUsage: NewComponentUsageState(),
 			Rename: &ListRenameComponents{
 				State:    NewRenameState(),
 				Renderer: NewRenameRenderer(),

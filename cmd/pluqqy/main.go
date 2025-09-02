@@ -164,6 +164,7 @@ func init() {
 	rootCmd.AddCommand(commands.NewArchiveCommand())
 	rootCmd.AddCommand(commands.NewRestoreCommand())
 	rootCmd.AddCommand(commands.NewDeleteCommand())
+	rootCmd.AddCommand(commands.NewUsageCommand())
 	
 	// Search commands
 	rootCmd.AddCommand(commands.NewSearchCommand())

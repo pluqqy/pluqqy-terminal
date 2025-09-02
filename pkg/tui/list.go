@@ -252,6 +252,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.handleComponentCreation(msg)
 		}
 
+		// Handle component usage mode
+		if m.editors.ComponentUsage != nil && m.editors.ComponentUsage.Active {
+			handled, cmd := m.editors.ComponentUsage.HandleInput(msg)
+			if handled {
+				return m, cmd
+			}
+		}
+
 		// Handle enhanced editor mode
 		if m.editors.Enhanced.IsActive() {
 			handled, cmd := HandleEnhancedEditorInput(m.editors.Enhanced, msg, m.viewports.Width)
@@ -441,6 +449,17 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					pipeline := pipelines[m.stateManager.PipelineCursor]
 					m.editors.TagEditor.Start(pipeline.path, pipeline.tags, "pipeline", pipeline.name)
 					m.editors.TagEditor.SetSize(m.viewports.Width, m.viewports.Height)
+				}
+			}
+
+		case "u":
+			// Show component usage
+			if m.stateManager.ActivePane == componentsPane {
+				components := m.data.FilteredComponents
+				if m.stateManager.ComponentCursor >= 0 && m.stateManager.ComponentCursor < len(components) {
+					comp := components[m.stateManager.ComponentCursor]
+					m.editors.ComponentUsage.Start(comp)
+					m.editors.ComponentUsage.SetSize(m.viewports.Width, m.viewports.Height)
 				}
 			}
 
@@ -1009,6 +1028,15 @@ func (m *MainListModel) View() string {
 		finalView = m.editors.Rename.Renderer.RenderOverlay(finalView, m.editors.Rename.State)
 	}
 
+	// Overlay component usage modal if active
+	if m.editors.ComponentUsage != nil && m.editors.ComponentUsage.Active {
+		renderer := NewComponentUsageRenderer(m.viewports.Width, m.viewports.Height)
+		overlay := renderer.Render(m.editors.ComponentUsage)
+		if overlay != "" {
+			finalView = overlayViews(finalView, overlay)
+		}
+	}
+
 	// Overlay tag reload status if active
 	if m.operations.TagReloader != nil && m.operations.TagReloader.IsActive() && m.ui.TagReloadRenderer != nil {
 		overlay := m.ui.TagReloadRenderer.RenderStatus(m.operations.TagReloader)
@@ -1037,6 +1065,10 @@ func (m *MainListModel) SetSize(width, height int) {
 	// Update rename renderer size
 	if m.editors.Rename.Renderer != nil {
 		m.editors.Rename.Renderer.SetSize(width, height)
+	}
+	// Update component usage size
+	if m.editors.ComponentUsage != nil {
+		m.editors.ComponentUsage.SetSize(width, height)
 	}
 	m.updateViewportSizes()
 }
