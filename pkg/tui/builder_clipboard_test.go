@@ -2,7 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 	"testing"
 )
 

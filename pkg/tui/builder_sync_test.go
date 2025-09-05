@@ -6,7 +6,7 @@ import (
 
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 func TestPipelineBuilderModel_SyncPreviewToSelectedComponent(t *testing.T) {

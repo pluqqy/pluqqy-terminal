@@ -2,7 +2,7 @@ package tui
 
 import (
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
+	"github.com/pluqqy/pluqqy-terminal/pkg/search/unified"
 )
 
 // ListDataStore manages all component and pipeline data

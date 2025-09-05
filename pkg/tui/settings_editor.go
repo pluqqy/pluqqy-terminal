@@ -8,8 +8,8 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 type SettingsEditorModel struct {

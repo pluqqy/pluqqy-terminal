@@ -7,10 +7,10 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/composer"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+	"github.com/pluqqy/pluqqy-terminal/pkg/composer"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tags"
 )
 
 // PipelineOperator handles all pipeline-related operations

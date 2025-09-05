@@ -3,7 +3,7 @@ package unified
 import (
 	"testing"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 func TestSearchHelper_UnifiedFilterAll(t *testing.T) {

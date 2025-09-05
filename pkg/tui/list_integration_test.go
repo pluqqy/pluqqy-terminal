@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/testhelpers"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui/testhelpers"
 )
 
 // Integration test helpers

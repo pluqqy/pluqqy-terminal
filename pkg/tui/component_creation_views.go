@@ -6,8 +6,8 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // ComponentCreationViewRenderer handles rendering of component creation views

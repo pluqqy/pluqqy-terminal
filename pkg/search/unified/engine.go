@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // SearchMode defines the type of search being performed

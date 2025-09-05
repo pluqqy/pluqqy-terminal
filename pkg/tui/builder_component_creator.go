@@ -2,7 +2,7 @@ package tui
 
 import (
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui/shared"
 )
 
 // BuilderComponentCreator wraps the shared ComponentCreator and adds TUI-specific methods

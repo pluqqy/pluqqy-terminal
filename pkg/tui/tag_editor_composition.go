@@ -3,7 +3,7 @@ package tui
 import (
 	"strings"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tags"
 )
 
 // TagEditorDataStore manages all tag-related data including current state,

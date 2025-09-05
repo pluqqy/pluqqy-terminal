@@ -1,8 +1,8 @@
 package tui
 
 import (
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // BusinessLogic handles business logic operations for the MainListModel

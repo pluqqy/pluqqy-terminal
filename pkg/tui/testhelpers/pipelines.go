@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 

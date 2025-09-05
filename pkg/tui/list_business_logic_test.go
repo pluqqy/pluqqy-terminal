@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/testhelpers"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui/testhelpers"
 )
 
 // Convert testhelpers.ComponentItem to componentItem

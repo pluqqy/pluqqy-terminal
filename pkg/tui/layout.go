@@ -6,7 +6,7 @@ import (
 	"github.com/charmbracelet/bubbles/viewport"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-	"github.com/pluqqy/pluqqy-cli/pkg/utils"
+	"github.com/pluqqy/pluqqy-terminal/pkg/utils"
 )
 
 // SharedLayout provides common layout calculations and rendering functions

@@ -5,7 +5,7 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pluqqy/pluqqy-cli/pkg/utils"
+	"github.com/pluqqy/pluqqy-terminal/pkg/utils"
 )
 
 // EnhancedEditorRenderer handles ALL rendering logic for the enhanced editor

@@ -3,7 +3,7 @@ package unified
 import (
 	"strings"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // ShouldIncludeArchived checks if the search query includes archived items

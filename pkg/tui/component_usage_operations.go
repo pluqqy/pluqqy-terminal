@@ -5,7 +5,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
 )
 
 // ComponentUsageOperator handles operations for finding component usage

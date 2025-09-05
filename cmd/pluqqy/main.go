@@ -10,11 +10,11 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/spf13/cobra"
 
-	"github.com/pluqqy/pluqqy-cli/cmd/commands"
-	"github.com/pluqqy/pluqqy-cli/internal/cli"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui"
+	"github.com/pluqqy/pluqqy-terminal/cmd/commands"
+	"github.com/pluqqy/pluqqy-terminal/internal/cli"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui"
 )
 
 // Version is set during build with -ldflags

@@ -6,8 +6,8 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 func ComposePipeline(pipeline *models.Pipeline) (string, error) {

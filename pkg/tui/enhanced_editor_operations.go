@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
 )
 
 // HandleEnhancedEditorInput processes input for the enhanced editor

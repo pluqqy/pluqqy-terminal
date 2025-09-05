@@ -3,8 +3,8 @@ package unified
 import (
 	"strings"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // UnifiedSearchManager manages search operations across different TUI views

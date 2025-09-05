@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
+	"github.com/pluqqy/pluqqy-terminal/pkg/search/unified"
 )
 
 // ExampleItem implements the Searchable interface for demonstration

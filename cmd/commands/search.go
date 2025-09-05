@@ -8,10 +8,10 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/pluqqy/pluqqy-cli/internal/cli"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
+	"github.com/pluqqy/pluqqy-terminal/internal/cli"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/search/unified"
 )
 
 // SearchResultOutput represents the formatted search results

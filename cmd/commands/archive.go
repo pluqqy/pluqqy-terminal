@@ -6,8 +6,8 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/pluqqy/pluqqy-cli/internal/cli"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/internal/cli"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
 )
 
 // NewArchiveCommand creates the archive command

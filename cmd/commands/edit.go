@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/pluqqy/pluqqy-cli/internal/cli"
+	"github.com/pluqqy/pluqqy-terminal/internal/cli"
 )
 
 // NewEditCommand creates the edit command

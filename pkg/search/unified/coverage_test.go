@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // TestUncoveredFunctions tests functions that weren't covered in other tests

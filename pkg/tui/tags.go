@@ -5,8 +5,8 @@ import (
 	"strings"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/tags"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tags"
 )
 
 // tagStyle represents a tag with its display style

@@ -3,7 +3,7 @@ package testhelpers
 import (
 	"time"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // ComponentItem represents a component in the TUI lists

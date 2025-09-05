@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // TestComponentBuilder tests the ComponentBuilder functionality

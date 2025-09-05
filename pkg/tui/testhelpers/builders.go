@@ -6,7 +6,7 @@ import (
 	"time"
 	
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // TestModelBuilder provides methods for creating test models

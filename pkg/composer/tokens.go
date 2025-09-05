@@ -1,6 +1,6 @@
 package composer
 
-import "github.com/pluqqy/pluqqy-cli/pkg/utils"
+import "github.com/pluqqy/pluqqy-terminal/pkg/utils"
 
 // EstimateTokens estimates the token count for a given text
 func EstimateTokens(text string) int {

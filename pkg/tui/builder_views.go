@@ -7,11 +7,11 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/muesli/reflow/wordwrap"
-	"github.com/pluqqy/pluqqy-cli/pkg/composer"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
-	"github.com/pluqqy/pluqqy-cli/pkg/utils"
+	"github.com/pluqqy/pluqqy-terminal/pkg/composer"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-terminal/pkg/utils"
 )
 
 // Main View Method

@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 	
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 	"gopkg.in/yaml.v3"
 )
 

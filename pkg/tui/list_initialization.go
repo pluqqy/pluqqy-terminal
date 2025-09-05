@@ -3,11 +3,11 @@ package tui
 import (
 	"github.com/charmbracelet/bubbles/viewport"
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/pluqqy/pluqqy-cli/pkg/composer"
-	"github.com/pluqqy/pluqqy-cli/pkg/files"
-	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
-	"github.com/pluqqy/pluqqy-cli/pkg/tui/shared"
-	"github.com/pluqqy/pluqqy-cli/pkg/utils"
+	"github.com/pluqqy/pluqqy-terminal/pkg/composer"
+	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/search/unified"
+	"github.com/pluqqy/pluqqy-terminal/pkg/tui/shared"
+	"github.com/pluqqy/pluqqy-terminal/pkg/utils"
 )
 
 // NewMainListModel creates and initializes a new MainListModel

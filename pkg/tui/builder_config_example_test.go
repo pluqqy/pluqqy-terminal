@@ -3,7 +3,7 @@ package tui
 import (
 	"testing"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // ExamplePipelineBuilderConfig demonstrates how to use custom configuration

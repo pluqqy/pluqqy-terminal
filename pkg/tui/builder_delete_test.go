@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // TestPipelineBuilderModel_DeleteComponentFromLeft tests the delete command creation

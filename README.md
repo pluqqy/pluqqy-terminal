@@ -32,8 +32,8 @@ This approach keeps your context minimal and focused - only including what's rel
 ## Installation
 
 ```bash
-git clone https://github.com/pluqqy/pluqqy-cli
-cd pluqqy-cli
+git clone https://github.com/pluqqy/pluqqy-terminal
+cd pluqqy-terminal
 make install
 ```
 
@@ -46,7 +46,7 @@ This will build and install `pluqqy` to `$GOPATH/bin` or `$HOME/go/bin` (if GOPA
 To update to the latest version:
 
 ```bash
-cd pluqqy-cli
+cd pluqqy-terminal
 make update
 ```
 

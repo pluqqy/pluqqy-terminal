@@ -4,8 +4,8 @@ import (
 	"time"
 
 	"github.com/charmbracelet/bubbles/viewport"
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
-	"github.com/pluqqy/pluqqy-cli/pkg/search/unified"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/search/unified"
 )
 
 // BuilderDataStore manages all component and pipeline data

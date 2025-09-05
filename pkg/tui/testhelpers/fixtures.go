@@ -1,7 +1,7 @@
 package testhelpers
 
 import (
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // Common test data constants

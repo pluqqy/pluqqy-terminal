@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pluqqy/pluqqy-cli/pkg/models"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // Test helper to create a test component
