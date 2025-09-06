@@ -412,7 +412,7 @@ When creating a new component (press `n` in the components pane):
 
 #### Component Editor (Enhanced Editor)
 
-The enhanced editor provides a full-featured editing experience for both creating new components and editing existing ones.
+The enhanced editor provides a simple editing experience for both creating new components and editing existing ones.
 
 <br>
 
@@ -575,13 +575,13 @@ The `set` command generates a `PLUQQY.md` file in your project root. This naming
 
 | Benefit                     | Description                                                               |
 | --------------------------- | ------------------------------------------------------------------------- |
-| **Non-conflicting**         | Won't overwrite common files like `AGENT.md` or `CLAUDE.md`               |
+| **Non-conflicting**         | Won't overwrite common files like `AGENTS.md` or `CLAUDE.md`              |
 | **Claude Code Integration** | Simply reference `@PLUQQY.md` in Claude Code to load your entire pipeline |
 | **Pipeline Agnostic**       | No need to remember specific pipeline names                               |
 | **Chainable**               | Easily reference and combine multiple pipelines in Claude Code sessions   |
 | **Customizable**            | Change the default filename in settings (press `s` from main view)        |
 
-Yes, I know, the world already has plenty of AGENT.md, CLAUDE.md, and README.md files. Adding PLUQQY.md might feel like contributing more noise. The good news is you don’t have to call it PLUQQY.md. You can name it whatever you like (AGENT.md, WIZARD.md, BANANA.md, PLUQQYSUX.md), and you can customize exactly where Pluqqy generates it.
+Yes, I know, the world already has plenty of AGENTS.md, CLAUDE.md, and README.md files. Adding PLUQQY.md might feel like contributing more noise. The good news is you don’t have to call it PLUQQY.md. You can name it whatever you like (AGENTS.md, WIZARD.md, BANANA.md, PLUQQYSUX.md), and you can customize exactly where Pluqqy generates it.
 
 The file contains sections in your configured order:
 
