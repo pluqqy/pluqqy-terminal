@@ -268,7 +268,17 @@ func ReadPipeline(path string) (*models.Pipeline, error) {
 		return nil, fmt.Errorf("invalid pipeline path: %w", err)
 	}
 	
-	absPath := filepath.Join(PluqqyDir, PipelinesDir, path)
+	// Handle both old format (filename only) and new format (with pipelines/ prefix)
+	var absPath string
+	if strings.HasPrefix(path, PipelinesDir+"/") {
+		// New format: pipelines/filename.yaml
+		absPath = filepath.Join(PluqqyDir, path)
+		// Extract just the filename for backward compatibility with pipeline.Path
+		path = strings.TrimPrefix(path, PipelinesDir+"/")
+	} else {
+		// Old format: just filename.yaml
+		absPath = filepath.Join(PluqqyDir, PipelinesDir, path)
+	}
 	
 	// Validate file size before reading
 	if err := validateFileSize(absPath); err != nil {
@@ -355,7 +365,8 @@ func ListPipelines() ([]string, error) {
 	var pipelines []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
-			pipelines = append(pipelines, entry.Name())
+			// Return the relative path including the pipelines/ prefix
+			pipelines = append(pipelines, filepath.Join(PipelinesDir, entry.Name()))
 		}
 	}
 
@@ -410,7 +421,8 @@ func ListArchivedPipelines() ([]string, error) {
 	var pipelines []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
-			pipelines = append(pipelines, entry.Name())
+			// Return the relative path including the archive/pipelines/ prefix
+			pipelines = append(pipelines, filepath.Join(ArchiveDir, PipelinesDir, entry.Name()))
 		}
 	}
 	
@@ -457,7 +469,17 @@ func ReadArchivedPipeline(path string) (*models.Pipeline, error) {
 		return nil, fmt.Errorf("invalid pipeline path: %w", err)
 	}
 	
-	absPath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, path)
+	// Handle both old format (filename only) and new format (with archive/pipelines/ prefix)
+	var absPath string
+	if strings.HasPrefix(path, ArchiveDir+"/"+PipelinesDir+"/") {
+		// New format: archive/pipelines/filename.yaml
+		absPath = filepath.Join(PluqqyDir, path)
+		// Extract just the filename for backward compatibility with pipeline.Path
+		path = strings.TrimPrefix(path, ArchiveDir+"/"+PipelinesDir+"/")
+	} else {
+		// Old format: just filename.yaml
+		absPath = filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, path)
+	}
 	
 	// Validate file size before reading
 	fileInfo, err := os.Stat(absPath)

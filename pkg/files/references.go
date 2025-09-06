@@ -52,7 +52,8 @@ func UpdateComponentReferences(oldPath, newPath, newDisplayName string) error {
 		
 		// Save if modified
 		if modified {
-			pipelinePath := filepath.Join(PluqqyDir, PipelinesDir, pipelineName)
+			// pipelineName now includes "pipelines/" prefix, so we just join with PluqqyDir
+			pipelinePath := filepath.Join(PluqqyDir, pipelineName)
 			
 			// Store original for rollback
 			original, _ := readRawFile(pipelinePath)
@@ -101,7 +102,8 @@ func UpdateComponentReferences(oldPath, newPath, newDisplayName string) error {
 		
 		// Save if modified
 		if modified {
-			pipelinePath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, pipelineName)
+			// pipelineName now includes "archive/pipelines/" prefix, so we just join with PluqqyDir
+			pipelinePath := filepath.Join(PluqqyDir, pipelineName)
 			
 			// Store original for rollback
 			original, _ := readRawFile(pipelinePath)
@@ -300,7 +302,8 @@ func RemoveComponentReferences(componentPath string) error {
 		
 		// Save if modified
 		if modified {
-			pipelinePath := filepath.Join(PluqqyDir, PipelinesDir, pipelineName)
+			// pipelineName now includes "pipelines/" prefix, so we just join with PluqqyDir
+			pipelinePath := filepath.Join(PluqqyDir, pipelineName)
 			
 			// Store original for rollback
 			original, _ := readRawFile(pipelinePath)
@@ -369,7 +372,8 @@ func RemoveComponentReferences(componentPath string) error {
 		
 		// Save if modified
 		if modified {
-			pipelinePath := filepath.Join(PluqqyDir, ArchiveDir, PipelinesDir, pipelineName)
+			// pipelineName now includes "archive/pipelines/" prefix, so we just join with PluqqyDir
+			pipelinePath := filepath.Join(PluqqyDir, pipelineName)
 			
 			// Store original for rollback
 			original, _ := readRawFile(pipelinePath)

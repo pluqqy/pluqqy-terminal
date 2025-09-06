@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/pluqqy/pluqqy-terminal/pkg/files"
+	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 )
 
 // ComponentUsageOperator handles operations for finding component usage
@@ -38,14 +39,22 @@ func (cuo *ComponentUsageOperator) FindPipelinesUsingComponent(componentPath str
 	
 	// Check each pipeline
 	for _, pipelinePath := range pipelines {
-		pipeline, err := files.ReadPipeline(pipelinePath)
-		if err != nil {
-			// Try reading as archived pipeline
+		// Determine if this is an archived pipeline based on the path prefix
+		isArchived := strings.HasPrefix(pipelinePath, files.ArchiveDir+"/")
+		
+		var pipeline *models.Pipeline
+		var err error
+		
+		// Use the appropriate read function based on archive status
+		if isArchived {
 			pipeline, err = files.ReadArchivedPipeline(pipelinePath)
-			if err != nil {
-				// Skip pipelines that can't be read
-				continue
-			}
+		} else {
+			pipeline, err = files.ReadPipeline(pipelinePath)
+		}
+		
+		if err != nil {
+			// Skip pipelines that can't be read
+			continue
 		}
 		
 		// Check if this pipeline uses the component
@@ -90,14 +99,21 @@ func (cuo *ComponentUsageOperator) GetComponentUsageCount(componentPath string) 
 func (cuo *ComponentUsageOperator) FindComponentsInPipeline(pipelinePath string) []componentItem {
 	var components []componentItem
 	
-	// Read the pipeline
-	pipeline, err := files.ReadPipeline(pipelinePath)
-	if err != nil {
-		// Try reading as archived pipeline
+	// Determine if this is an archived pipeline based on the path prefix
+	isArchived := strings.HasPrefix(pipelinePath, files.ArchiveDir+"/")
+	
+	// Read the pipeline using the appropriate function
+	var pipeline *models.Pipeline
+	var err error
+	
+	if isArchived {
 		pipeline, err = files.ReadArchivedPipeline(pipelinePath)
-		if err != nil {
-			return components
-		}
+	} else {
+		pipeline, err = files.ReadPipeline(pipelinePath)
+	}
+	
+	if err != nil {
+		return components
 	}
 	
 	// Get details for each component

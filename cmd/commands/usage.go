@@ -210,9 +210,10 @@ func findComponentUsage(componentPath string, includeArchived bool) ([]PipelineU
 	// Check each pipeline
 	for _, pipelinePath := range pipelines {
 		// Determine if this is an archived pipeline
-		isArchived := strings.Contains(pipelinePath, files.ArchiveDir)
+		// Now that ListArchivedPipelines returns paths with archive/ prefix, this will work correctly
+		isArchived := strings.HasPrefix(pipelinePath, files.ArchiveDir+"/")
 		
-		// Read the pipeline
+		// Read the pipeline (both functions now handle the new path format)
 		var pipeline *models.Pipeline
 		var err error
 		
