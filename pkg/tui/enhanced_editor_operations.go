@@ -37,23 +37,23 @@ func HandleEnhancedEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width
 // handleNormalEditorInput handles input in normal editing mode
 func handleNormalEditorInput(state *EnhancedEditorState, msg tea.KeyMsg, width int) (bool, tea.Cmd) {
 	switch msg.String() {
-	case "ctrl+z":
+	case Shortcuts.Undo.Get():
 		// Undo last action
 		return true, undoLastAction(state)
 
-	case "ctrl+k":
+	case Shortcuts.Clear.Get():
 		// Clear all content
 		return true, clearAllContent(state)
 
-	case "ctrl+shift+v", "ctrl+l":
+	case "ctrl+shift+v", Shortcuts.Clean.Get():
 		// Clean current content (remove TUI borders, line numbers, etc)
 		return true, cleanCurrentContent(state)
 
-	case "ctrl+s":
+	case Shortcuts.Save.Get():
 		// Save component
 		return true, saveEnhancedComponent(state)
 
-	case "ctrl+x":
+	case Shortcuts.ExternalEdit.Get():
 		// Show persistent status message
 		state.StatusManager.SetPersistentMessage("Editing in external editor - save your changes and close the editor window/tab to return here and continue", StatusTypeInfo)
 		// Open in external editor

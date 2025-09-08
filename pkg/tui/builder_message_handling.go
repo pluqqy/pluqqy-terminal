@@ -554,14 +554,14 @@ func (m *PipelineBuilderModel) handleKeyMsg(msg tea.KeyMsg) (tea.Model, tea.Cmd)
 		case "tab":
 			// Let tab be handled by the main navigation logic
 			// Don't process it here
-		case "ctrl+a":
+		case Shortcuts.ToggleArchived.Get():
 			// Toggle archived filter
 			newQuery := m.search.FilterHelper.ToggleArchivedFilter(m.search.Bar.Value())
 			m.search.Bar.SetValue(newQuery)
 			m.search.Query = newQuery
 			m.performSearch()
 			return m, nil
-		case "ctrl+t":
+		case Shortcuts.CycleType.Get():
 			// Cycle type filter (skip pipelines since we're in pipeline builder)
 			newQuery := m.search.FilterHelper.CycleTypeFilterForComponents(m.search.Bar.Value())
 			m.search.Bar.SetValue(newQuery)
@@ -930,11 +930,11 @@ func (m *PipelineBuilderModel) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, 
 		m.search.Bar.SetActive(true)
 		return m, nil
 
-	case "ctrl+s":
+	case Shortcuts.Save.Get():
 		// Save pipeline
 		return m, m.savePipeline()
 
-	case "ctrl+d":
+	case Shortcuts.Delete.Get():
 		// Handle deletion based on active column
 		if m.ui.ActiveColumn == leftColumn {
 			// Delete component from Available Components pane
@@ -1002,7 +1002,7 @@ func (m *PipelineBuilderModel) handleNormalModeKeys(msg tea.KeyMsg) (tea.Model, 
 			return m, nil
 		}
 
-	case "ctrl+x":
+	case Shortcuts.ExternalEdit.Get():
 		// Edit component in external editor
 		if m.ui.ActiveColumn == leftColumn {
 			components := m.getAllAvailableComponents()

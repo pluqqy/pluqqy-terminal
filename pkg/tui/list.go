@@ -221,14 +221,14 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.stateManager.ExitSearch()
 				m.search.Bar.SetActive(false)
 				return m, nil
-			case "ctrl+a":
+			case Shortcuts.ToggleArchived.Get():
 				// Toggle archived filter
 				newQuery := m.search.FilterHelper.ToggleArchivedFilter(m.search.Bar.Value())
 				m.search.Bar.SetValue(newQuery)
 				m.search.Query = newQuery
 				m.performSearch()
 				return m, nil
-			case "ctrl+t":
+			case Shortcuts.CycleType.Get():
 				// Cycle type filter
 				newQuery := m.search.FilterHelper.CycleTypeFilter(m.search.Bar.Value())
 				m.search.Bar.SetValue(newQuery)
@@ -410,7 +410,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-		case "ctrl+x":
+		case Shortcuts.ExternalEdit.Get():
 			// Edit component in external editor
 			if m.stateManager.ActivePane == componentsPane {
 				components := m.getCurrentComponents()
@@ -528,7 +528,7 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
-		case "ctrl+d":
+		case Shortcuts.Delete.Get():
 			if m.stateManager.ActivePane == pipelinesPane {
 				// Delete pipeline with confirmation
 				pipelines := m.getCurrentPipelines()

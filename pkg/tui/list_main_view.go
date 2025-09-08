@@ -45,31 +45,84 @@ func (r *MainViewRenderer) RenderHelpPane(searchActive bool) string {
 	if searchActive {
 		// Show search syntax help when search is active
 		helpRows = [][]string{
-			{"tab switch pane", "esc clear+exit"},
-			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces", "^a toggle archived", "^t cycle type"},
+			{
+				fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+				"esc clear+exit",
+			},
+			{
+				"tag:<name>",
+				"type:<type>",
+				"status:archived",
+				"<keyword>",
+				"combine with spaces",
+				fmt.Sprintf("%s toggle archived", FormatShortcutForHelp(Shortcuts.ToggleArchived)),
+				fmt.Sprintf("%s cycle type", FormatShortcutForHelp(Shortcuts.CycleType)),
+			},
 		}
 	} else {
 		// Show normal navigation help - grouped by function
 		if r.ActivePane == previewPane {
 			// Preview pane active - minimal help
 			helpRows = [][]string{
-				{"/ search", "tab switch pane", "↑↓ nav", "p preview", "s settings", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s settings", Shortcuts.Settings.Get()),
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 			}
 		} else if r.ActivePane == pipelinesPane {
-			// Pipelines pane active - show M diagram and S set, hide ^x external
+			// Pipelines pane active - show M diagram and S set, hide external editor
 			helpRows = [][]string{
 				// Row 1: Navigation & system
-				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "M diagram", "S set", "y copy", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s settings", Shortcuts.Settings.Get()),
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s diagram", Shortcuts.Diagram.Get()),
+					fmt.Sprintf("%s set", Shortcuts.SetPipeline.Get()),
+					fmt.Sprintf("%s copy", Shortcuts.Copy.Get()),
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 				// Row 2: Component operations
-				{"n new", "e edit", "^d delete", "R rename", "C clone", "t tag", "a archive/unarchive"},
+				{
+					fmt.Sprintf("%s new", Shortcuts.New.Get()),
+					fmt.Sprintf("%s edit", Shortcuts.Edit.Get()),
+					fmt.Sprintf("%s delete", FormatShortcutForHelp(Shortcuts.Delete)),
+					fmt.Sprintf("%s rename", Shortcuts.Rename.Get()),
+					fmt.Sprintf("%s clone", Shortcuts.Clone.Get()),
+					fmt.Sprintf("%s tag", Shortcuts.Tag.Get()),
+					fmt.Sprintf("%s archive/unarchive", Shortcuts.Archive.Get()),
+				},
 			}
 		} else {
-			// Components pane active - show ^x external, hide M diagram and S set
+			// Components pane active - show external editor, hide M diagram and S set
 			helpRows = [][]string{
 				// Row 1: Navigation & system
-				{"/ search", "tab switch pane", "↑↓ nav", "s settings", "p preview", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s settings", Shortcuts.Settings.Get()),
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 				// Row 2: Component operations
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive"},
+				{
+					fmt.Sprintf("%s new", Shortcuts.New.Get()),
+					fmt.Sprintf("%s edit", Shortcuts.Edit.Get()),
+					fmt.Sprintf("%s external", FormatShortcutForHelp(Shortcuts.ExternalEdit)),
+					fmt.Sprintf("%s delete", FormatShortcutForHelp(Shortcuts.Delete)),
+					fmt.Sprintf("%s rename", Shortcuts.Rename.Get()),
+					fmt.Sprintf("%s clone", Shortcuts.Clone.Get()),
+					fmt.Sprintf("%s tag", Shortcuts.Tag.Get()),
+					fmt.Sprintf("%s usage", Shortcuts.Usage.Get()),
+					fmt.Sprintf("%s archive/unarchive", Shortcuts.Archive.Get()),
+				},
 			}
 		}
 	}

@@ -285,19 +285,19 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	case EditorModeNormal:
 		help = []string{
 			"↑↓ navigate",
-			"^z undo",
-			"^l clean",
+			fmt.Sprintf("%s undo", FormatShortcutForHelp(Shortcuts.Undo)),
+			fmt.Sprintf("%s clean", FormatShortcutForHelp(Shortcuts.Clean)),
 			"@ insert file ref",
 			"\\@ literal @",
-			"^s save",
-			"^x external",
+			fmt.Sprintf("%s save", FormatShortcutForHelp(Shortcuts.Save)),
+			fmt.Sprintf("%s external", FormatShortcutForHelp(Shortcuts.ExternalEdit)),
 			"esc cancel",
 		}
 	case EditorModeFilePicking:
 		help = []string{
 			"↑↓ navigate",
-			"^z undo",
-			"^l clean",
+			fmt.Sprintf("%s undo", FormatShortcutForHelp(Shortcuts.Undo)),
+			fmt.Sprintf("%s clean", FormatShortcutForHelp(Shortcuts.Clean)),
 			"enter select",
 			"esc cancel",
 			"tab toggle hidden",
@@ -305,9 +305,9 @@ func (r *EnhancedEditorRenderer) renderHelpPane(mode EditorMode) string {
 	default:
 		help = []string{
 			"↑↓ navigate",
-			"^z undo",
-			"^l clean",
-			"^s save",
+			fmt.Sprintf("%s undo", FormatShortcutForHelp(Shortcuts.Undo)),
+			fmt.Sprintf("%s clean", FormatShortcutForHelp(Shortcuts.Clean)),
+			fmt.Sprintf("%s save", FormatShortcutForHelp(Shortcuts.Save)),
 			"esc exit",
 		}
 	}

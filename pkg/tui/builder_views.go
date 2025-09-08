@@ -507,31 +507,98 @@ func (m *PipelineBuilderModel) View() string {
 	if m.ui.ActiveColumn == searchColumn {
 		// Show search syntax help when search is active
 		helpRows = [][]string{
-			{"tab switch pane", "esc clear+exit search"},
-			{"tag:<name>", "type:<type>", "status:archived", "<keyword>", "combine with spaces", "^a toggle archived", "^t cycle type"},
+			{
+				fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+				"esc clear+exit search",
+			},
+			{
+				"tag:<name>",
+				"type:<type>",
+				"status:archived",
+				"<keyword>",
+				"combine with spaces",
+				fmt.Sprintf("%s toggle archived", FormatShortcutForHelp(Shortcuts.ToggleArchived)),
+				fmt.Sprintf("%s cycle type", FormatShortcutForHelp(Shortcuts.CycleType)),
+			},
 		}
 	} else {
 		// Show normal navigation help - grouped by function
 		if m.ui.ActiveColumn == previewColumn {
 			// Preview pane - only show first row
 			helpRows = [][]string{
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s save", FormatShortcutForHelp(Shortcuts.Save)),
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s diagram", Shortcuts.Diagram.Get()),
+					fmt.Sprintf("%s set", Shortcuts.SetPipeline.Get()),
+					fmt.Sprintf("%s copy", Shortcuts.Copy.Get()),
+					"esc back",
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 			}
 		} else if m.ui.ActiveColumn == leftColumn {
 			// Available Components pane - no K/J reorder
 			helpRows = [][]string{
 				// Row 1: System & navigation
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s save", FormatShortcutForHelp(Shortcuts.Save)),
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s diagram", Shortcuts.Diagram.Get()),
+					fmt.Sprintf("%s set", Shortcuts.SetPipeline.Get()),
+					fmt.Sprintf("%s copy", Shortcuts.Copy.Get()),
+					"esc back",
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 				// Row 2: Component operations (no K/J reorder)
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive", "enter +/-"},
+				{
+					fmt.Sprintf("%s new", Shortcuts.New.Get()),
+					fmt.Sprintf("%s edit", Shortcuts.Edit.Get()),
+					fmt.Sprintf("%s external", FormatShortcutForHelp(Shortcuts.ExternalEdit)),
+					fmt.Sprintf("%s delete", FormatShortcutForHelp(Shortcuts.Delete)),
+					fmt.Sprintf("%s rename", Shortcuts.Rename.Get()),
+					fmt.Sprintf("%s clone", Shortcuts.Clone.Get()),
+					fmt.Sprintf("%s tag", Shortcuts.Tag.Get()),
+					fmt.Sprintf("%s usage", Shortcuts.Usage.Get()),
+					fmt.Sprintf("%s archive/unarchive", Shortcuts.Archive.Get()),
+					"enter +/-",
+				},
 			}
 		} else {
 			// Pipeline Components pane - includes K/J reorder
 			helpRows = [][]string{
 				// Row 1: System & navigation
-				{"/ search", "tab switch pane", "↑↓ nav", "^s save", "p preview", "M diagram", "S set", "y copy", "esc back", "^c quit"},
+				{
+					fmt.Sprintf("%s search", Shortcuts.Search.Get()),
+					fmt.Sprintf("%s switch pane", Shortcuts.SwitchPane.Get()),
+					"↑↓ nav",
+					fmt.Sprintf("%s save", FormatShortcutForHelp(Shortcuts.Save)),
+					fmt.Sprintf("%s preview", Shortcuts.Preview.Get()),
+					fmt.Sprintf("%s diagram", Shortcuts.Diagram.Get()),
+					fmt.Sprintf("%s set", Shortcuts.SetPipeline.Get()),
+					fmt.Sprintf("%s copy", Shortcuts.Copy.Get()),
+					"esc back",
+					fmt.Sprintf("%s quit", Shortcuts.Quit.Get()),
+				},
 				// Row 2: Component operations with K/J reorder
-				{"n new", "e edit", "^x external", "^d delete", "R rename", "C clone", "t tag", "u usage", "a archive/unarchive", "K/J reorder", "enter +/-"},
+				{
+					fmt.Sprintf("%s new", Shortcuts.New.Get()),
+					fmt.Sprintf("%s edit", Shortcuts.Edit.Get()),
+					fmt.Sprintf("%s external", FormatShortcutForHelp(Shortcuts.ExternalEdit)),
+					fmt.Sprintf("%s delete", FormatShortcutForHelp(Shortcuts.Delete)),
+					fmt.Sprintf("%s rename", Shortcuts.Rename.Get()),
+					fmt.Sprintf("%s clone", Shortcuts.Clone.Get()),
+					fmt.Sprintf("%s tag", Shortcuts.Tag.Get()),
+					fmt.Sprintf("%s usage", Shortcuts.Usage.Get()),
+					fmt.Sprintf("%s archive/unarchive", Shortcuts.Archive.Get()),
+					fmt.Sprintf("%s/%s reorder", Shortcuts.ReorderUp.Get(), Shortcuts.ReorderDown.Get()),
+					"enter +/-",
+				},
 			}
 		}
 	}
