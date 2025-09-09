@@ -48,7 +48,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		// We need to resolve them from the .pluqqy directory
 		componentPath := filepath.Join(files.PipelinesDir, compRef.Path)
 		componentPath = filepath.Clean(componentPath)
-		
+
 		component, err := files.ReadComponent(componentPath)
 		if err != nil {
 			// Track missing components instead of failing immediately
@@ -85,7 +85,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 			// Skip sections that have no components
 			continue
 		}
-		
+
 		// Write type header if enabled in settings
 		if settings.Output.Formatting.ShowHeadings {
 			output.WriteString(fmt.Sprintf("%s\n\n", section.Heading))
@@ -100,7 +100,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 
 		output.WriteString("\n")
 	}
-	
+
 	// Then write any remaining types not in Sections (for backwards compatibility)
 	for _, componentType := range typeOrder {
 		// Skip if already written
@@ -114,7 +114,7 @@ func ComposePipeline(pipeline *models.Pipeline) (string, error) {
 		if written {
 			continue
 		}
-		
+
 		components := typeGroups[componentType]
 		// Write type header if enabled in settings
 		if settings.Output.Formatting.ShowHeadings {
@@ -148,13 +148,12 @@ func capitalizeType(componentType string) string {
 	case models.ComponentTypeContext:
 		return "CONTEXT"
 	case models.ComponentTypeRules:
-		return "IMPORTANT RULES"
+		return "RULES"
 	default:
 		// Uppercase the whole type
 		return strings.ToUpper(componentType)
 	}
 }
-
 
 // WritePLUQQYFile writes the composed pipeline to the output file
 func WritePLUQQYFile(content string, outputPath string) error {

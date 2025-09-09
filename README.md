@@ -450,43 +450,47 @@ The enhanced editor provides a simple editing experience for both creating new c
 Pluqqy automatically adapts keyboard shortcuts based on your operating system to avoid terminal conflicts:
 
 #### macOS
+
 All standard shortcuts work as expected (`^s` for save, `^d` for delete, etc.)
 
 #### Linux
+
 Some shortcuts are remapped to avoid terminal signal conflicts:
 
-| Standard | Linux Alternative | Reason                                           |
-| -------- | ---------------- | ------------------------------------------------ |
-| `^s`     | `M-s` (Alt+S)   | Avoids XOFF (terminal output pause)              |
-| `^d`     | `M-d` (Alt+D)   | Avoids EOF signal that closes terminal           |
-| `^z`     | `M-z` (Alt+Z)   | Avoids SIGTSTP (process suspension)              |
-| `^x`     | `M-x` (Alt+X)   | Avoids conflict with terminal cut operation      |
-| `^k`     | `M-k` (Alt+K)   | Avoids readline kill-line                        |
-| `^l`     | `M-l` (Alt+L)   | Avoids terminal clear screen                     |
-| `^a`     | `M-a` (Alt+A)   | Avoids readline beginning-of-line                |
-| `^t`     | `M-t` (Alt+T)   | Avoids readline transpose                        |
+| Standard | Linux Alternative | Reason                                      |
+| -------- | ----------------- | ------------------------------------------- |
+| `^s`     | `M-s` (Alt+S)     | Avoids XOFF (terminal output pause)         |
+| `^d`     | `M-d` (Alt+D)     | Avoids EOF signal that closes terminal      |
+| `^z`     | `M-z` (Alt+Z)     | Avoids SIGTSTP (process suspension)         |
+| `^x`     | `M-x` (Alt+X)     | Avoids conflict with terminal cut operation |
+| `^k`     | `M-k` (Alt+K)     | Avoids readline kill-line                   |
+| `^l`     | `M-l` (Alt+L)     | Avoids terminal clear screen                |
+| `^a`     | `M-a` (Alt+A)     | Avoids readline beginning-of-line           |
+| `^t`     | `M-t` (Alt+T)     | Avoids readline transpose                   |
 
 **Note:** `M-` is the standard terminal notation for Alt key combinations.
 
 **Linux Tip:** To use standard Ctrl shortcuts instead, disable terminal flow control:
+
 ```bash
 stty -ixon  # Add to your .bashrc or .zshrc
 ```
 
 #### Windows
+
 Similar remappings for better compatibility:
 
-| Standard    | Windows Alternative | Reason                          |
-| ----------- | ------------------ | ------------------------------- |
-| `^s`        | `M-s` (Alt+S)     | Consistency with Linux           |
-| `^d`        | `M-d` (Alt+D)     | Consistency with Linux           |
-| `^x`        | `M-x` (Alt+X)     | Consistency with Linux           |
-| `^z`        | `M-z` (Alt+Z)     | Consistency with Linux           |
-| `^k`        | `M-k` (Alt+K)     | Consistency with Linux           |
-| `^l`        | `M-l` (Alt+L)     | Consistency with Linux           |
-| `^a`        | `M-a` (Alt+A)     | Consistency with Linux           |
-| `^t`        | `M-t` (Alt+T)     | Consistency with Linux           |
-| `shift+tab` | `backtab`         | Terminal compatibility           |
+| Standard    | Windows Alternative | Reason                 |
+| ----------- | ------------------- | ---------------------- |
+| `^s`        | `M-s` (Alt+S)       | Consistency with Linux |
+| `^d`        | `M-d` (Alt+D)       | Consistency with Linux |
+| `^x`        | `M-x` (Alt+X)       | Consistency with Linux |
+| `^z`        | `M-z` (Alt+Z)       | Consistency with Linux |
+| `^k`        | `M-k` (Alt+K)       | Consistency with Linux |
+| `^l`        | `M-l` (Alt+L)       | Consistency with Linux |
+| `^a`        | `M-a` (Alt+A)       | Consistency with Linux |
+| `^t`        | `M-t` (Alt+T)       | Consistency with Linux |
+| `shift+tab` | `backtab`           | Terminal compatibility |
 
 The help footer in the TUI always shows the correct shortcuts for your current OS.
 
@@ -606,14 +610,14 @@ Note: In Pipeline Builder, `^t` cycles through component types only (skips pipel
 
 ## UI Features
 
-| Feature                    | Description                                                                                |
-| -------------------------- | ------------------------------------------------------------------------------------------ |
-| **Token Counter**          | Shows estimated token count in the preview pane with color-coded status (green/yellow/red) |
-| **Tag Display**            | Tags shown as colored chips in component and pipeline lists                                |
-| **Scrollable Panes**       | All panes support smooth scrolling for long content                                        |
-| **Help Footer**            | Context-sensitive help text at the bottom of each screen                                   |
-| **Responsive Layout**      | Adapts to terminal size with proper content wrapping                                       |
-| **OS-Aware Shortcuts**     | Keyboard shortcuts automatically adapt to your operating system for better compatibility    |
+| Feature                | Description                                                                                |
+| ---------------------- | ------------------------------------------------------------------------------------------ |
+| **Token Counter**      | Shows estimated token count in the preview pane with color-coded status (green/yellow/red) |
+| **Tag Display**        | Tags shown as colored chips in component and pipeline lists                                |
+| **Scrollable Panes**   | All panes support smooth scrolling for long content                                        |
+| **Help Footer**        | Context-sensitive help text at the bottom of each screen                                   |
+| **Responsive Layout**  | Adapts to terminal size with proper content wrapping                                       |
+| **OS-Aware Shortcuts** | Keyboard shortcuts automatically adapt to your operating system for better compatibility   |
 
 <br>
 
@@ -635,7 +639,7 @@ The file contains sections in your configured order:
 
 - `CONTEXT` - Combined context components
 - `PROMPTS` - Combined prompt components
-- `IMPORTANT RULES` - Combined rules components
+- `RULES` - Combined rules components
 
 **Tip for teams**: To keep `PLUQQY.md` tracked in git but ignore local changes:
 
