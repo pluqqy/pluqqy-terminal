@@ -108,6 +108,7 @@ var Shortcuts = struct {
 	Rename         ShortcutKey
 	Clone          ShortcutKey
 	Tag            ShortcutKey
+	TagReload      ShortcutKey
 	Archive        ShortcutKey
 	Usage          ShortcutKey
 	
@@ -204,6 +205,12 @@ var Shortcuts = struct {
 	},
 	Tag: ShortcutKey{
 		Default: "t",
+	},
+	TagReload: ShortcutKey{
+		Mac:     "ctrl+t",
+		Linux:   "alt+t",   // Avoid readline transpose
+		Windows: "alt+t",   // Consistent with Linux
+		Default: "ctrl+t",
 	},
 	Archive: ShortcutKey{
 		Default: "a",

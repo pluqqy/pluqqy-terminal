@@ -263,7 +263,7 @@ func (m *SettingsEditorModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return SwitchViewMsg{view: mainListView}
 			}
 
-		case "ctrl+s":
+		case Shortcuts.Save.Get():
 			// Save settings
 			return m, m.saveSettings()
 

@@ -452,18 +452,21 @@ The enhanced editor provides a simple editing experience for both creating new c
 
 **Keyboard Shortcuts:**
 
-| Key           | Action                                          |
-| ------------- | ----------------------------------------------- |
-| Type directly | Enter content in the editor                     |
-| `↑↓`          | Navigate through content                        |
-| `^z`          | Undo last change                                |
-| `^l`          | Clean pasted content (removes TUI artifacts)    |
-| `^s`          | Save component                                  |
-| `^x`          | Open in external editor (for extensive editing) |
-| `@`           | Insert file reference                           |
-| `Esc`         | Cancel (with unsaved changes confirmation)      |
+| Key            | Action                                          |
+| -------------- | ----------------------------------------------- |
+| Type directly  | Enter content in the editor                     |
+| `↑↓`           | Navigate through content                        |
+| `^z` / `M-z`\* | Undo last change                                |
+| `^k` / `M-k`\* | Clear all content (useful before pasting)       |
+| `^l` / `M-l`\* | Clean pasted content (removes TUI artifacts)    |
+| `^s` / `M-s`\* | Save component                                  |
+| `^x` / `M-x`\* | Open in external editor (for extensive editing) |
+| `@`            | Insert file reference                           |
+| `Esc`          | Cancel (with unsaved changes confirmation)      |
 
-**Note:** This editor is intentionally minimal. For writing new components from scratch or making substantial edits, press `^x` to use your configured external editor (vim, VS Code, etc.)
+\*On Linux/Windows, use Alt key combinations (M-) to avoid terminal conflicts
+
+**Note:** This editor is intentionally minimal. For writing new components from scratch or making substantial edits, press `^x` / `M-x` to use your configured external editor (vim, VS Code, etc.)
 
 <br>
 
@@ -520,16 +523,18 @@ The help footer in the TUI always shows the correct shortcuts for your current O
 
 #### Tag Editor
 
-| Key           | Action                                                                                         |
-| ------------- | ---------------------------------------------------------------------------------------------- |
-| `Tab`         | Switch between current tags pane and available tags cloud                                      |
-| `Enter`       | Add tag (from input field or tag cloud)                                                        |
-| `←/→`         | Navigate tags for selection                                                                    |
-| `^d`          | Remove tag from current item (main pane) / Delete from registry (tag cloud, with confirmation) |
-| `^s`          | Save tag changes                                                                               |
-| `^t`          | Reload tags                                                                                    |
-| `Esc`         | Cancel without saving                                                                          |
-| Type directly | Add new tags with autocomplete suggestions                                                     |
+| Key            | Action                                                                                         |
+| -------------- | ---------------------------------------------------------------------------------------------- |
+| `Tab`          | Switch between current tags pane and available tags cloud                                      |
+| `Enter`        | Add tag (from input field or tag cloud)                                                        |
+| `←/→`          | Navigate tags for selection                                                                    |
+| `^d` / `M-d`\* | Remove tag from current item (main pane) / Delete from registry (tag cloud, with confirmation) |
+| `^s` / `M-s`\* | Save tag changes                                                                               |
+| `^t` / `M-t`\* | Reload tags                                                                                    |
+| `Esc`          | Cancel without saving                                                                          |
+| Type directly  | Add new tags with autocomplete suggestions                                                     |
+
+\*On Linux/Windows, use Alt key combinations (M-) to avoid terminal conflicts
 
 <br>
 
@@ -619,14 +624,16 @@ The built-in search engine supports powerful queries with keyboard shortcuts:
 
 **Search Shortcuts:**
 
-| Key   | Action                                                           |
-| ----- | ---------------------------------------------------------------- |
-| `/`   | Activate search mode                                             |
-| `^a`  | Toggle archived filter (adds/removes `status:archived`)          |
-| `^t`  | Cycle type filter (All → Pipelines → Prompts → Contexts → Rules) |
-| `Esc` | Clear search and exit search mode                                |
+| Key            | Action                                                           |
+| -------------- | ---------------------------------------------------------------- |
+| `/`            | Activate search mode                                             |
+| `^a` / `M-a`\* | Toggle archived filter (adds/removes `status:archived`)          |
+| `^t` / `M-t`\* | Cycle type filter (All → Pipelines → Prompts → Contexts → Rules) |
+| `Esc`          | Clear search and exit search mode                                |
 
-Note: In Pipeline Builder, `^t` cycles through component types only (skips pipelines).
+\*On Linux/Windows, use Alt key combinations (M-) to avoid terminal conflicts
+
+Note: In Pipeline Builder, `^t` / `M-t` cycles through component types only (skips pipelines).
 
 <br>
 
@@ -775,7 +782,7 @@ Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` fr
   - Reorder sections using `J/K` keys
   - Edit section types and headings
 
-Changes take effect immediately upon saving with `^s`.
+Changes take effect immediately upon saving with `^s` (or `M-s` on Linux/Windows).
 
 <br>
 

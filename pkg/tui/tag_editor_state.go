@@ -151,11 +151,11 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		}
 		return true, nil
 		
-	case "ctrl+s":
+	case Shortcuts.Save.Get():
 		// Save tags
 		return true, te.Save()
 		
-	case "ctrl+t":
+	case Shortcuts.TagReload.Get():
 		// Reload tags from all components and pipelines
 		if !te.TagReloader.IsActive() {
 			te.Mode = TagEditorModeReloading
@@ -163,7 +163,7 @@ func (te *TagEditor) HandleInput(msg tea.KeyMsg) (handled bool, cmd tea.Cmd) {
 		}
 		return true, nil
 		
-	case "ctrl+d":
+	case Shortcuts.Delete.Get():
 		if te.TagCloudActive {
 			// Delete tag from cloud
 			return true, te.StartTagDeletion()

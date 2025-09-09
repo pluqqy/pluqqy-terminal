@@ -316,6 +316,7 @@ func TestProblematicShortcuts(t *testing.T) {
 		{"Clean", Shortcuts.Clean},       // Ctrl+L clears screen
 		{"ToggleArchived", Shortcuts.ToggleArchived}, // Ctrl+A goes to line start
 		{"CycleType", Shortcuts.CycleType},           // Ctrl+T transposes
+		{"TagReload", Shortcuts.TagReload},           // Ctrl+T transposes (also used in tag editor)
 	}
 	
 	for _, s := range problematicShortcuts {
