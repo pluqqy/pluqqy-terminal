@@ -8,6 +8,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pluqqy/pluqqy-terminal/pkg/composer"
+	"github.com/pluqqy/pluqqy-terminal/pkg/examples"
 	"github.com/pluqqy/pluqqy-terminal/pkg/files"
 	"github.com/pluqqy/pluqqy-terminal/pkg/models"
 	"github.com/pluqqy/pluqqy-terminal/pkg/tags"
@@ -276,5 +277,62 @@ func (po *PipelineOperator) UnarchiveComponent(comp componentItem, reloadFunc fu
 		reloadFunc()
 
 		return StatusMsg(fmt.Sprintf("✓ Unarchived %s: %s", comp.compType, comp.name))
+	}
+}
+
+// ImportExamples imports example components and pipelines
+func (po *PipelineOperator) ImportExamples(reloadComponentsFunc func(), reloadPipelinesFunc func()) tea.Cmd {
+	return func() tea.Msg {
+		// Get general examples
+		exampleSets := examples.GetExamples("general")
+		
+		if len(exampleSets) == 0 {
+			return StatusMsg("No general examples found")
+		}
+		
+		// Install components and pipelines from all general example sets
+		totalComponents := 0
+		totalPipelines := 0
+		skippedComponents := 0
+		skippedPipelines := 0
+		
+		for _, set := range exampleSets {
+			// Install components
+			for _, comp := range set.Components {
+				installed, err := examples.InstallComponent(comp, false)
+				if err != nil {
+					return StatusMsg(fmt.Sprintf("Failed to install component: %v", err))
+				}
+				if installed {
+					totalComponents++
+				} else {
+					skippedComponents++
+				}
+			}
+			
+			// Install pipelines
+			for _, pipeline := range set.Pipelines {
+				installed, err := examples.InstallPipeline(pipeline, false)
+				if err != nil {
+					return StatusMsg(fmt.Sprintf("Failed to install pipeline: %v", err))
+				}
+				if installed {
+					totalPipelines++
+				} else {
+					skippedPipelines++
+				}
+			}
+		}
+		
+		// Reload both components and pipelines
+		reloadComponentsFunc()
+		reloadPipelinesFunc()
+		
+		if skippedComponents > 0 || skippedPipelines > 0 {
+			return StatusMsg(fmt.Sprintf("✓ Imported %d components and %d pipelines (%d already existed)", 
+				totalComponents, totalPipelines, skippedComponents+skippedPipelines))
+		}
+		return StatusMsg(fmt.Sprintf("✓ Imported %d components and %d pipelines from general examples", 
+			totalComponents, totalPipelines))
 	}
 }

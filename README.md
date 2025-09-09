@@ -679,12 +679,12 @@ Pluqqy includes a built-in library of example components and pipelines to help y
 
 ### Available Example Categories
 
-| Category | Description | Includes |
-| -------- | ----------- | -------- |
+| Category    | Description                 | Includes                                                          |
+| ----------- | --------------------------- | ----------------------------------------------------------------- |
 | **general** | General-purpose development | Feature implementation, bug fixing, code review, testing patterns |
-| **web** | Web development | React components, REST APIs, database schemas, accessibility |
-| **ai** | AI assistant optimization | Codebase overview, concise responses, code-first approach |
-| **claude** | CLAUDE.md migration | Tools to convert existing CLAUDE.md files into Pluqqy components |
+| **web**     | Web development             | React components, REST APIs, database schemas, accessibility      |
+| **ai**      | AI assistant optimization   | Codebase overview, concise responses, code-first approach         |
+| **claude**  | CLAUDE.md migration         | Tools to convert existing CLAUDE.md files into Pluqqy components  |
 
 ### Using Examples
 
@@ -705,6 +705,7 @@ pluqqy examples general --force
 ### Example Components Structure
 
 All example components include:
+
 - **Placeholders**: Replace `{{PLACEHOLDER}}` values with your project-specific information
 - **Clear documentation**: Each component explains its purpose and usage
 - **Practical patterns**: Approaches that have worked well in real projects
@@ -726,6 +727,7 @@ pluqqy set example-claude-distiller
 ```
 
 The distiller will:
+
 - Parse your CLAUDE.md structure
 - Extract contexts (documentation, architecture)
 - Extract prompts (task instructions)
@@ -773,7 +775,7 @@ Pluqqy includes a built-in settings editor accessible from the TUI. Press `s` fr
   - Reorder sections using `J/K` keys
   - Edit section types and headings
 
-Changes take effect immediately upon saving with `S`.
+Changes take effect immediately upon saving with `^s`.
 
 <br>
 

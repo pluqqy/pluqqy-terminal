@@ -124,7 +124,7 @@ func (r *PipelineViewRenderer) buildScrollableContent(nameWidth, tagsWidth, toke
 			if len(r.Pipelines) > 0 && r.SearchQuery != "" {
 				content.WriteString(emptyStyle.Render("No pipelines match your search."))
 			} else {
-				content.WriteString(emptyStyle.Render("No pipelines found.\n\nPress 'n' to create one"))
+				content.WriteString(emptyStyle.Render("No pipelines found.\n\nPress 'n' to create one\nor 'E' to import examples"))
 			}
 		} else {
 			// Inactive pane - show dimmed message

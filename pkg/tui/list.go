@@ -673,6 +673,12 @@ func (m *MainListModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				}
 			}
 
+		case "E": // Uppercase E for importing examples
+			// Import examples when components/pipelines are empty
+			if (len(m.data.Prompts) == 0 && len(m.data.Contexts) == 0 && len(m.data.Rules) == 0) || len(m.data.Pipelines) == 0 {
+				return m, m.operations.PipelineOperator.ImportExamples(m.reloadComponents, m.loadPipelines)
+			}
+
 		case "R": // Uppercase R for rename (destructive operation)
 			// Handle rename mode input first if active
 			if m.editors.Rename.State.Active {

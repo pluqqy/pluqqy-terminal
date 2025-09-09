@@ -170,7 +170,7 @@ func (r *ComponentTableRenderer) buildTableContent(nameWidth, tagsWidth, tokenWi
 	if len(r.Components) == 0 {
 		if r.IsActive {
 			emptyStyle := EmptyActiveStyle
-			content.WriteString(emptyStyle.Render("No components found.\n\nPress 'n' to create one"))
+			content.WriteString(emptyStyle.Render("No components found.\n\nPress 'n' to create one\nor 'E' to import examples"))
 		} else {
 			content.WriteString(dimmedStyle.Render("No components found."))
 		}
