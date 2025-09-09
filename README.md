@@ -88,6 +88,28 @@ This creates the following structure:
 
 <br>
 
+### Add Example Components and Pipelines
+
+```bash
+# Add general development examples
+pluqqy examples
+
+# Add specific category examples
+pluqqy examples web       # Web development (React, APIs)
+pluqqy examples ai        # AI assistant optimization
+pluqqy examples claude    # CLAUDE.md migration tool
+
+# Add all examples
+pluqqy examples all
+
+# List available examples without installing
+pluqqy examples --list
+```
+
+The `examples` command installs pre-built components and pipelines that demonstrate best practices and common patterns. All examples are prefixed with `example-` to distinguish them from your own components.
+
+<br>
+
 ### Launch the TUI
 
 ```bash
@@ -648,6 +670,75 @@ git update-index --skip-worktree PLUQQY.md
 ```
 
 This lets each developer use different pipelines without creating commit noise.
+
+<br>
+
+## Examples Library
+
+Pluqqy includes a built-in library of example components and pipelines to help you get started quickly. These examples demonstrate useful patterns and approaches we've found helpful when working with AI coding assistants.
+
+### Available Example Categories
+
+| Category | Description | Includes |
+| -------- | ----------- | -------- |
+| **general** | General-purpose development | Feature implementation, bug fixing, code review, testing patterns |
+| **web** | Web development | React components, REST APIs, database schemas, accessibility |
+| **ai** | AI assistant optimization | Codebase overview, concise responses, code-first approach |
+| **claude** | CLAUDE.md migration | Tools to convert existing CLAUDE.md files into Pluqqy components |
+
+### Using Examples
+
+```bash
+# Install examples for a specific category
+pluqqy examples general
+
+# Install all examples
+pluqqy examples all
+
+# List available examples without installing
+pluqqy examples --list
+
+# Force overwrite existing examples
+pluqqy examples general --force
+```
+
+### Example Components Structure
+
+All example components include:
+- **Placeholders**: Replace `{{PLACEHOLDER}}` values with your project-specific information
+- **Clear documentation**: Each component explains its purpose and usage
+- **Practical patterns**: Approaches that have worked well in real projects
+- **Reusability**: Designed to work across different projects
+
+### CLAUDE.md Migration
+
+If you have an existing `CLAUDE.md` file, use the special distiller pipeline:
+
+```bash
+# Install the CLAUDE.md distiller
+pluqqy examples claude
+
+# Set the distiller pipeline
+pluqqy set example-claude-distiller
+
+# In your AI assistant, provide your CLAUDE.md content
+# The pipeline will help extract and convert it to Pluqqy components
+```
+
+The distiller will:
+- Parse your CLAUDE.md structure
+- Extract contexts (documentation, architecture)
+- Extract prompts (task instructions)
+- Extract rules (constraints, standards)
+- Create appropriate pipelines
+- Replace specific values with reusable placeholders
+
+### Customizing Examples
+
+1. **Replace placeholders**: Update `{{PROJECT_NAME}}`, `{{LANGUAGE}}`, etc.
+2. **Modify content**: Adapt examples to your specific needs
+3. **Remove prefix**: Rename files to remove the `example-` prefix when ready
+4. **Create variations**: Use examples as templates for project-specific components
 
 <br>
 

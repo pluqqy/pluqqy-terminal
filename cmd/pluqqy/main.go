@@ -168,6 +168,9 @@ func init() {
 	
 	// Search commands
 	rootCmd.AddCommand(commands.NewSearchCommand())
+	
+	// Examples command
+	rootCmd.AddCommand(commands.NewExamplesCommand())
 }
 
 func main() {
