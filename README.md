@@ -428,7 +428,7 @@ When creating a new component (press `n` in the components pane):
 3. **Edit Content**: Opens the enhanced editor with all features available:
    - Multi-line editing with line numbers
    - File references (`@` to insert)
-   - Undo/Redo support (`^z`)
+   - Undo support (`^z`)
    - External editor integration (`^x`)
    - Save (`^s`) or cancel (`Esc`)
 
@@ -682,7 +682,7 @@ This lets each developer use different pipelines without creating commit noise.
 
 ## Examples Library
 
-Pluqqy includes a built-in library of example components and pipelines to help you get started quickly. These examples demonstrate useful patterns and approaches we've found helpful when working with AI coding assistants.
+Pluqqy includes a built-in library of example components and pipelines to help you get started quickly. These examples demonstrate useful patterns and approaches I've found helpful when working with AI coding assistants.
 
 ### Available Example Categories
 
