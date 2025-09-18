@@ -365,8 +365,9 @@ func ListPipelines() ([]string, error) {
 	var pipelines []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
-			// Return the relative path including the pipelines/ prefix
-			pipelines = append(pipelines, filepath.Join(PipelinesDir, entry.Name()))
+			// Use forward slash for cross-platform consistency
+			// This ensures Windows and Unix systems use the same path format
+			pipelines = append(pipelines, PipelinesDir + "/" + entry.Name())
 		}
 	}
 
@@ -421,8 +422,9 @@ func ListArchivedPipelines() ([]string, error) {
 	var pipelines []string
 	for _, entry := range entries {
 		if !entry.IsDir() && strings.HasSuffix(entry.Name(), ".yaml") {
-			// Return the relative path including the archive/pipelines/ prefix
-			pipelines = append(pipelines, filepath.Join(ArchiveDir, PipelinesDir, entry.Name()))
+			// Use forward slash for cross-platform consistency
+			// This ensures Windows and Unix systems use the same path format
+			pipelines = append(pipelines, ArchiveDir + "/" + PipelinesDir + "/" + entry.Name())
 		}
 	}
 	
